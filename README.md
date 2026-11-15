@@ -49,5 +49,24 @@ FAIL_WRONG_REASON = гейт упал, но не из-за того, что до
 | S3h | Публичный репозиторий (2026-11-15); перед публикацией: gitleaks 8.30.1 по всей истории — no leaks | лог prepublic-scan | VERIFIED_PRIMARY |
 | S3i | Secret scanning + push protection, Dependabot alerts, private vulnerability reporting включены | API | VERIFIED_PRIMARY |
 
-## Не сделано (S4+)
-Trusted Publishing, build provenance (репозиторий теперь публичный — блокер снят), SBOM, cargo-vet, MSRV. Изменения в main — только через PR.
+## S4 — происхождение сборки и SBOM, 2026-11-15
+Исполнитель: `release.yml` → изолированный `build-reusable.yml` (workflow_call), прогон 43716257897 на `main` (eabd2c0).
+Проверяющий: отдельно, в WSL (`gh attestation verify`), не тот процесс, что собирал. Свидетели: `evidence/s4-20261115T125558Z/`.
+
+| ID | Утверждение | Свидетель | Статус |
+|---|---|---|---|
+| V1 | SHA256SUMS бинарника и SBOM сходятся | `V1-sha256.log` | VERIFIED_PRIMARY |
+| V2 | SLSA provenance v1 подписана именно `build-reusable.yml@refs/heads/main`, раннер github-hosted | `V2-provenance.json`, `V4-provenance-fields.txt` | VERIFIED_PRIMARY |
+| V3 | SBOM-аттестация (CycloneDX) привязана к тому же бинарнику и подписанту | `V3-sbom.json` | VERIFIED_PRIMARY |
+| V5 | Бинарник содержит данные cargo-auditable (секция `.dep-v0`) | `V5-auditable.txt` | VERIFIED_PRIMARY |
+| V6 | SBOM — CycloneDX 1.5, компонент rust-cicd-core 0.1.0, 0 зависимостей | `V6-sbom-summary.txt` | VERIFIED_PRIMARY |
+| C8 | Канарейка: изменённый на 1 байт бинарник не проходит проверку | `C8-tampered.log` | VERIFIED_PRIMARY |
+| C9 | Канарейка: проверка с чужим подписантом (`ci.yml`) отклонена | `C9-wrong-signer.log` | VERIFIED_PRIMARY |
+| L3 | Соответствие SLSA Build L3 | GitHub: аттестации + reusable workflow дают L3; подписант = reusable workflow (V2) | VERIFIED_DERIVED (по документации GitHub + V2; независимого аудита платформы нет) |
+
+Журнал отклонений: мой предварительный скрипт проверки версий в манифесте install-action дал ложное MISSING
+(ошибка декодирования в самом скрипте; повторная проверка по raw-файлу: версии есть). Гейт сработал по неправильной причине — исправлено.
+zizmor 1.32.0 предложил синтаксис `$/` для ссылки на свой reusable workflow — применён; работоспособность подтверждена прогоном 43716257897.
+
+## Не сделано (S5+)
+Trusted Publishing (решение владельца: первая публикация в crates.io вручную), cargo-vet, MSRV, канарейка удаления main. Изменения в main — только через PR.
