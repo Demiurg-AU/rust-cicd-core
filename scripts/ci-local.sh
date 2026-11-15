@@ -88,18 +88,41 @@ if [ -n "$LF" ]; then
   if [ -n "$LTC" ]; then WANT="${LTC##*:v}"; run L0b lean-version-matches-pin pass - "$ROOT" bash -c "echo \"$LVER\" | grep -q \"version $WANT,\""; fi
   LW="$WORK/lean"; mkdir -p "$LW"; cp -r "$LSRC/." "$LW/"; rm -rf "$LW/.lake"
   run L1 lake-build pass - "$LW" "${LX[@]}" lake build
-  # L2: axiom audit of every theorem; sorryAx anywhere = FAIL
-  THMS="$(grep -hoE '^(theorem|lemma) [A-Za-z0-9_.'"'"']+' "$LW"/*.lean | awk '{print $2}' | sort -u)"
-  echo "$THMS" > "$EV/lean-theorems.txt"
-  lean_audit() { local d="$1"; : > "$d/Audit.lean"
-    for f in "$d"/*.lean; do [ "$(basename "$f")" = Audit.lean ] && continue
-      cat "$f" >> "$d/Audit.lean"; echo >> "$d/Audit.lean"; done
-    for t in $(grep -hoE '^(theorem|lemma) [A-Za-z0-9_.'"'"']+' "$d"/*.lean | grep -v Audit | awk '{print $2}' | sort -u); do
-      echo "#print axioms $t" >> "$d/Audit.lean"; done
-    "${LX[@]}" lake env lean "$d/Audit.lean" 2>&1 | tee "$d/axioms.out"
-    ! grep -q 'sorryAx' "$d/axioms.out"; }
-  export -f lean_audit 2>/dev/null || true
+  # L2: axiom audit computed by Lean itself over every user theorem of the project's
+  # lean_lib modules (attributes, namespaces included); Lean errors propagate; sorryAx = FAIL.
+  lean_audit() { local d="$1" mods m
+    mods="$(awk '/^\[\[lean_lib\]\]/{f=1;next} f&&/^name *=/{gsub(/.*= *"|".*/,"");print;f=0}' "$d/lakefile.toml")"
+    [ -n "$mods" ] || { echo "audit: no lean_lib in lakefile.toml"; return 2; }
+    { echo "import Lean"; for m in $mods; do echo "import $m"; done
+      echo 'open Lean Elab Command'
+      echo 'elab "#audit_axioms" : command => do'
+      echo '  let env ← getEnv'
+      printf '  let mods : Array Name := #[%s]\n' "$(for m in $mods; do printf '`%s, ' "$m"; done | sed 's/, $//')"
+      cat <<'LEAN'
+  let idxs := mods.filterMap env.getModuleIdx?
+  if idxs.size != mods.size then throwError "AUDIT module not found"
+  let mut bad : Array Name := #[]
+  let mut n : Nat := 0
+  for (name, ci) in env.constants.map₁.toList do
+    let some mi := env.getModuleIdxFor? name | continue
+    unless idxs.contains mi do continue
+    let .thmInfo _ := ci | continue
+    if name.isInternal then continue
+    let some _ ← liftCoreM (findDeclarationRanges? name) | continue
+    n := n + 1
+    let axs ← liftCoreM (collectAxioms name)
+    logInfo m!"AUDIT theorem {name} axioms {axs}"
+    if axs.contains ``sorryAx then bad := bad.push name
+  logInfo m!"AUDIT theorems={n}"
+  if n == 0 then throwError "AUDIT found no theorems"
+  unless bad.isEmpty do throwError m!"AUDIT sorryAx in {bad}"
+#audit_axioms
+LEAN
+    } > "$d/ZzAudit.lean"
+    ( cd "$d" && { "${LX[@]}" lake build || { echo "AUDIT build failed"; exit 3; }; } && "${LX[@]}" lake env lean ZzAudit.lean ) > "$d/axioms.out" 2>&1
+    local rc=$?; cat "$d/axioms.out"; return $rc; }
   run L2 lean-axiom-audit pass - "$LW" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $LW"
+  grep -oE 'AUDIT theorem [^ ]+' "$LW/axioms.out" 2>/dev/null | awk '{print $3}' | sort -u > "$EV/lean-theorems.txt"
   run L3 lean-no-sorry-text pass - "$LW" bash -c "! grep -nE '\\b(sorry|admit)\\b' *.lean"
   # Rust<->Lean traceability: proof-map.tsv lines "lean_theorem<TAB>rust_test_path"
   if [ -f "$ROOT/proof-map.tsv" ]; then
@@ -110,9 +133,17 @@ if [ -n "$LF" ]; then
   # Reason regexes must not match the echoed command line itself (run() logs "$ cmd").
   mkL() { mkdir -p "$CAN/$1"; cp -r "$LSRC/." "$CAN/$1/"; rm -rf "$CAN/$1/.lake"; }
   mkL lsorry; printf '\ntheorem canary_bad : False := by sorry\n' >> "$(ls "$CAN"/lsorry/*.lean | head -1)"
-  run CL1 canary-lean-sorry fail "'canary_bad' depends on axioms: \\[.*sorryAx" "$CAN/lsorry" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lsorry"
+  run CL1 canary-lean-sorry fail "AUDIT sorryAx in \\[canary_bad" "$CAN/lsorry" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lsorry"
   mkL lwrong; printf '\ntheorem canary_wrong : (1 : Nat) = 2 := by rfl\n' >> "$(ls "$CAN"/lwrong/*.lean | head -1)"
   run CL2 canary-lean-false-proof fail 'canary_wrong|rfl. failed' "$CAN/lwrong" "${LX[@]}" lake build
+  # CL3: an annotated theorem missing from proof-map.tsv must be reported (discovery covers @[attr])
+  mkL lunmap; printf '\n@[simp] theorem canary_unmapped : (2 : Nat) + 2 = 4 := rfl\n' >> "$(ls "$CAN"/lunmap/*.lean | head -1)"
+  if [ -f "$ROOT/proof-map.tsv" ]; then
+    run CL3 canary-unmapped-annotated-theorem fail 'unmapped theorem: canary_unmapped' "$CAN/lunmap" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lunmap >/dev/null; for t in \$(grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}'); do grep -q \"^\$t\"\$'\\t' '$ROOT/proof-map.tsv' || { echo \"unmapped theorem: \$t\"; exit 1; }; done"
+  fi
+  # CL4: a Lean error inside the audit itself must fail L2 (no silent pass)
+  mkL lbroken; printf '\nnamespace Broken\ntheorem canary_broken : True := by exact (rfl : 1 = 2)\nend Broken\n' >> "$(ls "$CAN"/lbroken/*.lean | head -1)"
+  run CL4 canary-audit-propagates-lean-error fail '^AUDIT build failed' "$CAN/lbroken" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lbroken"
 fi
 
 # --- summary ---
