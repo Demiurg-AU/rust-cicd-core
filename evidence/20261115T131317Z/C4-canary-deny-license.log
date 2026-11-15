@@ -1,0 +1,34 @@
+$ cargo deny check licenses
+error[rejected]: failed to satisfy license requirements
+  ┌─ /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.im3CHj/canaries/deny/Cargo.toml:5:12
+  │
+5 │ license = "GPL-3.0-only"
+  │            ━━━━━━━━━━━━
+  │            │
+  │            rejected: license is not explicitly allowed
+  │
+  ├ GPL-3.0-only - GNU General Public License v3.0 only:
+  ├   - OSI approved
+  ├   - FSF Free/Libre
+  ├   - Copyleft
+  ├ rust-cicd-core v0.1.0
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.im3CHj/canaries/deny/deny.toml:7:18
+  │
+7 │ allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
+  │                  ━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.im3CHj/canaries/deny/deny.toml:7:11
+  │
+7 │ allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
+  │           ━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+  ┌─ /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.im3CHj/canaries/deny/deny.toml:7:32
+  │
+7 │ allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
+  │                                ━━━━━━━━━━━ unmatched license allowance
+
+licenses FAILED
