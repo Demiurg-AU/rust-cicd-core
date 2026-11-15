@@ -126,9 +126,14 @@ LEAN
   grep -oE 'AUDIT theorem [^ ]+' "$LW/axioms.out" 2>/dev/null | awk '{print $3}' | sort -u > "$EV/lean-theorems.txt"
   run L3 lean-no-sorry-text pass - "$LW" bash -c "! grep -nE '\\b(sorry|admit)\\b' *.lean"
   # Rust<->Lean traceability: proof-map.tsv lines "lean_theorem<TAB>rust_test_path"
+  # proof-map check: each theorem needs a row whose Rust-test column is non-empty
+  pm_check() { local th="$1" pm="$2" rc=0 t
+    while read -r t; do [ -z "$t" ] && continue
+      awk -F'\t' -v t="$t" '$1==t && $2 ~ /[^[:space:]]/ {f=1} END{exit !f}' "$pm" || { echo "unmapped theorem: $t"; rc=1; }
+    done < "$th"; return $rc; }
   if [ -f "$ROOT/proof-map.tsv" ]; then
-    run X1 proof-map-covers-theorems pass - "$ROOT" bash -c "for t in \$(cat '$EV/lean-theorems.txt'); do grep -q \"^\$t\"\$'\\t' proof-map.tsv || { echo \"unmapped theorem: \$t\"; exit 1; }; done"
-    run X2 proof-map-rust-tests-pass pass - "$ROOT" bash -c "grep -v '^#' proof-map.tsv | cut -f2 | while read -r t; do [ -z \"\$t\" ] && continue; out=\$(cargo test --locked --lib -- --exact \"\$t\" 2>&1); echo \"\$out\" | grep -q '1 passed' || { echo \"rust test missing/failed: \$t\"; echo \"\$out\" | tail -5; exit 1; }; echo \"ok \$t\"; done"
+    run X1 proof-map-covers-theorems pass - "$ROOT" bash -c "$(declare -f pm_check); pm_check '$EV/lean-theorems.txt' proof-map.tsv"
+    run X2 proof-map-rust-tests-pass pass - "$ROOT" bash -c "grep -v '^#' proof-map.tsv | awk -F'\t' 'NF' | while IFS=\$'\t' read -r th t; do [ -z \"\$t\" ] && { echo \"empty rust test for theorem: \$th\"; exit 1; }; out=\$(cargo test --locked --lib -- --exact \"\$t\" 2>&1); echo \"\$out\" | grep -q '1 passed' || { echo \"rust test missing/failed: \$t\"; echo \"\$out\" | tail -5; exit 1; }; echo \"ok \$th -> \$t\"; done"
   fi
   # Lean canaries: gates must FAIL for the right reason.
   # Reason regexes must not match the echoed command line itself (run() logs "$ cmd").
@@ -140,14 +145,19 @@ LEAN
   # CL3: an annotated theorem missing from proof-map.tsv must be reported (discovery covers @[attr])
   mkL lunmap; printf '\n@[simp] theorem canary_unmapped : (2 : Nat) + 2 = 4 := rfl\n' >> "$(ls "$CAN"/lunmap/*.lean | head -1)"
   if [ -f "$ROOT/proof-map.tsv" ]; then
-    run CL3 canary-unmapped-annotated-theorem fail 'unmapped theorem: canary_unmapped' "$CAN/lunmap" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lunmap >/dev/null; for t in \$(grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}'); do grep -q \"^\$t\"\$'\\t' '$ROOT/proof-map.tsv' || { echo \"unmapped theorem: \$t\"; exit 1; }; done"
+    run CL3 canary-unmapped-annotated-theorem fail '^unmapped theorem: canary_unmapped' "$CAN/lunmap" bash -c "$(declare -f lean_audit pm_check); LX=(${LX[*]}); lean_audit $CAN/lunmap >/dev/null; grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt '$ROOT/proof-map.tsv'"
   fi
   # CL5: a theorem in an imported project submodule must be discovered (X1 must report it)
   mkL lsub; ROOTMOD="$(awk '/^\[\[lean_lib\]\]/{f=1;next} f&&/^name *=/{gsub(/.*= *"|".*/,"");print;f=0}' "$CAN/lsub/lakefile.toml" | head -1)"
   mkdir -p "$CAN/lsub/$ROOTMOD"; printf 'theorem canary_submodule : True := trivial\n' > "$CAN/lsub/$ROOTMOD/CanarySub.lean"
   sed -i "1i import $ROOTMOD.CanarySub" "$CAN/lsub/$ROOTMOD.lean"
   if [ -f "$ROOT/proof-map.tsv" ]; then
-    run CL5 canary-submodule-theorem-discovered fail 'unmapped theorem: canary_submodule' "$CAN/lsub" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lsub >/dev/null; for t in \$(grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}'); do grep -q \"^\$t\"\$'\\t' '$ROOT/proof-map.tsv' || { echo \"unmapped theorem: \$t\"; exit 1; }; done"
+    run CL5 canary-submodule-theorem-discovered fail '^unmapped theorem: canary_submodule' "$CAN/lsub" bash -c "$(declare -f lean_audit pm_check); LX=(${LX[*]}); lean_audit $CAN/lsub >/dev/null; grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt '$ROOT/proof-map.tsv'"
+  fi
+  # CL6: a proof-map row with an empty Rust-test column must not satisfy X1
+  if [ -f "$ROOT/proof-map.tsv" ]; then
+    mkdir -p "$CAN/pmempty"; awk -F'\t' 'BEGIN{OFS="\t"} /^#/||!NF{print;next} !d{$2="";d=1} {print}' "$ROOT/proof-map.tsv" > "$CAN/pmempty/proof-map.tsv"
+    run CL6 canary-empty-rust-column fail '^unmapped theorem: ' "$CAN/pmempty" bash -c "$(declare -f pm_check); pm_check '$EV/lean-theorems.txt' proof-map.tsv"
   fi
   # CL4: a Lean error inside the audit itself must fail L2 (no silent pass)
   mkL lbroken; printf '\nnamespace Broken\ntheorem canary_broken : True := by exact (rfl : 1 = 2)\nend Broken\n' >> "$(ls "$CAN"/lbroken/*.lean | head -1)"
