@@ -61,7 +61,7 @@ FAIL_WRONG_REASON = гейт упал, но не из-за того, что до
 | V5 | Бинарник содержит данные cargo-auditable (секция `.dep-v0`) | `V5-auditable.txt` | VERIFIED_PRIMARY |
 | V6 | SBOM — CycloneDX 1.5, компонент rust-cicd-core 0.1.0, 0 зависимостей | `V6-sbom-summary.txt` | VERIFIED_PRIMARY |
 | C8 | Канарейка: изменённый на 1 байт бинарник не проходит проверку | `C8-tampered.log` | VERIFIED_PRIMARY |
-| C9 | Канарейка: проверка с чужим подписантом (`ci.yml`) отклонена | `C9-wrong-signer.log` | VERIFIED_PRIMARY |
+| C9 | Канарейка: проверка с чужим подписантом (`ci.yml`) отклонена; контроль с верным подписантом проходит, отличие только в `--signer-workflow` | `evidence/s4-c9-recheck-*.txt` | VERIFIED_DERIVED (было VERIFIED_PRIMARY: текст ошибки общий — замечание Codex к PR #3 принято) |
 | L3 | Соответствие SLSA Build L3 | GitHub: аттестации + reusable workflow дают L3; подписант = reusable workflow (V2) | VERIFIED_DERIVED (по документации GitHub + V2; независимого аудита платформы нет) |
 
 Журнал отклонений: мой предварительный скрипт проверки версий в манифесте install-action дал ложное MISSING
