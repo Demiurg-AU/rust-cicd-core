@@ -99,13 +99,14 @@ if [ -n "$LF" ]; then
       echo '  let env ← getEnv'
       printf '  let mods : Array Name := #[%s]\n' "$(for m in $mods; do printf '`%s, ' "$m"; done | sed 's/, $//')"
       cat <<'LEAN'
-  let idxs := mods.filterMap env.getModuleIdx?
-  if idxs.size != mods.size then throwError "AUDIT module not found"
+  -- lean_lib roots AND their submodules (Root.Sub...), so imported project files are audited too
+  let inProject (m : Name) : Bool := mods.any (fun r => r == m || r.isPrefixOf m)
+  if (mods.filterMap env.getModuleIdx?).size != mods.size then throwError "AUDIT module not found"
   let mut bad : Array Name := #[]
   let mut n : Nat := 0
   for (name, ci) in env.constants.map₁.toList do
     let some mi := env.getModuleIdxFor? name | continue
-    unless idxs.contains mi do continue
+    unless inProject (env.header.moduleNames[mi.toNat]!) do continue
     let .thmInfo _ := ci | continue
     if name.isInternal then continue
     let some _ ← liftCoreM (findDeclarationRanges? name) | continue
@@ -140,6 +141,13 @@ LEAN
   mkL lunmap; printf '\n@[simp] theorem canary_unmapped : (2 : Nat) + 2 = 4 := rfl\n' >> "$(ls "$CAN"/lunmap/*.lean | head -1)"
   if [ -f "$ROOT/proof-map.tsv" ]; then
     run CL3 canary-unmapped-annotated-theorem fail 'unmapped theorem: canary_unmapped' "$CAN/lunmap" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lunmap >/dev/null; for t in \$(grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}'); do grep -q \"^\$t\"\$'\\t' '$ROOT/proof-map.tsv' || { echo \"unmapped theorem: \$t\"; exit 1; }; done"
+  fi
+  # CL5: a theorem in an imported project submodule must be discovered (X1 must report it)
+  mkL lsub; ROOTMOD="$(awk '/^\[\[lean_lib\]\]/{f=1;next} f&&/^name *=/{gsub(/.*= *"|".*/,"");print;f=0}' "$CAN/lsub/lakefile.toml" | head -1)"
+  mkdir -p "$CAN/lsub/$ROOTMOD"; printf 'theorem canary_submodule : True := trivial\n' > "$CAN/lsub/$ROOTMOD/CanarySub.lean"
+  sed -i "1i import $ROOTMOD.CanarySub" "$CAN/lsub/$ROOTMOD.lean"
+  if [ -f "$ROOT/proof-map.tsv" ]; then
+    run CL5 canary-submodule-theorem-discovered fail 'unmapped theorem: canary_submodule' "$CAN/lsub" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lsub >/dev/null; for t in \$(grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}'); do grep -q \"^\$t\"\$'\\t' '$ROOT/proof-map.tsv' || { echo \"unmapped theorem: \$t\"; exit 1; }; done"
   fi
   # CL4: a Lean error inside the audit itself must fail L2 (no silent pass)
   mkL lbroken; printf '\nnamespace Broken\ntheorem canary_broken : True := by exact (rfl : 1 = 2)\nend Broken\n' >> "$(ls "$CAN"/lbroken/*.lean | head -1)"

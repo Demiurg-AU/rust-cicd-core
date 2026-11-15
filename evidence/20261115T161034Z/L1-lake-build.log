@@ -1,0 +1,5 @@
+$ elan run lean-4.35.0 lake build
+info: rust_cicd_core_model: no previous manifest, creating one from scratch
+info: toolchain not updated; already up-to-date
+✔ [2/3] Built CheckedAdd (243ms)
+Build completed successfully (3 jobs).
