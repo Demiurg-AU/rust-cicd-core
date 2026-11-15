@@ -1,0 +1,17 @@
+# Keeps SHA-pinned actions and cargo deps current; updates arrive as PRs and pass the same gates.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Quarantine: do not propose versions younger than 7 days (arrayref-type attacks lived ~1.5 h)
+    cooldown:
+      default-days: 7
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    # Quarantine: do not propose versions younger than 7 days (arrayref-type attacks lived ~1.5 h)
+    cooldown:
+      default-days: 7

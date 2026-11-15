@@ -1,0 +1,3 @@
+PROGRESS=9/10
+evidence=/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/mnt/rust-cicd-core/evidence/20261115T122125Z
+build_dir=/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.PCbaeX (outside repo, temporary)

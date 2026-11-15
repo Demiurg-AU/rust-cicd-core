@@ -1,0 +1,11 @@
+[package]
+name = "rust-cicd-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Minimal verified Rust CI core (S0-S2)"
+publish = false
+# rust-version (MSRV) intentionally omitted until an MSRV check runs (Claim-Witness rule)
+
+[dependencies]
+# Zero third-party dependencies at S0-S2: no foreign build.rs / proc-macro code executes.
