@@ -1,0 +1,18 @@
+# S4 caller: builds attested artifacts via the isolated reusable workflow.
+# No publishing to crates.io here (separate owner decision, Trusted Publishing).
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    uses: $/.github/workflows/build-reusable.yml
