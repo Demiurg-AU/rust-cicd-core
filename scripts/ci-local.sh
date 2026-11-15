@@ -71,6 +71,50 @@ mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.t
 grep -q '^license = ' "$CAN/deny/Cargo.toml" || sed -i '/^\[package\]/a license = "GPL-3.0-only"' "$CAN/deny/Cargo.toml"
 CARGO_TARGET_DIR="$CAN/deny/target" run C4 canary-deny-license fail 'GPL-3.0' "$CAN/deny" cargo deny check licenses
 
+# --- L: Lean stage (runs only if a lakefile.toml exists; skipped otherwise) ---
+LF="$(find . -maxdepth 4 -name lakefile.toml -not -path '*/.lake/*' -not -path './evidence/*' -not -path './target/*' | head -1)"
+if [ -n "$LF" ]; then
+  LSRC="$(cd "$(dirname "$LF")" && pwd)"
+  echo "lean_dir=${LSRC#$ROOT/}" >> "$EV/env.txt"
+  # L0: toolchain must be pinned in-repo (lean-toolchain), else builds are not reproducible
+  if [ -f "$LSRC/lean-toolchain" ]; then LTC="$(tr -d '[:space:]' < "$LSRC/lean-toolchain")"; else LTC=""; fi
+  run L0 lean-toolchain-pinned pass - "$ROOT" test -n "$LTC"
+  # LEAN_TOOLCHAIN (optional) = name of a pre-installed, digest-verified toolchain to RUN with;
+  # the in-repo lean-toolchain stays the source of truth and L0b checks the versions agree.
+  LTC_RUN="${LEAN_TOOLCHAIN:-$LTC}"
+  LX=(); [ -n "$LTC_RUN" ] && LX=(elan run "$LTC_RUN")
+  LVER="$("${LX[@]}" lean --version 2>&1 | head -1)"
+  echo "lean: $LVER | pinned=${LTC:-NONE} | run_with=${LTC_RUN:-default}" >> "$EV/env.txt"
+  if [ -n "$LTC" ]; then WANT="${LTC##*:v}"; run L0b lean-version-matches-pin pass - "$ROOT" bash -c "echo \"$LVER\" | grep -q \"version $WANT,\""; fi
+  LW="$WORK/lean"; mkdir -p "$LW"; cp -r "$LSRC/." "$LW/"; rm -rf "$LW/.lake"
+  run L1 lake-build pass - "$LW" "${LX[@]}" lake build
+  # L2: axiom audit of every theorem; sorryAx anywhere = FAIL
+  THMS="$(grep -hoE '^(theorem|lemma) [A-Za-z0-9_.'"'"']+' "$LW"/*.lean | awk '{print $2}' | sort -u)"
+  echo "$THMS" > "$EV/lean-theorems.txt"
+  lean_audit() { local d="$1"; : > "$d/Audit.lean"
+    for f in "$d"/*.lean; do [ "$(basename "$f")" = Audit.lean ] && continue
+      cat "$f" >> "$d/Audit.lean"; echo >> "$d/Audit.lean"; done
+    for t in $(grep -hoE '^(theorem|lemma) [A-Za-z0-9_.'"'"']+' "$d"/*.lean | grep -v Audit | awk '{print $2}' | sort -u); do
+      echo "#print axioms $t" >> "$d/Audit.lean"; done
+    "${LX[@]}" lake env lean "$d/Audit.lean" 2>&1 | tee "$d/axioms.out"
+    ! grep -q 'sorryAx' "$d/axioms.out"; }
+  export -f lean_audit 2>/dev/null || true
+  run L2 lean-axiom-audit pass - "$LW" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $LW"
+  run L3 lean-no-sorry-text pass - "$LW" bash -c "! grep -nE '\\b(sorry|admit)\\b' *.lean"
+  # Rust<->Lean traceability: proof-map.tsv lines "lean_theorem<TAB>rust_test_path"
+  if [ -f "$ROOT/proof-map.tsv" ]; then
+    run X1 proof-map-covers-theorems pass - "$ROOT" bash -c "for t in \$(cat '$EV/lean-theorems.txt'); do grep -q \"^\$t\"\$'\\t' proof-map.tsv || { echo \"unmapped theorem: \$t\"; exit 1; }; done"
+    run X2 proof-map-rust-tests-pass pass - "$ROOT" bash -c "grep -v '^#' proof-map.tsv | cut -f2 | while read -r t; do [ -z \"\$t\" ] && continue; out=\$(cargo test --locked --lib -- --exact \"\$t\" 2>&1); echo \"\$out\" | grep -q '1 passed' || { echo \"rust test missing/failed: \$t\"; echo \"\$out\" | tail -5; exit 1; }; echo \"ok \$t\"; done"
+  fi
+  # Lean canaries: gates must FAIL for the right reason.
+  # Reason regexes must not match the echoed command line itself (run() logs "$ cmd").
+  mkL() { mkdir -p "$CAN/$1"; cp -r "$LSRC/." "$CAN/$1/"; rm -rf "$CAN/$1/.lake"; }
+  mkL lsorry; printf '\ntheorem canary_bad : False := by sorry\n' >> "$(ls "$CAN"/lsorry/*.lean | head -1)"
+  run CL1 canary-lean-sorry fail "'canary_bad' depends on axioms: \\[.*sorryAx" "$CAN/lsorry" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lsorry"
+  mkL lwrong; printf '\ntheorem canary_wrong : (1 : Nat) = 2 := by rfl\n' >> "$(ls "$CAN"/lwrong/*.lean | head -1)"
+  run CL2 canary-lean-false-proof fail 'canary_wrong|rfl. failed' "$CAN/lwrong" "${LX[@]}" lake build
+fi
+
 # --- summary ---
 TOTAL=$(($(wc -l < "$RES") - 1)); OK=$(grep -c $'\tPASS$' "$RES" || true)
 echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"

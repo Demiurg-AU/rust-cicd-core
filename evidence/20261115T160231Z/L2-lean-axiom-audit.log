@@ -1,0 +1,19 @@
+$ bash -c lean_audit () 
+{ 
+    local d="$1";
+    : > "$d/Audit.lean";
+    for f in "$d"/*.lean;
+    do
+        [ "$(basename "$f")" = Audit.lean ] && continue;
+        cat "$f" >> "$d/Audit.lean";
+        echo >> "$d/Audit.lean";
+    done;
+    for t in $(grep -hoE '^(theorem|lemma) [A-Za-z0-9_.'"'"']+' "$d"/*.lean | grep -v Audit | awk '{print $2}' | sort -u);
+    do
+        echo "#print axioms $t" >> "$d/Audit.lean";
+    done;
+    "${LX[@]}" lake env lean "$d/Audit.lean" 2>&1 | tee "$d/axioms.out";
+    ! grep -q 'sorryAx' "$d/axioms.out"
+}; LX=(elan run lean-4.35.0); lean_audit /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.83I1FE/lean
+'checkedAdd_none_iff_overflow' depends on axioms: [propext, Quot.sound]
+'checkedAdd_some_is_sum' depends on axioms: [propext]

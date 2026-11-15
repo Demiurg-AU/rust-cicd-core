@@ -1,0 +1,1 @@
+$ bash -c ! grep -nE '\b(sorry|admit)\b' *.lean

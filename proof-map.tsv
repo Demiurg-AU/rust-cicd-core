@@ -1,0 +1,3 @@
+# lean_theorem	rust_test  (semantic correspondence reviewed by owner; tool checks presence + pass)
+checkedAdd_none_iff_overflow	tests::detects_overflow
+checkedAdd_some_is_sum	tests::adds
