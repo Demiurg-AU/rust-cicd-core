@@ -1,0 +1,6 @@
+id	check	exit	verdict
+V1	sha256sums	0	PASS
+V2	provenance-signer=build-reusable	0	PASS
+V3	sbom-attestation	0	PASS
+C8	tampered-binary-rejected	1	PASS
+C9	wrong-signer-rejected	1	PASS
