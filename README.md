@@ -33,5 +33,17 @@ FAIL_WRONG_REASON = гейт упал, но не из-за того, что до
 - Нулевые зависимости → deny/audit пока проверяют тривиальный граф.
 - Мусор от прогона 1, который я не смог удалить (нет права на удаление): `target/`, `evidence/20261115T122016Z/canary-work/` — можно удалить вручную.
 
-## Не сделано (следующие шаги S3+)
-SHA-pinned GitHub workflow + zizmor, Trusted Publishing, build provenance, SBOM, cargo-vet.
+## S3 — GitHub (Demiurg-AU/rust-cicd-core, private), 2026-11-15
+| ID | Утверждение | Свидетель | Статус |
+|---|---|---|---|
+| S3a | Все actions закреплены полными SHA, `permissions: {}` по умолчанию, `persist-credentials: false` | `.github/workflows/ci.yml` | VERIFIED_PRIMARY |
+| S3b | zizmor 1.32.0 без находок (локально в WSL и в CI) | `evidence/zizmor-20261115T123109Z/`, CI run 43714298921 | VERIFIED_PRIMARY |
+| S3c | zizmor ловит плохой workflow (канарейка Z2: pull_request_target + unpinned + injection) | `evidence/zizmor-*/results.txt` | VERIFIED_PRIMARY |
+| S3d | Тот же `ci-local.sh` в CI: 10/10 на GitHub-раннере | CI run 43714298921, артефакт evidence | VERIFIED_PRIMARY |
+| S3e | Политика репозитория: SHA-pinning обязателен; токен по умолчанию read-only | API `actions/permissions` | VERIFIED_PRIMARY |
+| C5 | Канарейка: `actions/checkout@v4` на ветке `canary/unpinned-action` отклонён политикой («must be pinned to a full-length commit SHA») | CI run 43714420615 (failure — ожидаемо) | VERIFIED_PRIMARY |
+| S3f | Dependabot с карантином 7 дней (cooldown) — найдено zizmor (dependabot-cooldown) | `.github/dependabot.yml` | VERIFIED_PRIMARY (конфиг), работа обновлений — UNDERDETERMINED |
+| S3g | Защита main (ruleset: обязательные проверки, запрет force-push/удаления) | API ответ 403: нужен GitHub Pro или публичный репозиторий | BLOCKED_EXTERNAL (решение владельца) |
+
+## Не сделано (S4+)
+Trusted Publishing, build provenance (для private нужен Enterprise Cloud или публичный репозиторий), SBOM, cargo-vet, MSRV.
