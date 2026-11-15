@@ -1,0 +1,14 @@
+name: canary-unpinned
+on:
+  push:
+    branches: ["canary/**"]
+permissions: {}
+jobs:
+  x:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
