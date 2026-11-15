@@ -33,7 +33,7 @@ FAIL_WRONG_REASON = гейт упал, но не из-за того, что до
 - Нулевые зависимости → deny/audit пока проверяют тривиальный граф.
 - Мусор от прогона 1, который я не смог удалить (нет права на удаление): `target/`, `evidence/20261115T122016Z/canary-work/` — можно удалить вручную.
 
-## S3 — GitHub (Demiurg-AU/rust-cicd-core, private), 2026-11-15
+## S3 — GitHub (Demiurg-AU/rust-cicd-core, public с 2026-11-15)
 | ID | Утверждение | Свидетель | Статус |
 |---|---|---|---|
 | S3a | Все actions закреплены полными SHA, `permissions: {}` по умолчанию, `persist-credentials: false` | `.github/workflows/ci.yml` | VERIFIED_PRIMARY |
@@ -43,7 +43,11 @@ FAIL_WRONG_REASON = гейт упал, но не из-за того, что до
 | S3e | Политика репозитория: SHA-pinning обязателен; токен по умолчанию read-only | API `actions/permissions` | VERIFIED_PRIMARY |
 | C5 | Канарейка: `actions/checkout@v4` на ветке `canary/unpinned-action` отклонён политикой («must be pinned to a full-length commit SHA») | CI run 43714420615 (failure — ожидаемо) | VERIFIED_PRIMARY |
 | S3f | Dependabot с карантином 7 дней (cooldown) — найдено zizmor (dependabot-cooldown) | `.github/dependabot.yml` | VERIFIED_PRIMARY (конфиг), работа обновлений — UNDERDETERMINED |
-| S3g | Защита main (ruleset: обязательные проверки, запрет force-push/удаления) | API ответ 403: нужен GitHub Pro или публичный репозиторий | BLOCKED_EXTERNAL (решение владельца) |
+| S3g | Защита main: ruleset `main-protection` (запрет удаления и force-push, обязательные проверки core + zizmor) | API `rules/branches/main` | VERIFIED_PRIMARY (конфиг) |
+| C6 | Канарейка: force-push в main отклонён (GH013) | лог canary-ruleset, main не изменился | VERIFIED_PRIMARY (отклонение); какое именно правило сработало — UNDERDETERMINED: коммит также не прошёл проверки |
+| C7 | Канарейка: прямой push в main без проверок отклонён («2 of 2 required status checks are expected») | лог canary-ruleset | VERIFIED_PRIMARY |
+| S3h | Публичный репозиторий (2026-11-15); перед публикацией: gitleaks 8.30.1 по всей истории — no leaks | лог prepublic-scan | VERIFIED_PRIMARY |
+| S3i | Secret scanning + push protection, Dependabot alerts, private vulnerability reporting включены | API | VERIFIED_PRIMARY |
 
 ## Не сделано (S4+)
-Trusted Publishing, build provenance (для private нужен Enterprise Cloud или публичный репозиторий), SBOM, cargo-vet, MSRV.
+Trusted Publishing, build provenance (репозиторий теперь публичный — блокер снят), SBOM, cargo-vet, MSRV. Изменения в main — только через PR.
