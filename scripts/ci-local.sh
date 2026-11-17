@@ -596,6 +596,7 @@ run C12 canary-threat-open-untracked fail '^THREAT open without tracking issue: 
 run C13 canary-threat-unprefixed-lean-gate fail '^THREAT unknown or failed gate L2x' "$ROOT" threat_check "$CAN/threat/unprefixed.tsv" "$RES" skip
 # --- R1/C14-C16: approved release source (SLSA-D). The same script release.yml runs before publishing. ---
 RSC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/release-source-check.sh"
+[ -f "$RSC" ] || echo "RELEASE helper missing next to ci-local.sh: $RSC (gates R1/C14-C16 will FAIL)" >&2
 gitc() { git -c user.name=canary -c user.email=canary@invalid -c commit.gpgsign=false -c tag.gpgsign=false "$@"; }
 G="$CAN/relsrc"; rm -rf "$G"; mkdir -p "$G"
 ( cd "$G" && gitc init -q -b main && gitc commit -q --allow-empty -m base && gitc tag v1.2.3 && gitc tag vbad \
