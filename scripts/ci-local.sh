@@ -240,14 +240,13 @@ CARGO_TARGET_DIR="$CAN/deny/target" run C4 canary-deny-license fail 'GPL-3.0' "$
 
 # --- L: Lean stage. Mandatory unless REQUIRE_LEAN=0 AND no Lean project exists (then visibly SKIPPED). ---
 export PY="${PY:-python3}"
-echo "require_lean=${REQUIRE_LEAN:-1} | python: $("$PY" --version 2>&1 | head -1)" >> "$EV/env.txt"
+echo "require_lean=${REQUIRE_LEAN:-1} | python: $(command -v "$PY" >/dev/null && "$PY" --version 2>&1 | head -1 || echo none)" >> "$EV/env.txt"
 if ! LMODE="$(lean_mode "$ROOT")"; then printf '%s\n' "$LMODE" >&2; exit 1; fi
 # Self-tests of the mode switch and Python check (run in both modes)
 mkdir -p "$CAN/mode/two/a" "$CAN/mode/two/b" "$CAN/mode/none"
 touch "$CAN/mode/two/a/lakefile.toml" "$CAN/mode/two/b/lakefile.toml"
 run CL29 canary-skip-not-allowed-with-projects fail '^LEAN multiple projects' "$ROOT" env REQUIRE_LEAN=0 bash -c "$(declare -f lean_project lean_mode); lean_mode \"\$1\"" _ "$CAN/mode/two"
 run CL30 canary-require-lean-invalid-value fail '^REQUIRE_LEAN must be 0 or 1' "$ROOT" env REQUIRE_LEAN=yes bash -c "$(declare -f lean_project lean_mode); lean_mode \"\$1\"" _ "$CAN/mode/none"
-run CL31 canary-python-too-old fail '^PYTHON too old' "$ROOT" env PY_MIN=99.0 bash -c "$(declare -f py_check); py_check"
 run CL32 canary-missing-lean-required fail '^LEAN project missing' "$ROOT" env REQUIRE_LEAN=1 bash -c "$(declare -f lean_project lean_mode); lean_mode \"\$1\"" _ "$CAN/mode/none"
 if [ "$LMODE" = skip ]; then
   run LSKIP lean-stage-skipped pass - "$ROOT" bash -c 'echo "LEAN stage SKIPPED: no lakefile.toml and REQUIRE_LEAN=0"'
@@ -255,6 +254,8 @@ if [ "$LMODE" = skip ]; then
 else
 LF="$(lean_project "$ROOT")"
 run L00 python-for-lean-config pass - "$ROOT" py_check
+# CL31 needs a Python interpreter, so it runs only when the Lean stage runs (Rust-only skip needs no Python)
+run CL31 canary-python-too-old fail '^PYTHON too old' "$ROOT" env PY_MIN=99.0 bash -c "$(declare -f py_check); py_check"
 {
   LSRC="$(cd "$(dirname "$LF")" && pwd)"
   echo "lean_dir=${LSRC#"$ROOT"/}" >> "$EV/env.txt"
@@ -433,7 +434,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL{29..32} LSKIP
+  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL29 CL30 CL32 LSKIP
 else
   seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28}
 fi
