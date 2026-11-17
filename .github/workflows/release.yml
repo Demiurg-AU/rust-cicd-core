@@ -1,4 +1,6 @@
-# S4 caller: builds attested artifacts via the isolated reusable workflow.
+# Release: isolated attested build -> independent rebuild -> verify -> publish.
+# Nothing is published unless (1) a second clean build is byte-identical and (2) the
+# provenance verifies against THIS repo and the reusable signer workflow.
 # No publishing to crates.io here (separate owner decision, Trusted Publishing).
 name: release
 
@@ -16,3 +18,83 @@ jobs:
       id-token: write
       attestations: write
     uses: $/.github/workflows/build-reusable.yml
+
+  rebuild:
+    name: independent rebuild (reproducibility)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      binary-sha256: ${{ steps.hash.outputs.binary-sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
+        with:
+          toolchain: "1.100.0"
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+        with:
+          tool: cargo-auditable@0.7.7
+      - name: Rebuild (same command, separate runner)
+        run: cargo auditable build --release --locked
+      - id: hash
+        run: echo "binary-sha256=$(sha256sum target/release/rust-cicd-core | cut -c1-64)" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: verify before publish
+    needs: [build, rebuild]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist-${{ github.run_id }}
+          path: dist
+      - name: Reproducible build
+        env:
+          FIRST: ${{ needs.build.outputs.binary-sha256 }}
+          SECOND: ${{ needs.rebuild.outputs.binary-sha256 }}
+        run: |
+          set -euo pipefail
+          echo "build:   $FIRST"; echo "rebuild: $SECOND"
+          test -n "$FIRST" && test "$FIRST" = "$SECOND" || { echo "RELEASE not reproducible"; exit 1; }
+          (cd dist && sha256sum -c SHA256SUMS)
+          test "$(sha256sum dist/rust-cicd-core-x86_64-unknown-linux-gnu | cut -c1-64)" = "$FIRST"
+      - name: Verify provenance (repo + signer workflow)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh attestation verify dist/rust-cicd-core-x86_64-unknown-linux-gnu --repo "$REPO" \
+            --signer-workflow "$REPO/.github/workflows/build-reusable.yml"
+          gh attestation verify dist/rust-cicd-core-x86_64-unknown-linux-gnu --repo "$REPO" \
+            --predicate-type https://cyclonedx.org/bom --signer-workflow "$REPO/.github/workflows/build-reusable.yml"
+
+  publish:
+    name: publish GitHub release
+    needs: verify
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: dist-${{ github.run_id }}
+          path: dist
+      - name: Create release with binary, SBOM, checksums and Sigstore bundles
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" dist/* --repo "$REPO" --verify-tag --title "$TAG" \
+            --notes "Reproducible (two independent builds, identical sha256) and verified before publishing. Verify yourself: gh attestation verify rust-cicd-core-x86_64-unknown-linux-gnu --repo $REPO --signer-workflow $REPO/.github/workflows/build-reusable.yml"
