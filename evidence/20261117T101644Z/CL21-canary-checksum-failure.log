@@ -1,5 +1,0 @@
-$ seal_evidence /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.IgLMg9/canaries/witness
-sha256sum: env.txt: No such file or directory
-sha256sum: summary.txt: No such file or directory
-sha256sum: lean-theorems.txt: No such file or directory
-witness checksum failed

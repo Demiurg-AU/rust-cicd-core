@@ -1,4 +1,0 @@
-Downloading zizmor (9.3MiB)
- Downloaded zizmor
-Installed 1 package in 2ms
-zizmor 1.32.0

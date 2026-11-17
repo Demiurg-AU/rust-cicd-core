@@ -1,2 +1,0 @@
---- V5 cargo-auditable section in binary
-  [32] .dep-v0           PROGBITS        0000000000000000 051bd9 00005b 00      0   0  1

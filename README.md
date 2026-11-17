@@ -37,8 +37,8 @@ FAIL_WRONG_REASON = гейт упал, но не из-за того, что до
 | ID | Утверждение | Свидетель | Статус |
 |---|---|---|---|
 | S3a | Все actions закреплены полными SHA, `permissions: {}` по умолчанию, `persist-credentials: false` | `.github/workflows/ci.yml` | VERIFIED_PRIMARY |
-| S3b | zizmor 1.32.0 без находок (локально в WSL и в CI) | `evidence/zizmor-20261115T123109Z/`, CI run 43714298921 | VERIFIED_PRIMARY |
-| S3c | zizmor ловит плохой workflow (канарейка Z2: pull_request_target + unpinned + injection) | `evidence/zizmor-*/results.txt` | VERIFIED_PRIMARY |
+| S3b | zizmor 1.32.0 без находок (локально в WSL и в CI) | [`evidence/zizmor-20261115T123109Z/`](https://github.com/Demiurg-AU/rust-cicd-core/tree/ff8dbde0de3f3b13ad761e3837bbe08aabb15ef4/evidence/zizmor-20261115T123109Z), CI run 43714298921 | VERIFIED_PRIMARY |
+| S3c | zizmor ловит плохой workflow (канарейка Z2: pull_request_target + unpinned + injection) | [`evidence/zizmor-*/results.txt`](https://github.com/Demiurg-AU/rust-cicd-core/tree/ff8dbde0de3f3b13ad761e3837bbe08aabb15ef4/evidence) | VERIFIED_PRIMARY |
 | S3d | Тот же `ci-local.sh` в CI: 10/10 на GitHub-раннере | CI run 43714298921, артефакт evidence | VERIFIED_PRIMARY |
 | S3e | Политика репозитория: SHA-pinning обязателен; токен по умолчанию read-only | API `actions/permissions` | VERIFIED_PRIMARY |
 | C5 | Канарейка: `actions/checkout@v4` на ветке `canary/unpinned-action` отклонён политикой («must be pinned to a full-length commit SHA») | CI run 43714420615 (failure — ожидаемо) | VERIFIED_PRIMARY |
@@ -51,7 +51,7 @@ FAIL_WRONG_REASON = гейт упал, но не из-за того, что до
 
 ## S4 — происхождение сборки и SBOM, 2026-11-15
 Исполнитель: `release.yml` → изолированный `build-reusable.yml` (workflow_call), прогон 43716257897 на `main` (eabd2c0).
-Проверяющий: отдельно, в WSL (`gh attestation verify`), не тот процесс, что собирал. Свидетели: `evidence/s4-20261115T125558Z/`.
+Проверяющий: отдельно, в WSL (`gh attestation verify`), не тот процесс, что собирал. Свидетели: [`evidence/s4-20261115T125558Z/`](https://github.com/Demiurg-AU/rust-cicd-core/tree/ff8dbde0de3f3b13ad761e3837bbe08aabb15ef4/evidence/s4-20261115T125558Z).
 
 | ID | Утверждение | Свидетель | Статус |
 |---|---|---|---|
@@ -61,7 +61,7 @@ FAIL_WRONG_REASON = гейт упал, но не из-за того, что до
 | V5 | Бинарник содержит данные cargo-auditable (секция `.dep-v0`) | `V5-auditable.txt` | VERIFIED_PRIMARY |
 | V6 | SBOM — CycloneDX 1.5, компонент rust-cicd-core 0.1.0, 0 зависимостей | `V6-sbom-summary.txt` | VERIFIED_PRIMARY |
 | C8 | Канарейка: изменённый на 1 байт бинарник не проходит проверку | `C8-tampered.log` | VERIFIED_PRIMARY |
-| C9 | Канарейка: проверка с чужим подписантом (`ci.yml`) отклонена; контроль с верным подписантом проходит, отличие только в `--signer-workflow` | `evidence/s4-c9-recheck-*.txt` | VERIFIED_DERIVED (было VERIFIED_PRIMARY: текст ошибки общий — замечание Codex к PR #3 принято) |
+| C9 | Канарейка: проверка с чужим подписантом (`ci.yml`) отклонена; контроль с верным подписантом проходит, отличие только в `--signer-workflow` | [`evidence/s4-c9-recheck-*.txt`](https://github.com/Demiurg-AU/rust-cicd-core/tree/ff8dbde0de3f3b13ad761e3837bbe08aabb15ef4/evidence/s4-c9-recheck-20261115T160448Z.txt) | VERIFIED_DERIVED (было VERIFIED_PRIMARY: текст ошибки общий — замечание Codex к PR #3 принято) |
 | L3 | Соответствие SLSA Build L3 | GitHub: аттестации + reusable workflow дают L3; подписант = reusable workflow (V2) | VERIFIED_DERIVED (по документации GitHub + V2; независимого аудита платформы нет) |
 
 Журнал отклонений: мой предварительный скрипт проверки версий в манифесте install-action дал ложное MISSING
@@ -136,3 +136,6 @@ Trusted Publishing (решение владельца: первая публик
 
 ### Mutation testing (S1d)
 Line coverage says code *ran*; mutation testing says the tests *catch changes*. Gate `S1d` runs `cargo-mutants` (27.1.0) and passes only if no mutant is missed or times out and at least one is caught. Exclusions go in `mutants-exclusions.tsv` as `<regex><TAB><justification>`; an empty justification fails the gate. Canaries: `C5` (a test without an assertion must leave a surviving mutant), `C6` (unjustified exclusion is rejected).
+
+
+> Historical run evidence (`evidence/<timestamp>/`, `s4-*`, `zizmor-*`) was removed from HEAD by owner decision #31; it stays in git history. Links above are permalinks to commit `ff8dbde`. Current runs: CI artifacts plus the signed `evidence.tar` attestation on main (CI-4).
