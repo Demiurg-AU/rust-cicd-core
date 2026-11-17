@@ -2,10 +2,10 @@ id	threat	controls	status	note
 SLSA-A	Producer intentionally ships harmful code	-	OUT_OF_SCOPE	SLSA v1.2: not mitigated by supply-chain controls; trust in the producer is separate
 SLSA-B	Change lands without independent review	ext:ruleset-required-checks ext:codex-review	PARTIAL	no second human reviewer (Source L4): #14
 SLSA-C	Source control management compromised (history rewrite, branch deletion)	ext:ruleset-deletion ext:ruleset-non-fast-forward	PARTIAL	no source provenance attestations yet: #14
-SLSA-D	Build from unofficial ref or parameters	ext:release-provenance ext:reusable-build-workflow	PARTIAL	provenance exists, no automated expectation check before release: #17
-SLSA-E	Build process tampered or non-hermetic	S0b C7 ext:sha-pinned-actions ext:zizmor	PARTIAL	no reproducibility check: #15
-SLSA-F	Published artifact differs from built artifact	ext:release-provenance	PARTIAL	no release published yet: #16
-SLSA-G	Distribution channel compromised	ext:release-provenance	OPEN	nothing distributed yet: #16
+SLSA-D	Build from unofficial ref or parameters	ext:release-provenance ext:reusable-build-workflow ext:release-verify-before-publish	COVERED	release job verifies provenance against repo + signer workflow before publishing (v0.1.0)
+SLSA-E	Build process tampered or non-hermetic	S0b C7 ext:sha-pinned-actions ext:zizmor ext:release-reproducible-rebuild	COVERED	pinned toolchain; release requires two independent builds with identical sha256 (v0.1.0: 7fe80764...585f)
+SLSA-F	Published artifact differs from built artifact	ext:release-provenance ext:release-verify-before-publish	COVERED	published assets are the verified build outputs plus their Sigstore bundles
+SLSA-G	Distribution channel compromised	ext:release-sigstore-bundles	COVERED	consumers detect replacement with gh attestation verify (also offline via the attached bundle; tampered binary rejected in test)
 SLSA-H	Consumer selects the wrong package	-	OUT_OF_SCOPE	consumer side; template is not published (publish = false)
 SLSA-I	Consumer uses the artifact unsafely	-	OUT_OF_SCOPE	consumer side
 DEP-1	Vulnerable or yanked dependency	S2a S2b C9 ext:dependabot	COVERED	cargo-deny advisories + cargo-audit; C9 proves the audit fires
