@@ -17,7 +17,7 @@ jobs:
       contents: read
       id-token: write
       attestations: write
-    uses: ./.github/workflows/build-reusable.yml
+    uses: $/.github/workflows/build-reusable.yml
 
   rebuild:
     name: independent rebuild (reproducibility)
