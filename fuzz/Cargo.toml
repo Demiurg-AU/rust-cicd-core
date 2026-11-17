@@ -1,0 +1,31 @@
+[package]
+name = "rust-cicd-core-fuzz"
+version = "0.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+rust-cicd-core = { path = ".." }
+
+# Own workspace: the fuzz crate (and its third-party deps) never enters the root build.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "checked_add"
+path = "fuzz_targets/checked_add.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "canary_wrapping_add"
+path = "fuzz_targets/canary_wrapping_add.rs"
+test = false
+doc = false
+bench = false
