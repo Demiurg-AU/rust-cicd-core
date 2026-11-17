@@ -7,6 +7,8 @@ cd "$ROOT"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 EV="$ROOT/evidence/$STAMP"
 mkdir -p "$ROOT/evidence"
+# CI uploads exactly THIS run's directory (the repo also tracks older evidence dirs)
+if [ -n "${GITHUB_OUTPUT:-}" ]; then echo "evidence-dir=$EV" >> "$GITHUB_OUTPUT"; fi
 mkdir "$EV" || { echo "witness directory unavailable: $EV" >&2; exit 1; }
 RES="$EV/results.tsv"
 printf 'id\tstep\texpect\texit\treason_check\tverdict\n' > "$RES"
@@ -606,6 +608,21 @@ run R1 release-source-approved pass - "$G" bash "$RSC" refs/tags/v1.2.3 "$MAIN_S
 run C14 canary-release-off-main fail '^RELEASE source not approved' "$G" bash "$RSC" refs/tags/v9.9.9 "$SIDE_SHA" main
 run C15 canary-release-bad-ref fail '^RELEASE ref not approved' "$G" bash "$RSC" refs/tags/vbad "$MAIN_SHA" main
 run C16 canary-release-tag-mismatch fail '^RELEASE tag does not point at built commit' "$G" bash "$RSC" refs/tags/v1.2.3 "$SIDE_SHA" main
+# --- E1/C17-C19: signed gate evidence (CI-4). Same scripts the attest job and release.yml run. ---
+SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; EPS="$SD/evidence-predicate.sh"; EVD="$SD/evidence-verdict.sh"
+for h in "$EPS" "$EVD"; do [ -f "$h" ] || echo "EVIDENCE helper missing next to ci-local.sh: $h (gates E1/C17-C19 will FAIL)" >&2; done
+mkev() { # <dir> <verdict of the second gate row>
+  mkdir -p "$1"
+  printf 'id\tstep\texpect\texit\treason_check\tverdict\nG1\tg\tpass\t0\tn/a\tPASS\nG2\tg\tpass\t0\tn/a\t%s\n' "$2" > "$1/results.tsv"
+  ( cd "$1" && sha256sum results.tsv > SHA256SUMS )
+}
+mkev "$CAN/ev-ok" PASS; mkev "$CAN/ev-fail" FAIL; mkev "$CAN/ev-tamper" PASS
+printf 'G3\tg\tpass\t0\tn/a\tPASS\n' >> "$CAN/ev-tamper/results.tsv"
+verdict_of() { local p; p=$(bash "$EPS" "$1" https://example.invalid/run) || return 1; bash "$EVD" "$(printf '%s' "$p" | sed -n 's/^{"result":"\([A-Z]*\)".*/\1/p')"; }
+run E1 evidence-predicate-pass pass - "$ROOT" verdict_of "$CAN/ev-ok"
+run C17 canary-evidence-failed-gate fail '^EVIDENCE result not PASSED: FAILED' "$ROOT" verdict_of "$CAN/ev-fail"
+run C18 canary-evidence-tampered fail '^EVIDENCE checksum mismatch' "$ROOT" verdict_of "$CAN/ev-tamper"
+run C19 canary-evidence-no-attestation fail '^EVIDENCE no attestation' "$ROOT" bash "$EVD" ""
 run T1 threat-model pass - "$ROOT" threat_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$LMODE"
 
 # --- summary ---
@@ -614,7 +631,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..16} R1 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..19} R1 E1 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..16} R1 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..19} R1 E1 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi

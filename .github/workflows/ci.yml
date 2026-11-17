@@ -22,6 +22,9 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+    outputs:
+      # evaluated in the attempt that ran core; preserved when only later jobs are re-run
+      evidence-artifact: evidence-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,6 +59,7 @@ jobs:
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: Run CI core (same script as local)
+        id: ci
         env:
           LEAN_TOOLCHAIN: lean-4.35.0
         run: ./scripts/ci-local.sh
@@ -65,9 +69,50 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: evidence-${{ github.run_id }}-${{ github.run_attempt }}
-          path: evidence/
+          path: ${{ steps.ci.outputs.evidence-dir || 'evidence/' }}
           retention-days: 90
           if-no-files-found: error
+
+  attest-evidence:
+    name: sign gate evidence (main only)
+    needs: core
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ needs.core.outputs.evidence-artifact }}
+          path: ev
+      - name: Build test-result predicate from SEALED evidence; deterministic bundle
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          [ -f ev/results.tsv ] || { echo "EVIDENCE artifact is not exactly one run directory"; ls -la ev; exit 1; }
+          bash scripts/evidence-predicate.sh ev "$RUN_URL" > predicate.json
+          cat predicate.json
+          tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -cf evidence.tar -C ev .
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: evidence.tar
+          predicate-type: https://in-toto.io/attestation/test-result/v0.1
+          predicate-path: predicate.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: signed-evidence-${{ github.sha }}
+          path: evidence.tar
+          retention-days: 90
+          if-no-files-found: error
+          # a rerun of the same run re-attests; its bundle replaces the previous attempt's
+          overwrite: true
 
   discover-fixtures:
     name: fixture inventory
@@ -139,8 +184,7 @@ jobs:
           LEAN_TOOLCHAIN: lean-4.35.0
         run: |
           mkdir -p "$FIXTURE_DIR/scripts"
-          cp scripts/ci-local.sh "$FIXTURE_DIR/scripts/ci-local.sh"
-          cp scripts/release-source-check.sh "$FIXTURE_DIR/scripts/release-source-check.sh"
+          cp scripts/*.sh "$FIXTURE_DIR/scripts/"
           chmod +x "$FIXTURE_DIR/scripts/ci-local.sh"
           (cd "$FIXTURE_DIR" && ./scripts/ci-local.sh)
 

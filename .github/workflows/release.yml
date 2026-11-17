@@ -12,7 +12,37 @@ on:
 permissions: {}
 
 jobs:
+  evidence:
+    name: verify signed gate evidence for this commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Gate evidence of the main CI run is signed by ci.yml, bound to this commit, and PASSED
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          run=$(gh run list --repo "$REPO" --workflow ci.yml --commit "$SHA" --branch main --event push \
+            --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          [ -n "$run" ] || { echo "EVIDENCE no successful main CI run for $SHA"; exit 1; }
+          gh run download "$run" --repo "$REPO" -n "signed-evidence-$SHA" -D signed
+          res=$(gh attestation verify signed/evidence.tar --repo "$REPO" \
+            --predicate-type https://in-toto.io/attestation/test-result/v0.1 \
+            --signer-workflow "$REPO/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "$SHA" \
+            --format json --jq '[.[].verificationResult.statement.predicate.result] | unique | join(",")') || res=""
+          bash scripts/evidence-verdict.sh "$res"
+
   build:
+    needs: evidence
     permissions:
       contents: read
       id-token: write
