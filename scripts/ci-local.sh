@@ -623,6 +623,34 @@ run E1 evidence-predicate-pass pass - "$ROOT" verdict_of "$CAN/ev-ok"
 run C17 canary-evidence-failed-gate fail '^EVIDENCE result not PASSED: FAILED' "$ROOT" verdict_of "$CAN/ev-fail"
 run C18 canary-evidence-tampered fail '^EVIDENCE checksum mismatch' "$ROOT" verdict_of "$CAN/ev-tamper"
 run C19 canary-evidence-no-attestation fail '^EVIDENCE no attestation' "$ROOT" bash "$EVD" ""
+# --- A1/A2/C20-C25: agent PR policy (CI-7). Same script the agent-pr-policy workflow runs (from main). ---
+APP="$SD/agent-pr-policy.sh"
+[ -f "$APP" ] || echo "AGENT helper missing next to ci-local.sh: $APP (gates A1/A2/C20-C25 will FAIL)" >&2
+mkpr() { # <dir> <branch> <commits> <files> <label events> <labels now> <codex rows>; last push 2026-01-01T00:00:00Z
+  mkdir -p "$1"; printf '%s\n' "$2" > "$1/branch.txt"; printf 'h1\n' > "$1/head_sha.txt"
+  printf '2026-01-01T00:00:00Z\n' > "$1/pushed_at.txt"
+  printf '%b' "$3" > "$1/commits.tsv"; printf '%b' "$4" > "$1/files.txt"; printf '%b' "$5" > "$1/labels.tsv"
+  printf '%b' "$6" > "$1/labels_now.txt"; printf '%b' "$7" > "$1/codex.tsv"; printf 'owner\n' > "$1/owners.txt"
+}
+LBL='owner-approved-pipeline\n'
+OWN='owner-approved-pipeline\towner\tUser\t2026-01-02T00:00:00Z\n'
+CDX='h1\tcompleted\tfalse\tchatgpt-codex-connector[bot]\tBot\n'
+mkpr "$CAN/pr-human" feat/x 'owner\tweb-flow\t0\th1\n' '.github/workflows/ci.yml\nsrc/lib.rs\n' '' '' ''
+mkpr "$CAN/pr-agent-ok" copilot/x 'Copilot\towner\t0\th1\n' 'scripts/ci-local.sh\n' "$OWN" "$LBL" "$CDX"
+mkpr "$CAN/pr-agent-nolabel" feat/y 'owner\tweb-flow\t1\th1\n' 'scripts/ci-local.sh\n' '' '' "$CDX"
+mkpr "$CAN/pr-agent-botlabel" copilot/x 'Copilot\towner\t0\th1\n' '.github/workflows/ci.yml\n' 'owner-approved-pipeline\tsome-app[bot]\tBot\t2026-01-02T00:00:00Z\n' "$LBL" "$CDX"
+mkpr "$CAN/pr-agent-stale-codex" codex/x 'owner\towner\t0\th1\n' 'src/lib.rs\n' '' '' 'h0\tcompleted\tfalse\tchatgpt-codex-connector[bot]\tBot\n'
+mkpr "$CAN/pr-agent-findings" claude/x 'owner\towner\t1\th1\n' 'src/lib.rs\n' '' '' 'h1\tcompleted\ttrue\tchatgpt-codex-connector[bot]\tBot\n'
+mkpr "$CAN/pr-agent-stale-label" copilot/x 'Copilot\towner\t0\th1\n' 'scripts/ci-local.sh\n' 'owner-approved-pipeline\towner\tUser\t2025-12-31T00:00:00Z\n' "$LBL" "$CDX"
+mkpr "$CAN/pr-agent-spoofed-codex" claude/x 'owner\towner\t1\th1\n' 'src/lib.rs\n' '' '' 'h1\tcompleted\ttrue\tchatgpt-codex-connector[bot]\tBot\nh1\tcompleted\tfalse\tnot-the-codex-reviewer\tUser\n'
+run A1 agent-policy-human-pass pass - "$ROOT" bash "$APP" "$CAN/pr-human"
+run A2 agent-policy-approved-agent-pass pass - "$ROOT" bash "$APP" "$CAN/pr-agent-ok"
+run C20 canary-agent-pipeline-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-nolabel"
+run C21 canary-agent-label-by-bot fail '^AGENT PR touches pipeline without owner label \(label not applied by a human owner\)' "$ROOT" bash "$APP" "$CAN/pr-agent-botlabel"
+run C22 canary-agent-codex-not-on-head fail '^AGENT PR head not reviewed by Codex: h1' "$ROOT" bash "$APP" "$CAN/pr-agent-stale-codex"
+run C23 canary-agent-unresolved-findings fail '^AGENT PR has unresolved Codex findings' "$ROOT" bash "$APP" "$CAN/pr-agent-findings"
+run C24 canary-agent-label-before-push fail '^AGENT PR touches pipeline without owner label \(label predates the latest push' "$ROOT" bash "$APP" "$CAN/pr-agent-stale-label"
+run C25 canary-agent-spoofed-codex fail '^AGENT PR has unresolved Codex findings' "$ROOT" bash "$APP" "$CAN/pr-agent-spoofed-codex"
 run T1 threat-model pass - "$ROOT" threat_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$LMODE"
 
 # --- summary ---
@@ -631,7 +659,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..19} R1 E1 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..25} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..19} R1 E1 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..25} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi
