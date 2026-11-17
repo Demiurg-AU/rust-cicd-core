@@ -1,0 +1,1 @@
+$ bash -c \[\[\ \"\$1\"\ =\~\ \^leanprover/lean4:v\[0-9\]+\\.\[0-9\]+\\.\[0-9\]+\$\ \]\]\ \|\|\ \{\ echo\ \"LEAN\ pin\ missing/invalid\"\;\ exit\ 1\;\ \} _ leanprover/lean4:v4.35.0

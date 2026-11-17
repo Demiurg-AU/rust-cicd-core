@@ -57,6 +57,28 @@ lean_project() {
   [[ "$files" != *$'\n'* ]] || { echo "LEAN multiple projects: $files"; return 1; }
   printf '%s\n' "$files"
 }
+# Python for the Lean config parser (tomllib) must be >= PY_MIN (default 3.11); checked by L00.
+py_check() {
+  local py="${PY:-python3}" min="${PY_MIN:-3.11}"
+  command -v "$py" >/dev/null || { echo "PYTHON missing: $py"; return 1; }
+  "$py" - "$min" <<'PY'
+import sys
+want = tuple(int(x) for x in sys.argv[1].split("."))
+have = sys.version_info[:len(want)]
+if have < want:
+    print(f"PYTHON too old: {sys.version.split()[0]} < {sys.argv[1]} (tomllib needed)"); sys.exit(1)
+import tomllib  # noqa: F401
+print(f"python ok: {sys.version.split()[0]}")
+PY
+}
+# lean_mode: prints "run" or "skip". Skipping is allowed ONLY when no Lean project exists AND REQUIRE_LEAN=0.
+lean_mode() {
+  local out
+  case "${REQUIRE_LEAN:-1}" in 0|1) ;; *) echo "REQUIRE_LEAN must be 0 or 1, got: ${REQUIRE_LEAN}"; return 1;; esac
+  if out="$(lean_project "$1")"; then echo run; return 0; fi
+  if [ "$out" = "LEAN project missing" ] && [ "${REQUIRE_LEAN:-1}" = 0 ]; then echo skip; return 0; fi
+  echo "$out"; return 1
+}
 lean_text() {
   local files file code count=0
   files="$(find "$1" -type d -name .lake -prune -o -type f -name '*.lean' -print)" ||
@@ -74,7 +96,7 @@ lean_text() {
   [ "$count" -gt 0 ]
 }
 lean_modules() {
-  python3 - "$@" <<'PY'
+  "$PY" - "$@" <<'PY'
 import os
 from pathlib import Path
 import re
@@ -216,8 +238,23 @@ mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.t
 grep -q '^license = ' "$CAN/deny/Cargo.toml" || sed -i '/^\[package\]/a license = "GPL-3.0-only"' "$CAN/deny/Cargo.toml"
 CARGO_TARGET_DIR="$CAN/deny/target" run C4 canary-deny-license fail 'GPL-3.0' "$CAN/deny" cargo deny check licenses
 
-# --- L: Lean stage is mandatory; exactly one project must be discovered. ---
-if ! LF="$(lean_project "$ROOT")"; then printf '%s\n' "$LF" >&2; exit 1; fi
+# --- L: Lean stage. Mandatory unless REQUIRE_LEAN=0 AND no Lean project exists (then visibly SKIPPED). ---
+export PY="${PY:-python3}"
+echo "require_lean=${REQUIRE_LEAN:-1} | python: $("$PY" --version 2>&1 | head -1)" >> "$EV/env.txt"
+if ! LMODE="$(lean_mode "$ROOT")"; then printf '%s\n' "$LMODE" >&2; exit 1; fi
+# Self-tests of the mode switch and Python check (run in both modes)
+mkdir -p "$CAN/mode/two/a" "$CAN/mode/two/b" "$CAN/mode/none"
+touch "$CAN/mode/two/a/lakefile.toml" "$CAN/mode/two/b/lakefile.toml"
+run CL29 canary-skip-not-allowed-with-projects fail '^LEAN multiple projects' "$ROOT" env REQUIRE_LEAN=0 bash -c "$(declare -f lean_project lean_mode); lean_mode \"\$1\"" _ "$CAN/mode/two"
+run CL30 canary-require-lean-invalid-value fail '^REQUIRE_LEAN must be 0 or 1' "$ROOT" env REQUIRE_LEAN=yes bash -c "$(declare -f lean_project lean_mode); lean_mode \"\$1\"" _ "$CAN/mode/none"
+run CL31 canary-python-too-old fail '^PYTHON too old' "$ROOT" env PY_MIN=99.0 bash -c "$(declare -f py_check); py_check"
+run CL32 canary-missing-lean-required fail '^LEAN project missing' "$ROOT" env REQUIRE_LEAN=1 bash -c "$(declare -f lean_project lean_mode); lean_mode \"\$1\"" _ "$CAN/mode/none"
+if [ "$LMODE" = skip ]; then
+  run LSKIP lean-stage-skipped pass - "$ROOT" bash -c 'echo "LEAN stage SKIPPED: no lakefile.toml and REQUIRE_LEAN=0"'
+  : > "$EV/lean-theorems.txt"
+else
+LF="$(lean_project "$ROOT")"
+run L00 python-for-lean-config pass - "$ROOT" py_check
 {
   LSRC="$(cd "$(dirname "$LF")" && pwd)"
   echo "lean_dir=${LSRC#"$ROOT"/}" >> "$EV/env.txt"
@@ -388,10 +425,15 @@ LEAN
   printf '\ntheorem canary_no_default : (1 : Nat) = 2 := by rfl\n' >> "$CAN/lnodefault/$ROOTFILE"
   run CL28 canary-empty-default-targets fail 'rfl. failed' "$CAN/lnodefault" lean_build "$CAN/lnodefault"
 }
+fi
 
 # --- summary ---
 TOTAL=$(($(wc -l < "$RES") - 1)); OK=$(grep -c $'\tPASS$' "$RES" || true)
 echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
-seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} L0 L0b L1 L2 L3 X1 X2 CL{1..28}
+if [ "$LMODE" = skip ]; then
+  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL{29..32} LSKIP
+else
+  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28}
+fi

@@ -1,0 +1,29 @@
+$ cargo clippy --all-targets -- -D warnings
+    Checking rust-cicd-core v0.1.0 (/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.aAwpxl/canaries/clippy)
+error: length comparison to zero
+  --> src/lib.rs:24:42
+   |
+24 | pub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }
+   |                                          ^^^^^^^^^^^^ help: using `is_empty` is clearer and more explicit: `v.is_empty()`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#len_zero
+   = note: `-D clippy::len-zero` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::len_zero)]`
+
+error: could not compile `rust-cicd-core` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: items after a test module
+  --> src/lib.rs:10:1
+   |
+10 | mod tests {
+   | ^^^^^^^^^
+...
+24 | pub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#items_after_test_module
+   = note: `-D clippy::items-after-test-module` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::items_after_test_module)]`
+   = help: move the items to before the test module was defined
+
+error: could not compile `rust-cicd-core` (lib test) due to 2 previous errors
