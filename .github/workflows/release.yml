@@ -51,6 +51,15 @@ jobs:
       contents: read
       attestations: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Approved source (strict vX.Y.Z tag on the built commit, reachable from protected main)
+        env:
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
+        run: bash scripts/release-source-check.sh "$REF" "$SHA" origin/main
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: dist-${{ github.run_id }}
@@ -65,16 +74,19 @@ jobs:
           test -n "$FIRST" && test "$FIRST" = "$SECOND" || { echo "RELEASE not reproducible"; exit 1; }
           (cd dist && sha256sum -c SHA256SUMS)
           test "$(sha256sum dist/rust-cicd-core-x86_64-unknown-linux-gnu | cut -c1-64)" = "$FIRST"
-      - name: Verify provenance (repo + signer workflow)
+      - name: Verify provenance (repo + signer workflow + source ref/commit)
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           gh attestation verify dist/rust-cicd-core-x86_64-unknown-linux-gnu --repo "$REPO" \
-            --signer-workflow "$REPO/.github/workflows/build-reusable.yml"
+            --signer-workflow "$REPO/.github/workflows/build-reusable.yml" --source-ref "$REF" --source-digest "$SHA"
           gh attestation verify dist/rust-cicd-core-x86_64-unknown-linux-gnu --repo "$REPO" \
-            --predicate-type https://cyclonedx.org/bom --signer-workflow "$REPO/.github/workflows/build-reusable.yml"
+            --predicate-type https://cyclonedx.org/bom --signer-workflow "$REPO/.github/workflows/build-reusable.yml" \
+            --source-ref "$REF" --source-digest "$SHA"
 
   publish:
     name: publish GitHub release

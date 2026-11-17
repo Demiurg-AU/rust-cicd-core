@@ -594,6 +594,17 @@ run C12 canary-threat-open-untracked fail '^THREAT open without tracking issue: 
 # C13: a Lean gate WITHOUT the lean: prefix is still required in Rust-only mode (the prefix is the only way out)
 { head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-3\tcanary\tS0a L2x\tCOVERED\tunprefixed Lean-style gate\n'; } > "$CAN/threat/unprefixed.tsv"
 run C13 canary-threat-unprefixed-lean-gate fail '^THREAT unknown or failed gate L2x' "$ROOT" threat_check "$CAN/threat/unprefixed.tsv" "$RES" skip
+# --- R1/C14-C16: approved release source (SLSA-D). The same script release.yml runs before publishing. ---
+RSC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/release-source-check.sh"
+gitc() { git -c user.name=canary -c user.email=canary@invalid -c commit.gpgsign=false -c tag.gpgsign=false "$@"; }
+G="$CAN/relsrc"; rm -rf "$G"; mkdir -p "$G"
+( cd "$G" && gitc init -q -b main && gitc commit -q --allow-empty -m base && gitc tag v1.2.3 && gitc tag vbad \
+  && gitc checkout -q -b side && gitc commit -q --allow-empty -m side && gitc tag v9.9.9 && gitc checkout -q main ) > /dev/null 2>&1
+MAIN_SHA=$(git -C "$G" rev-parse main); SIDE_SHA=$(git -C "$G" rev-parse side)
+run R1 release-source-approved pass - "$G" bash "$RSC" refs/tags/v1.2.3 "$MAIN_SHA" main
+run C14 canary-release-off-main fail '^RELEASE source not approved' "$G" bash "$RSC" refs/tags/v9.9.9 "$SIDE_SHA" main
+run C15 canary-release-bad-ref fail '^RELEASE ref not approved' "$G" bash "$RSC" refs/tags/vbad "$MAIN_SHA" main
+run C16 canary-release-tag-mismatch fail '^RELEASE tag does not point at built commit' "$G" bash "$RSC" refs/tags/v1.2.3 "$SIDE_SHA" main
 run T1 threat-model pass - "$ROOT" threat_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$LMODE"
 
 # --- summary ---
@@ -602,7 +613,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..13} CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..16} R1 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..13} T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..16} R1 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi
