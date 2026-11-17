@@ -34,7 +34,7 @@ jobs:
         run: gh api -X DELETE "repos/$REPO/issues/$PR/labels/owner-approved-pipeline" > /dev/null 2>&1 || true
 
   policy:
-    name: agent PR policy
+    name: agent PR policy (publishes status)
     needs: revoke
     if: >-
       always() && (github.event_name == 'pull_request_target' ||
@@ -63,14 +63,21 @@ jobs:
         run: |
           set -uo pipefail
           head=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha) || { echo "AGENT cannot resolve PR head"; exit 1; }
+          broken=0
           if bash scripts/agent-pr-facts.sh "$REPO" "$PR" facts > facts.log 2>&1; then
-            if bash scripts/agent-pr-policy.sh facts > policy.out 2>&1; then rc=0; else rc=1; fi
+            if bash scripts/agent-pr-policy.sh facts > policy.out 2>&1; then rc=0; else rc=$?; fi
+            # a real decision always prints author_kind= and exits 0 (ok) or 1 (rejected)
+            if ! grep -q '^author_kind=' policy.out || [ "$rc" -gt 1 ]; then broken=1; rc=1; fi
           else
-            cat facts.log; echo "AGENT facts collection failed" > policy.out; rc=1
+            cat facts.log; echo "AGENT facts collection failed" > policy.out; rc=1; broken=1
           fi
           cat policy.out; cat policy.out >> "$GITHUB_STEP_SUMMARY"
           state=failure; [ "$rc" = 0 ] && state=success
-          desc=$(grep -m1 -E '^AGENT ' policy.out | cut -c1-140)
+          desc=$(grep -m1 -E '^AGENT ' policy.out | cut -c1-140 || true)
           gh api "repos/$REPO/statuses/$head" -f state="$state" -f context=agent-pr-policy \
-            -f description="${desc:-no decision}" > /dev/null
-          exit "$rc"
+            -f description="${desc:-no decision}" > /dev/null || { echo "AGENT status publish failed"; exit 1; }
+          # The DECISION lives only in the required status "agent-pr-policy". This job is green when the
+          # decision was published (either way), red only when evaluation/publication itself broke.
+          echo "published agent-pr-policy=$state for $head"
+          # green job = a decision was made and published (pass or reject); red = evaluation itself broke
+          [ "$broken" = 0 ] || { echo "AGENT evaluation broken (status published fail-closed)"; exit 1; }
