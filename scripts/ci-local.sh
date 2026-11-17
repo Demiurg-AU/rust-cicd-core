@@ -219,12 +219,34 @@ seal_evidence() {
     { echo "witness checksum failed"; return 1; }
 }
 
+# --- S0b: the Rust toolchain is pinned in-repo and the running rustc matches it ---
+rust_pin() { # <rust-toolchain.toml> <rustc --version output>
+  local f="$1" have="$2" want
+  [ -f "$f" ] || { echo "RUST toolchain not pinned: $f missing"; return 1; }
+  want="$(sed -n 's/^channel *= *"\([0-9][0-9.]*\)".*/\1/p' "$f")"
+  [[ "$want" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "RUST toolchain pin must be an exact x.y.z version: $f"; return 1; }
+  [[ "$have" == "rustc $want "* ]] || { echo "RUST toolchain mismatch: pinned $want, running ${have:-none}"; return 1; }
+  echo "rust ok: $want"
+}
+RUSTC_VERSION="$(rustc --version 2>&1 || true)"
+# rustup resolves rust-toolchain.toml from the project dir upwards; do the same (fixtures inherit the root pin)
+PIN_DIR="$ROOT"; while [ "$PIN_DIR" != / ] && [ ! -f "$PIN_DIR/rust-toolchain.toml" ]; do PIN_DIR="$(dirname "$PIN_DIR")"; done
+echo "rust_pin_file=$PIN_DIR/rust-toolchain.toml | $RUSTC_VERSION" >> "$EV/env.txt"
+run S0b rust-toolchain-pinned pass - "$ROOT" rust_pin "${PIN_DIR%/}/rust-toolchain.toml" "$RUSTC_VERSION"
 # --- S0: skeleton builds with the locked graph ---
 run S0a build pass - "$ROOT" cargo build --locked --all-targets
 # --- S1: quality ---
 run S1a fmt pass - "$ROOT" cargo fmt --all -- --check
 run S1b clippy pass - "$ROOT" cargo clippy --locked --all-targets -- -D warnings
-run S1c test-coverage pass - "$ROOT" cargo llvm-cov nextest --locked --fail-under-lines 80
+# S1c in two steps so the log says WHY it failed (cargo-llvm-cov alone exits 1 without a reason).
+coverage_gate() { # <min line %>
+  local min="$1" out rc
+  cargo llvm-cov nextest --locked --no-report || { echo "COVERAGE tests failed"; return 1; }
+  out="$(cargo llvm-cov report --summary-only --fail-under-lines "$min" 2>&1)"; rc=$?
+  printf '%s\n' "$out" | grep '^TOTAL' || { echo "COVERAGE report missing"; return 1; }
+  [ "$rc" -eq 0 ] || { echo "COVERAGE below threshold: lines < $min%"; return 1; }
+}
+run S1c test-coverage pass - "$ROOT" coverage_gate 80
 # S1d: mutation testing. Coverage says code RAN; mutants say tests CATCH changes.
 # PASS only if no mutant is missed or timed out and at least one was caught (no vacuous pass).
 # Exclusions: mutants-exclusions.tsv, "<regex>\t<justification>"; an empty justification is a FAIL.
@@ -271,6 +293,19 @@ run C5 canary-mutant-survives fail '^MISSED .*canary_double' "$CAN/mutant" mutan
 # C6: an exclusion without a written justification is rejected
 mk mutexcl; printf 'canary_double\t \n' > "$CAN/mutexcl/mutants-exclusions.tsv"
 run C6 canary-mutant-exclusion-unjustified fail '^MUTANTS exclusion without justification' "$CAN/mutexcl" mutants_gate "$CAN/mutexcl" "$WORK/mutants-c6"
+
+# C7: a pin that does not match the running rustc must fail S0b
+mkdir -p "$CAN/rustpin"; printf '[toolchain]\nchannel = "1.0.0"\n' > "$CAN/rustpin/rust-toolchain.toml"
+run C7 canary-rust-pin-mismatch fail '^RUST toolchain mismatch' "$ROOT" rust_pin "$CAN/rustpin/rust-toolchain.toml" "$RUSTC_VERSION"
+# C8: an unreachable threshold must fail S1c with the threshold reason (not a test failure)
+mk cov
+CARGO_TARGET_DIR="$CAN/cov/target" run C8 canary-coverage-threshold fail '^COVERAGE below threshold' "$CAN/cov" coverage_gate 101
+# C9: a lockfile with a known-vulnerable crate (smallvec 1.6.0, RUSTSEC-2021-0003) must fail cargo-audit
+mkdir -p "$CAN/audit"; printf 'version = 3\n\n[[package]]\nname = "canary"\nversion = "0.1.0"\ndependencies = ["smallvec"]\n\n[[package]]\nname = "smallvec"\nversion = "1.6.0"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n' > "$CAN/audit/Cargo.lock"
+run C9 canary-audit-known-vulnerability fail 'RUSTSEC-2021-0003' "$CAN/audit" cargo audit -f "$CAN/audit/Cargo.lock"
+# C10: code that does not compile must fail S0a
+mk build; printf '\npub fn canary_broken( {}\n' >> "$CAN/build/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/build/target" run C10 canary-build-broken fail 'unclosed delimiter' "$CAN/build" cargo build --locked
 
 # --- L: Lean stage. Mandatory unless REQUIRE_LEAN=0 AND no Lean project exists (then visibly SKIPPED). ---
 export PY="${PY:-python3}"
@@ -518,7 +553,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S1a S1b S1c S1d S2a S2b C{1..6} CL29 CL30 CL32 LSKIP
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..10} CL29 CL30 CL32 LSKIP
 else
-  seal_evidence "$EV" S0a S1a S1b S1c S1d S2a S2b C{1..6} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..10} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi
