@@ -1,70 +1,73 @@
-# Agent PR policy (threat CI-7). The policy scripts always come from the DEFAULT branch,
-# never from the PR, so a PR cannot weaken the check that judges it.
-# Result is published as commit status "agent-pr-policy" on the PR head; issue_comment
-# re-evaluates when Codex updates its review-state comment.
+# Agent PR policy (threat CI-7). Runs in TRUSTED contexts only (pull_request_target / issue_comment):
+# the workflow definition AND the scripts come from the default branch, never from the PR, and no
+# PR code is executed. Result: commit status "agent-pr-policy" on the PR head.
+# Residual (see threat model): any same-repo workflow with statuses:write could also post that context.
 name: agent-pr-policy
 
 on:
-  pull_request:
+  # Safe use: default-branch workflow + default-branch checkout; PR content is only read via the API.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, synchronize, reopened, labeled, unlabeled]
-  # Safe use: runs only for the Codex bot's comments on PRs, checks out the DEFAULT branch,
-  # never executes PR code and never interpolates comment text (only the PR number via env).
+  # Safe use: only the Codex integration's comments trigger a job; comment text is never interpolated.
   issue_comment: # zizmor: ignore[dangerous-triggers]
     types: [created, edited]
 
 permissions: {}
 
-concurrency:
-  group: agent-pr-policy-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
-
 jobs:
+  revoke:
+    # separate job WITHOUT a concurrency group: a comment run can never cancel a revocation
+    name: revoke owner approval on push
+    if: github.event_name == 'pull_request_target' && github.event.action == 'synchronize'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: gh api -X DELETE "repos/$REPO/issues/$PR/labels/owner-approved-pipeline" > /dev/null 2>&1 || true
+
   policy:
     name: agent PR policy
+    needs: revoke
     if: >-
-      github.event_name == 'pull_request' ||
-      (github.event.issue.pull_request && github.event.comment.user.login == 'chatgpt-codex-connector[bot]')
+      always() && (github.event_name == 'pull_request_target' ||
+      (github.event.issue.pull_request && github.event.comment.user.login == 'chatgpt-codex-connector[bot]' &&
+       github.event.comment.user.type == 'Bot'))
+    concurrency:
+      group: agent-pr-policy-${{ github.event.pull_request.number || github.event.issue.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
       issues: read
-      pull-requests: write
+      pull-requests: read
       statuses: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
-      - name: Revoke owner approval on every new push
-        if: github.event_name == 'pull_request' && github.event.action == 'synchronize'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          PR: ${{ github.event.pull_request.number }}
-        run: gh api -X DELETE "repos/$REPO/issues/$PR/labels/owner-approved-pipeline" > /dev/null 2>&1 || true
-      - name: Collect facts and evaluate
-        id: eval
+      - name: Evaluate and publish (every outcome publishes a status)
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
           set -uo pipefail
-          bash scripts/agent-pr-facts.sh "$REPO" "$PR" facts
-          bash scripts/agent-pr-policy.sh facts > policy.out 2>&1; rc=$?
+          head=$(gh api "repos/$REPO/pulls/$PR" --jq .head.sha) || { echo "AGENT cannot resolve PR head"; exit 1; }
+          if bash scripts/agent-pr-facts.sh "$REPO" "$PR" facts > facts.log 2>&1; then
+            if bash scripts/agent-pr-policy.sh facts > policy.out 2>&1; then rc=0; else rc=1; fi
+          else
+            cat facts.log; echo "AGENT facts collection failed" > policy.out; rc=1
+          fi
           cat policy.out; cat policy.out >> "$GITHUB_STEP_SUMMARY"
-          echo "head=$(cat facts/head_sha.txt)" >> "$GITHUB_OUTPUT"
-          echo "desc=$(grep -m1 -E '^AGENT ' policy.out | cut -c1-140)" >> "$GITHUB_OUTPUT"
-          exit $rc
-      - name: Publish commit status on the PR head
-        if: always() && steps.eval.outputs.head != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          HEAD: ${{ steps.eval.outputs.head }}
-          DESC: ${{ steps.eval.outputs.desc }}
-          OUTCOME: ${{ steps.eval.outcome }}
-        run: |
-          state=failure; [ "$OUTCOME" = success ] && state=success
-          gh api "repos/$REPO/statuses/$HEAD" -f state="$state" -f context=agent-pr-policy -f description="${DESC:-no decision}" > /dev/null
+          state=failure; [ "$rc" = 0 ] && state=success
+          desc=$(grep -m1 -E '^AGENT ' policy.out | cut -c1-140)
+          gh api "repos/$REPO/statuses/$head" -f state="$state" -f context=agent-pr-policy \
+            -f description="${desc:-no decision}" > /dev/null
+          exit "$rc"
