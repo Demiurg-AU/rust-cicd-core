@@ -128,13 +128,13 @@ LEAN
   # Rust<->Lean traceability: proof-map.tsv lines "lean_theorem<TAB>rust_test_path"
   # proof-map check: each theorem needs a row whose Rust-test column is non-empty
   pm_check() { local th="$1" pm="$2" rc=0 t
+    [ -f "$pm" ] || { echo "proof-map missing: $pm"; return 1; }
     while read -r t; do [ -z "$t" ] && continue
       awk -F'\t' -v t="$t" '$1==t && $2 ~ /[^[:space:]]/ {f=1} END{exit !f}' "$pm" || { echo "unmapped theorem: $t"; rc=1; }
     done < "$th"; return $rc; }
-  if [ -f "$ROOT/proof-map.tsv" ]; then
-    run X1 proof-map-covers-theorems pass - "$ROOT" bash -c "$(declare -f pm_check); pm_check '$EV/lean-theorems.txt' proof-map.tsv"
-    run X2 proof-map-rust-tests-pass pass - "$ROOT" bash -c "grep -v '^#' proof-map.tsv | awk -F'\t' 'NF' | while IFS=\$'\t' read -r th t; do [ -z \"\$t\" ] && { echo \"empty rust test for theorem: \$th\"; exit 1; }; out=\$(cargo test --locked --lib -- --exact \"\$t\" 2>&1); echo \"\$out\" | grep -q '1 passed' || { echo \"rust test missing/failed: \$t\"; echo \"\$out\" | tail -5; exit 1; }; echo \"ok \$th -> \$t\"; done"
-  fi
+  # X1/X2 are mandatory whenever the Lean stage runs: a missing proof-map.tsv is a FAIL, not a skip.
+  run X1 proof-map-covers-theorems pass - "$ROOT" bash -c "$(declare -f pm_check); pm_check '$EV/lean-theorems.txt' proof-map.tsv"
+  run X2 proof-map-rust-tests-pass pass - "$ROOT" bash -c "test -f proof-map.tsv || { echo 'proof-map missing'; exit 1; }; grep -v '^#' proof-map.tsv | awk -F'\t' 'NF' | while IFS=\$'\t' read -r th t; do [ -z \"\$t\" ] && { echo \"empty rust test for theorem: \$th\"; exit 1; }; out=\$(cargo test --locked --lib -- --exact \"\$t\" 2>&1); echo \"\$out\" | grep -q '1 passed' || { echo \"rust test missing/failed: \$t\"; echo \"\$out\" | tail -5; exit 1; }; echo \"ok \$th -> \$t\"; done"
   # Lean canaries: gates must FAIL for the right reason.
   # Reason regexes must not match the echoed command line itself (run() logs "$ cmd").
   mkL() { mkdir -p "$CAN/$1"; cp -r "$LSRC/." "$CAN/$1/"; rm -rf "$CAN/$1/.lake"; }
@@ -159,6 +159,9 @@ LEAN
     mkdir -p "$CAN/pmempty"; awk -F'\t' 'BEGIN{OFS="\t"} /^#/||!NF{print;next} !d{$2="";d=1} {print}' "$ROOT/proof-map.tsv" > "$CAN/pmempty/proof-map.tsv"
     run CL6 canary-empty-rust-column fail '^unmapped theorem: ' "$CAN/pmempty" bash -c "$(declare -f pm_check); pm_check '$EV/lean-theorems.txt' proof-map.tsv"
   fi
+  # CL7: with no proof-map.tsv at all, X1 must fail (no silent skip)
+  mkdir -p "$CAN/pmmissing"
+  run CL7 canary-missing-proof-map fail '^proof-map missing' "$CAN/pmmissing" bash -c "$(declare -f pm_check); pm_check '$EV/lean-theorems.txt' proof-map.tsv"
   # CL4: a Lean error inside the audit itself must fail L2 (no silent pass)
   mkL lbroken; printf '\nnamespace Broken\ntheorem canary_broken : True := by exact (rfl : 1 = 2)\nend Broken\n' >> "$(ls "$CAN"/lbroken/*.lean | head -1)"
   run CL4 canary-audit-propagates-lean-error fail '^AUDIT build failed' "$CAN/lbroken" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lbroken"
