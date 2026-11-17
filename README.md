@@ -133,3 +133,6 @@ Trusted Publishing (решение владельца: первая публик
 ### Lean stage switch and Python requirement
 - `REQUIRE_LEAN` (default `1`): the Lean stage is mandatory. `REQUIRE_LEAN=0` skips it **only** when the repository has no `lakefile.toml`; the skip is recorded as gate `LSKIP` in `results.tsv`. Multiple or broken Lean projects always fail. Canaries CL29, CL30, CL32 test the switch. A Rust-only run with `REQUIRE_LEAN=0` needs no Python.
 - The Lean config parser needs Python >= 3.11 (`tomllib`). Gate `L00` checks this before the Lean stage and fails with `PYTHON too old: …`; canary CL31 tests the check. Override the interpreter with `PY=/path/to/python3.12`.
+
+### Mutation testing (S1d)
+Line coverage says code *ran*; mutation testing says the tests *catch changes*. Gate `S1d` runs `cargo-mutants` (27.1.0) and passes only if no mutant is missed or times out and at least one is caught. Exclusions go in `mutants-exclusions.tsv` as `<regex><TAB><justification>`; an empty justification fails the gate. Canaries: `C5` (a test without an assertion must leave a surviving mutant), `C6` (unjustified exclusion is rejected).

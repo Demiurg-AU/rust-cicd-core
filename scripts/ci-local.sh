@@ -19,7 +19,7 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
 # --- environment witness ---
 {
   echo "utc=$STAMP"; uname -a
-  for t in cargo rustc cargo-clippy rustfmt cargo-nextest cargo-llvm-cov cargo-deny cargo-audit; do
+  for t in cargo rustc cargo-clippy rustfmt cargo-nextest cargo-llvm-cov cargo-deny cargo-audit cargo-mutants; do
     p="$(command -v "$t" || true)"
     if [ -z "$p" ]; then echo "$t: MISSING"; continue; fi
     # rustup installs identical proxy shims; hash the real toolchain binary instead
@@ -225,6 +225,30 @@ run S0a build pass - "$ROOT" cargo build --locked --all-targets
 run S1a fmt pass - "$ROOT" cargo fmt --all -- --check
 run S1b clippy pass - "$ROOT" cargo clippy --locked --all-targets -- -D warnings
 run S1c test-coverage pass - "$ROOT" cargo llvm-cov nextest --locked --fail-under-lines 80
+# S1d: mutation testing. Coverage says code RAN; mutants say tests CATCH changes.
+# PASS only if no mutant is missed or timed out and at least one was caught (no vacuous pass).
+# Exclusions: mutants-exclusions.tsv, "<regex>\t<justification>"; an empty justification is a FAIL.
+mutants_gate() {
+  local d="$1" out="$2" re why rc; shift 2
+  local args=()
+  if [ -f "$d/mutants-exclusions.tsv" ]; then
+    while IFS=$'\t' read -r re why || [ -n "$re" ]; do
+      [[ -z "$re" || "$re" == \#* ]] && continue
+      [[ "$why" =~ [^[:space:]] ]] || { echo "MUTANTS exclusion without justification: $re"; return 1; }
+      args+=(--exclude-re "$re")
+    done < "$d/mutants-exclusions.tsv"
+  fi
+  rm -rf "$out" 2>/dev/null; mkdir -p "$out"
+  ( cd "$d" && env -u CARGO_TARGET_DIR cargo mutants --test-tool nextest --no-shuffle -o "$out" "${args[@]}" "$@" ); rc=$?
+  local o="$out/mutants.out"
+  [ -f "$o/outcomes.json" ] || { echo "MUTANTS no outcomes (exit $rc)"; return 1; }
+  if [ -s "$o/missed.txt" ]; then sed 's/^/MISSED /' "$o/missed.txt"; return 1; fi
+  if [ -s "$o/timeout.txt" ]; then sed 's/^/TIMEOUT /' "$o/timeout.txt"; return 1; fi
+  [ -s "$o/caught.txt" ] || { echo "MUTANTS none caught (vacuous)"; return 1; }
+  [ "$rc" -eq 0 ] || { echo "MUTANTS cargo-mutants exit $rc"; return 1; }
+  echo "MUTANTS caught=$(wc -l < "$o/caught.txt") unviable=$(grep -c . "$o/unviable.txt")"
+}
+run S1d mutation pass - "$ROOT" mutants_gate "$ROOT" "$WORK/mutants-root"
 # --- S2: supply chain ---
 run S2a deny pass - "$ROOT" cargo deny --locked check
 run S2b audit pass - "$ROOT" cargo audit
@@ -241,6 +265,12 @@ CARGO_TARGET_DIR="$CAN/test/target" run C3 canary-test fail 'canary_fails' "$CAN
 mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.toml"
 grep -q '^license = ' "$CAN/deny/Cargo.toml" || sed -i '/^\[package\]/a license = "GPL-3.0-only"' "$CAN/deny/Cargo.toml"
 CARGO_TARGET_DIR="$CAN/deny/target" run C4 canary-deny-license fail 'GPL-3.0' "$CAN/deny" cargo deny check licenses
+# C5: a test that runs code without asserting must leave a surviving mutant -> S1d FAILs
+mk mutant; printf '\npub fn canary_double(x: u32) -> u32 { x * 2 }\n#[test]\nfn canary_no_assert() { let _ = canary_double(2); }\n' >> "$CAN/mutant/src/lib.rs"
+run C5 canary-mutant-survives fail '^MISSED .*canary_double' "$CAN/mutant" mutants_gate "$CAN/mutant" "$WORK/mutants-c5" --re canary_double
+# C6: an exclusion without a written justification is rejected
+mk mutexcl; printf 'canary_double\t \n' > "$CAN/mutexcl/mutants-exclusions.tsv"
+run C6 canary-mutant-exclusion-unjustified fail '^MUTANTS exclusion without justification' "$CAN/mutexcl" mutants_gate "$CAN/mutexcl" "$WORK/mutants-c6"
 
 # --- L: Lean stage. Mandatory unless REQUIRE_LEAN=0 AND no Lean project exists (then visibly SKIPPED). ---
 export PY="${PY:-python3}"
@@ -488,7 +518,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL29 CL30 CL32 LSKIP
+  seal_evidence "$EV" S0a S1a S1b S1c S1d S2a S2b C{1..6} CL29 CL30 CL32 LSKIP
 else
-  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S1a S1b S1c S1d S2a S2b C{1..6} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi

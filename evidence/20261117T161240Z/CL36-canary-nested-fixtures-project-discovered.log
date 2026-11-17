@@ -1,0 +1,3 @@
+$ lean_project /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/canaries/nested-fixtures
+LEAN multiple projects: /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/canaries/nested-fixtures/x/fixtures/lakefile.toml
+/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/canaries/nested-fixtures/a/lakefile.toml

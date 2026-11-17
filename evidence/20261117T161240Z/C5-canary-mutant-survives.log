@@ -1,0 +1,13 @@
+$ mutants_gate /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/canaries/mutant /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/mutants-c5 --re canary_double
+Found 4 mutants to test
+ok       Unmutated baseline in 0s build + 0s test
+ INFO Auto-set test timeout to 20s
+MISSED   src/lib.rs:24:39: replace canary_double -> u32 with 0 in 0s build + 0s test
+MISSED   src/lib.rs:24:39: replace canary_double -> u32 with 1 in 0s build + 0s test
+MISSED   src/lib.rs:24:41: replace * with + in canary_double in 0s build + 0s test
+MISSED   src/lib.rs:24:41: replace * with / in canary_double in 0s build + 0s test
+4 mutants tested in 2s: 4 missed
+MISSED src/lib.rs:24:39: replace canary_double -> u32 with 0
+MISSED src/lib.rs:24:39: replace canary_double -> u32 with 1
+MISSED src/lib.rs:24:41: replace * with + in canary_double
+MISSED src/lib.rs:24:41: replace * with / in canary_double

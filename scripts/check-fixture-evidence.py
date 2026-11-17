@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 MINIMUM_LEAN_GATES = {
-    "S0a", "S1a", "S1b", "S1c", "S2a", "S2b", "C1", "C2", "C3", "C4",
+    "S0a", "S1a", "S1b", "S1c", "S1d", "S2a", "S2b", "C1", "C2", "C3", "C4", "C5", "C6",
     "L00", "L0", "L0b", "L1", "L2", "L3", "X1", "X2",
 }
 

@@ -1,0 +1,2 @@
+$ mutants_gate /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/canaries/mutexcl /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/mutants-c6
+MUTANTS exclusion without justification: canary_double
