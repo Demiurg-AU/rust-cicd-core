@@ -108,6 +108,8 @@ jobs:
           path: evidence.tar
           retention-days: 90
           if-no-files-found: error
+          # a rerun of the same run re-attests; its bundle replaces the previous attempt's
+          overwrite: true
 
   discover-fixtures:
     name: fixture inventory
