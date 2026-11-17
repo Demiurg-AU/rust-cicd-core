@@ -1,0 +1,8 @@
+$ cargo fmt --all -- --check
+Diff in /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.y50mBv/canaries/fmt/src/lib.rs:20:
+         assert_eq!(checked_add(u32::MAX, 1), None);
+     }
+ }
+-pub fn   ugly( ) {}
++pub fn ugly() {}
+ 

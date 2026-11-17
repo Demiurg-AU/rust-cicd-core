@@ -1,0 +1,2 @@
+$ pm_check /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.y50mBv/canaries/maps/no-newline /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.y50mBv/canaries/maps/valid.tsv
+unmapped theorem: unmapped_final_line
