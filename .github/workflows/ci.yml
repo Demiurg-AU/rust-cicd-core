@@ -140,6 +140,7 @@ jobs:
         run: |
           mkdir -p "$FIXTURE_DIR/scripts"
           cp scripts/ci-local.sh "$FIXTURE_DIR/scripts/ci-local.sh"
+          cp scripts/release-source-check.sh "$FIXTURE_DIR/scripts/release-source-check.sh"
           chmod +x "$FIXTURE_DIR/scripts/ci-local.sh"
           (cd "$FIXTURE_DIR" && ./scripts/ci-local.sh)
 
