@@ -48,6 +48,40 @@ run() {
   echo "[$verdict] $id $name (exit $code)"
 }
 
+lean_project() {
+  find "$1" -maxdepth 4 -name lakefile.toml -not -path '*/.lake/*' -not -path '*/evidence/*' -not -path '*/target/*' | head -1
+}
+lean_text() {
+  ( cd "$1" && ! grep -nE '\b(sorry|admit)\b' *.lean )
+}
+lean_modules() {
+  awk '/^\[\[lean_lib\]\]/{f=1;next} f&&/^name *=/{gsub(/.*= *"|".*/,"");print;f=0}' "$1/lakefile.toml"
+}
+lean_version() {
+  local version
+  version="$("${LX[@]}" lean --version 2>&1 | head -1)"
+  echo "$version" | grep -q "version ${1##*:v},"
+}
+pm_tests() {
+  test -f "$1" || { echo 'proof-map missing'; return 1; }
+  grep -v '^#' "$1" | awk -F'\t' 'NF' | while IFS=$'\t' read -r th t; do
+    [ -z "$t" ] && { echo "empty rust test for theorem: $th"; exit 1; }
+    out=$(cargo test --locked --lib -- --exact "$t" 2>&1)
+    echo "$out" | grep -q '1 passed' || { echo "rust test missing/failed: $t"; echo "$out" | tail -5; exit 1; }
+    echo "ok $th -> $t"
+  done
+}
+witness_check() {
+  local res="$1"; shift
+  local total ok
+  total=$(($(wc -l < "$res") - 1)); ok=$(grep -c $'\tPASS$' "$res" || true)
+  [ "$ok" -eq "$total" ]
+}
+seal_evidence() {
+  ( cd "$1" && sha256sum ./*.log env.txt results.tsv > SHA256SUMS )
+  witness_check "$1/results.tsv"
+}
+
 # --- S0: skeleton builds with the locked graph ---
 run S0a build pass - "$ROOT" cargo build --locked --all-targets
 # --- S1: quality ---
@@ -72,7 +106,7 @@ grep -q '^license = ' "$CAN/deny/Cargo.toml" || sed -i '/^\[package\]/a license 
 CARGO_TARGET_DIR="$CAN/deny/target" run C4 canary-deny-license fail 'GPL-3.0' "$CAN/deny" cargo deny check licenses
 
 # --- L: Lean stage (runs only if a lakefile.toml exists; skipped otherwise) ---
-LF="$(find . -maxdepth 4 -name lakefile.toml -not -path '*/.lake/*' -not -path './evidence/*' -not -path './target/*' | head -1)"
+LF="$(lean_project "$ROOT")"
 if [ -n "$LF" ]; then
   LSRC="$(cd "$(dirname "$LF")" && pwd)"
   echo "lean_dir=${LSRC#$ROOT/}" >> "$EV/env.txt"
@@ -91,7 +125,7 @@ if [ -n "$LF" ]; then
   # L2: axiom audit computed by Lean itself over every user theorem of the project's
   # lean_lib modules (attributes, namespaces included); Lean errors propagate; sorryAx = FAIL.
   lean_audit() { local d="$1" mods m
-    mods="$(awk '/^\[\[lean_lib\]\]/{f=1;next} f&&/^name *=/{gsub(/.*= *"|".*/,"");print;f=0}' "$d/lakefile.toml")"
+    mods="$(lean_modules "$d")"
     [ -n "$mods" ] || { echo "audit: no lean_lib in lakefile.toml"; return 2; }
     { echo "import Lean"; for m in $mods; do echo "import $m"; done
       echo 'open Lean Elab Command'
@@ -122,9 +156,9 @@ LEAN
     } > "$d/ZzAudit.lean"
     ( cd "$d" && { "${LX[@]}" lake build || { echo "AUDIT build failed"; exit 3; }; } && "${LX[@]}" lake env lean ZzAudit.lean ) > "$d/axioms.out" 2>&1
     local rc=$?; cat "$d/axioms.out"; return $rc; }
-  run L2 lean-axiom-audit pass - "$LW" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $LW"
+  run L2 lean-axiom-audit pass - "$LW" bash -c "$(declare -f lean_audit lean_modules); LX=(${LX[*]}); lean_audit $LW"
   grep -oE 'AUDIT theorem [^ ]+' "$LW/axioms.out" 2>/dev/null | awk '{print $3}' | sort -u > "$EV/lean-theorems.txt"
-  run L3 lean-no-sorry-text pass - "$LW" bash -c "! grep -nE '\\b(sorry|admit)\\b' *.lean"
+  run L3 lean-no-sorry-text pass - "$LW" bash -c "$(declare -f lean_text); lean_text '$LW'"
   # Rust<->Lean traceability: proof-map.tsv lines "lean_theorem<TAB>rust_test_path"
   # proof-map check: each theorem needs a row whose Rust-test column is non-empty
   pm_check() { local th="$1" pm="$2" rc=0 t
@@ -134,25 +168,25 @@ LEAN
     done < "$th"; return $rc; }
   # X1/X2 are mandatory whenever the Lean stage runs: a missing proof-map.tsv is a FAIL, not a skip.
   run X1 proof-map-covers-theorems pass - "$ROOT" bash -c "$(declare -f pm_check); pm_check '$EV/lean-theorems.txt' proof-map.tsv"
-  run X2 proof-map-rust-tests-pass pass - "$ROOT" bash -c "test -f proof-map.tsv || { echo 'proof-map missing'; exit 1; }; grep -v '^#' proof-map.tsv | awk -F'\t' 'NF' | while IFS=\$'\t' read -r th t; do [ -z \"\$t\" ] && { echo \"empty rust test for theorem: \$th\"; exit 1; }; out=\$(cargo test --locked --lib -- --exact \"\$t\" 2>&1); echo \"\$out\" | grep -q '1 passed' || { echo \"rust test missing/failed: \$t\"; echo \"\$out\" | tail -5; exit 1; }; echo \"ok \$th -> \$t\"; done"
+  run X2 proof-map-rust-tests-pass pass - "$ROOT" bash -c "$(declare -f pm_tests); pm_tests proof-map.tsv"
   # Lean canaries: gates must FAIL for the right reason.
   # Reason regexes must not match the echoed command line itself (run() logs "$ cmd").
   mkL() { mkdir -p "$CAN/$1"; cp -r "$LSRC/." "$CAN/$1/"; rm -rf "$CAN/$1/.lake"; }
   mkL lsorry; printf '\ntheorem canary_bad : False := by sorry\n' >> "$(ls "$CAN"/lsorry/*.lean | head -1)"
-  run CL1 canary-lean-sorry fail "AUDIT sorryAx in \\[canary_bad" "$CAN/lsorry" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lsorry"
+  run CL1 canary-lean-sorry fail "AUDIT sorryAx in \\[canary_bad" "$CAN/lsorry" bash -c "$(declare -f lean_audit lean_modules); LX=(${LX[*]}); lean_audit $CAN/lsorry"
   mkL lwrong; printf '\ntheorem canary_wrong : (1 : Nat) = 2 := by rfl\n' >> "$(ls "$CAN"/lwrong/*.lean | head -1)"
   run CL2 canary-lean-false-proof fail 'canary_wrong|rfl. failed' "$CAN/lwrong" "${LX[@]}" lake build
   # CL3: an annotated theorem missing from proof-map.tsv must be reported (discovery covers @[attr])
   mkL lunmap; printf '\n@[simp] theorem canary_unmapped : (2 : Nat) + 2 = 4 := rfl\n' >> "$(ls "$CAN"/lunmap/*.lean | head -1)"
   if [ -f "$ROOT/proof-map.tsv" ]; then
-    run CL3 canary-unmapped-annotated-theorem fail '^unmapped theorem: canary_unmapped' "$CAN/lunmap" bash -c "$(declare -f lean_audit pm_check); LX=(${LX[*]}); lean_audit $CAN/lunmap >/dev/null; grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt '$ROOT/proof-map.tsv'"
+    run CL3 canary-unmapped-annotated-theorem fail '^unmapped theorem: canary_unmapped' "$CAN/lunmap" bash -c "$(declare -f lean_audit lean_modules pm_check); LX=(${LX[*]}); lean_audit $CAN/lunmap >/dev/null; grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt '$ROOT/proof-map.tsv'"
   fi
   # CL5: a theorem in an imported project submodule must be discovered (X1 must report it)
   mkL lsub; ROOTMOD="$(awk '/^\[\[lean_lib\]\]/{f=1;next} f&&/^name *=/{gsub(/.*= *"|".*/,"");print;f=0}' "$CAN/lsub/lakefile.toml" | head -1)"
   mkdir -p "$CAN/lsub/$ROOTMOD"; printf 'theorem canary_submodule : True := trivial\n' > "$CAN/lsub/$ROOTMOD/CanarySub.lean"
   sed -i "1i import $ROOTMOD.CanarySub" "$CAN/lsub/$ROOTMOD.lean"
   if [ -f "$ROOT/proof-map.tsv" ]; then
-    run CL5 canary-submodule-theorem-discovered fail '^unmapped theorem: canary_submodule' "$CAN/lsub" bash -c "$(declare -f lean_audit pm_check); LX=(${LX[*]}); lean_audit $CAN/lsub >/dev/null; grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt '$ROOT/proof-map.tsv'"
+    run CL5 canary-submodule-theorem-discovered fail '^unmapped theorem: canary_submodule' "$CAN/lsub" bash -c "$(declare -f lean_audit lean_modules pm_check); LX=(${LX[*]}); lean_audit $CAN/lsub >/dev/null; grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt '$ROOT/proof-map.tsv'"
   fi
   # CL6: a proof-map row with an empty Rust-test column must not satisfy X1
   if [ -f "$ROOT/proof-map.tsv" ]; then
@@ -164,7 +198,58 @@ LEAN
   run CL7 canary-missing-proof-map fail '^proof-map missing' "$CAN/pmmissing" bash -c "$(declare -f pm_check); pm_check '$EV/lean-theorems.txt' proof-map.tsv"
   # CL4: a Lean error inside the audit itself must fail L2 (no silent pass)
   mkL lbroken; printf '\nnamespace Broken\ntheorem canary_broken : True := by exact (rfl : 1 = 2)\nend Broken\n' >> "$(ls "$CAN"/lbroken/*.lean | head -1)"
-  run CL4 canary-audit-propagates-lean-error fail '^AUDIT build failed' "$CAN/lbroken" bash -c "$(declare -f lean_audit); LX=(${LX[*]}); lean_audit $CAN/lbroken"
+  run CL4 canary-audit-propagates-lean-error fail '^AUDIT build failed' "$CAN/lbroken" bash -c "$(declare -f lean_audit lean_modules); LX=(${LX[*]}); lean_audit $CAN/lbroken"
+
+  # Audit regressions: missing inputs, empty loops, hidden statuses and evidence.
+  mkdir -p "$CAN/discovery" "$CAN/text/Sub" "$CAN/maps" "$CAN/witness"
+  run CL8 canary-missing-lean-project fail '^LEAN project missing' "$ROOT" lean_project "$CAN/discovery"
+  mkdir -p "$CAN/discovery/a" "$CAN/discovery/b"
+  touch "$CAN/discovery/a/lakefile.toml" "$CAN/discovery/b/lakefile.toml"
+  run CL9 canary-multiple-lean-projects fail '^LEAN multiple projects' "$ROOT" lean_project "$CAN/discovery"
+  run CL10 canary-missing-lean-sources fail '^LEAN sources missing' "$ROOT" lean_text "$CAN/text"
+  printf '%s\n' '-- clean root' > "$CAN/text/Root.lean"
+  printf '%s\n' '-- sorry in a nested source' > "$CAN/text/Sub/Nested.lean"
+  run CL11 canary-nested-sorry-text fail '^LEAN forbidden proof text' "$ROOT" lean_text "$CAN/text"
+  printf 'mapped\n' > "$CAN/maps/theorems"
+  printf 'mapped\ttests::adds\n' > "$CAN/maps/valid.tsv"
+  : > "$CAN/maps/empty"
+  run CL12 canary-missing-theorem-list fail '^theorem inventory missing' "$ROOT" pm_check "$CAN/maps/missing" "$CAN/maps/valid.tsv"
+  run CL13 canary-empty-theorem-list fail '^theorem inventory empty' "$ROOT" pm_check "$CAN/maps/empty" "$CAN/maps/valid.tsv"
+  printf 'unmapped_final_line' > "$CAN/maps/no-newline"
+  run CL14 canary-unterminated-theorem fail '^unmapped theorem: unmapped_final_line' "$ROOT" pm_check "$CAN/maps/no-newline" "$CAN/maps/valid.tsv"
+  printf '# comment-only map\n' > "$CAN/maps/comments.tsv"
+  run CL15 canary-empty-proof-map fail '^proof-map has no test rows' "$ROOT" bash -c "$(declare -f pm_tests); pm_tests '$CAN/maps/comments.tsv'"
+  # Shell functions stand in for Cargo only in these status/output regression fixtures.
+  cargo() { printf 'fixture text: 1 passed\n\ntest result: ok. 0 passed; 0 failed;\n'; }
+  run CL16 canary-test-output-is-not-summary fail '^rust test missing/failed: tests::adds' "$ROOT" pm_tests "$CAN/maps/valid.tsv"
+  cargo() { printf 'test result: ok. 1 passed; 0 failed; 0 ignored;\n'; return 1; }
+  run CL17 canary-cargo-status fail '^rust test missing/failed: tests::adds' "$ROOT" pm_tests "$CAN/maps/valid.tsv"
+  cargo() { printf 'test result: ok. 11 passed; 0 failed; 0 ignored;\n'; }
+  run CL18 canary-exact-test-count fail '^rust test missing/failed: tests::adds' "$ROOT" pm_tests "$CAN/maps/valid.tsv"
+  unset -f cargo
+  run CL19 canary-command-is-not-output fail '^reason absent from tool output' "$ROOT" bash -c "
+    $(declare -f run)
+    EV='$CAN/witness'; RES='$CAN/witness/inner.tsv'
+    run inner command-reason fail COMMAND_ONLY_REASON '$ROOT' bash -c 'exit 1' COMMAND_ONLY_REASON
+    if grep -q FAIL_WRONG_REASON \"\$RES\"; then echo 'reason absent from tool output'; exit 1; fi"
+  printf 'id\tstep\texpect\texit\treason_check\tverdict\n' > "$CAN/witness/results.tsv"
+  run CL20 canary-missing-witness-row fail '^witness missing gate: L2' "$ROOT" witness_check "$CAN/witness/results.tsv" L2
+  run CL21 canary-checksum-failure fail '^witness checksum failed' "$ROOT" seal_evidence "$CAN/witness"
+  mkL lroots
+  sed -i '/^name = "CheckedAdd"/a roots = ["Other"]' "$CAN/lroots/lakefile.toml"
+  printf 'theorem canary_custom_root : True := trivial\n' > "$CAN/lroots/Other.lean"
+  run CL22 canary-custom-library-root fail '^unmapped theorem: canary_custom_root' "$CAN/lroots" bash -c "$(declare -f lean_audit lean_modules pm_check); LX=(${LX[*]}); lean_audit '$CAN/lroots' >/dev/null; grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt '$ROOT/proof-map.tsv'"
+  mkL lorphan
+  mkdir -p "$CAN/lorphan/CheckedAdd"
+  printf 'theorem canary_orphan : False := by sorry\n' > "$CAN/lorphan/CheckedAdd/Orphan.lean"
+  run CL23 canary-unimported-submodule fail 'AUDIT sorryAx in .*canary_orphan' "$CAN/lorphan" bash -c "$(declare -f lean_audit lean_modules); LX=(${LX[*]}); lean_audit '$CAN/lorphan'"
+  mkL ltoml
+  printf '\n[[ lean_lib ]]\nname = "Extra"\n' >> "$CAN/ltoml/lakefile.toml"
+  printf 'theorem canary_extra_library : True := trivial\n' > "$CAN/ltoml/Extra.lean"
+  run CL24 canary-toml-library-discovery fail '^unmapped theorem: canary_extra_library' "$CAN/ltoml" bash -c "$(declare -f lean_audit lean_modules pm_check); LX=(${LX[*]}); lean_audit '$CAN/ltoml' >/dev/null; grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt '$ROOT/proof-map.tsv'"
+  elan() { printf 'Lean (version 4.35.0, fixture)\n'; return 1; }
+  run CL25 canary-version-command-status fail '^LEAN version command failed' "$ROOT" lean_version 'leanprover/lean4:v4.35.0'
+  unset -f elan
 fi
 
 # --- summary ---
@@ -172,5 +257,4 @@ TOTAL=$(($(wc -l < "$RES") - 1)); OK=$(grep -c $'\tPASS$' "$RES" || true)
 echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
-( cd "$EV" && sha256sum *.log env.txt results.tsv > SHA256SUMS )
-[ "$OK" -eq "$TOTAL" ]
+seal_evidence "$EV"
