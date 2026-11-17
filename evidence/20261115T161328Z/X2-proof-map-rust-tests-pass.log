@@ -1,3 +1,0 @@
-$ bash -c grep -v '^#' proof-map.tsv | awk -F'\t' 'NF' | while IFS=$'\t' read -r th t; do [ -z "$t" ] && { echo "empty rust test for theorem: $th"; exit 1; }; out=$(cargo test --locked --lib -- --exact "$t" 2>&1); echo "$out" | grep -q '1 passed' || { echo "rust test missing/failed: $t"; echo "$out" | tail -5; exit 1; }; echo "ok $th -> $t"; done
-ok checkedAdd_none_iff_overflow -> tests::detects_overflow
-ok checkedAdd_some_is_sum -> tests::adds

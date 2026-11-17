@@ -1,6 +1,0 @@
-$ mutants_gate /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/mnt/rust-cicd-core-ops/pr12 /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/mutants-root
-Found 4 mutants to test
-ok       Unmutated baseline in 0s build + 0s test
- INFO Auto-set test timeout to 20s
-4 mutants tested in 4s: 4 caught
-MUTANTS caught=4 unviable=0

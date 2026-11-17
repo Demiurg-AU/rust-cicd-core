@@ -1,3 +1,0 @@
-PROGRESS=21/21
-evidence=/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/mnt/rust-cicd-core/evidence/20261115T160807Z
-build_dir=/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.dudVip (outside repo, temporary)
