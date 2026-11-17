@@ -1,0 +1,5 @@
+$ pm_tests /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.AabxvY/canaries/maps/valid.tsv
+rust test missing/failed: tests::adds
+fixture text: 1 passed
+
+test result: ok. 0 passed; 0 failed;
