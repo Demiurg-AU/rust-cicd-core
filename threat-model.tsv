@@ -1,0 +1,21 @@
+id	threat	controls	status	note
+SLSA-A	Producer intentionally ships harmful code	-	OUT_OF_SCOPE	SLSA v1.2: not mitigated by supply-chain controls; trust in the producer is separate
+SLSA-B	Change lands without independent review	ext:ruleset-required-checks ext:codex-review	PARTIAL	no second human reviewer (Source L4): #14
+SLSA-C	Source control management compromised (history rewrite, branch deletion)	ext:ruleset-deletion ext:ruleset-non-fast-forward	PARTIAL	no source provenance attestations yet: #14
+SLSA-D	Build from unofficial ref or parameters	ext:release-provenance ext:reusable-build-workflow	PARTIAL	provenance exists, no automated expectation check before release: #17
+SLSA-E	Build process tampered or non-hermetic	S0b C7 ext:sha-pinned-actions ext:zizmor	PARTIAL	no reproducibility check: #15
+SLSA-F	Published artifact differs from built artifact	ext:release-provenance	PARTIAL	no release published yet: #16
+SLSA-G	Distribution channel compromised	ext:release-provenance	OPEN	nothing distributed yet: #16
+SLSA-H	Consumer selects the wrong package	-	OUT_OF_SCOPE	consumer side; template is not published (publish = false)
+SLSA-I	Consumer uses the artifact unsafely	-	OUT_OF_SCOPE	consumer side
+DEP-1	Vulnerable or yanked dependency	S2a S2b C9 ext:dependabot	COVERED	cargo-deny advisories + cargo-audit; C9 proves the audit fires
+DEP-2	Disallowed license or unknown source	S2a C4	COVERED	cargo-deny licenses/sources; C4 proves the license check fires
+DEP-3	Freshly published malicious version pulled in	ext:dependabot-cooldown ext:locked-lockfile	COVERED	7-day cooldown; every cargo call uses --locked
+CI-1	A gate reports PASS without performing its check (silent skip)	C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 lean:CL20 lean:CL21	COVERED	every Rust and Lean gate has a canary; witness inventory is sealed
+CI-2	Toolchain drift between CI and local	S0b C7 lean:L0 lean:L0b	COVERED	exact Rust and Lean pins checked against the running tools
+CI-3	Tests run code without checking it	S1c S1d C5 C8	COVERED	coverage threshold + mutation testing
+CI-4	Gate evidence forged or replaced	lean:CL21 ext:fixture-evidence-checker	PARTIAL	checksummed, not signed: #17
+CI-5	Proved model and shipped code diverge	lean:L2 lean:X1 lean:X2	PARTIAL	Lean theorem <-> Rust test mapping only; Rust-level proof (Kani) pending: #20
+CI-6	Malicious or unsafe workflow change	ext:zizmor ext:codeql-actions	COVERED	zizmor on every PR, CodeQL (actions) on push/PR
+CI-7	AI agent PR carries injected instructions or edits the pipeline	ext:workflow-approval	PARTIAL	agent PR policy: #18
+CI-8	Untested input space (parsers, adversarial inputs)	S1d	OPEN	fuzzing: #19

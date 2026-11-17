@@ -17,6 +17,7 @@ WORK="$(mktemp -d "${TMPDIR:-/tmp}/rust-cicd-core.XXXXXX")"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
 
 # --- environment witness ---
+# No "| head" here: under pipefail a closed pipe (SIGPIPE) would abort the whole run before any gate (found 2026-11-17).
 {
   echo "utc=$STAMP"; uname -a
   for t in cargo rustc cargo-clippy rustfmt cargo-nextest cargo-llvm-cov cargo-deny cargo-audit cargo-mutants; do
@@ -24,7 +25,7 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
     if [ -z "$p" ]; then echo "$t: MISSING"; continue; fi
     # rustup installs identical proxy shims; hash the real toolchain binary instead
     real="$p"; command -v rustup >/dev/null && real="$(rustup which "$t" 2>/dev/null || echo "$p")"
-    case "$t" in cargo-*) ver="$(cargo "${t#cargo-}" --version 2>&1 | head -1)";; *) ver="$("$t" --version 2>&1 | head -1)";; esac
+    case "$t" in cargo-*) ver="$(cargo "${t#cargo-}" --version 2>&1 | sed -n 1p)";; *) ver="$("$t" --version 2>&1 | sed -n 1p)";; esac
     echo "$t: $ver | sha256=$(sha256sum "$real" | cut -c1-64)"
   done
   echo "git_head=$(git rev-parse HEAD 2>/dev/null || echo none)"
@@ -309,7 +310,7 @@ CARGO_TARGET_DIR="$CAN/build/target" run C10 canary-build-broken fail 'unclosed 
 
 # --- L: Lean stage. Mandatory unless REQUIRE_LEAN=0 AND no Lean project exists (then visibly SKIPPED). ---
 export PY="${PY:-python3}"
-echo "require_lean=${REQUIRE_LEAN:-1} | python: $(command -v "$PY" >/dev/null && "$PY" --version 2>&1 | head -1 || echo none)" >> "$EV/env.txt"
+echo "require_lean=${REQUIRE_LEAN:-1} | python: $(command -v "$PY" >/dev/null && "$PY" --version 2>&1 | sed -n 1p || echo none)" >> "$EV/env.txt"
 if ! LMODE="$(lean_mode "$ROOT")"; then printf '%s\n' "$LMODE" >&2; exit 1; fi
 # Self-tests of the mode switch and Python check (run in both modes)
 mkdir -p "$CAN/mode/two/a" "$CAN/mode/two/b" "$CAN/mode/none"
@@ -547,13 +548,61 @@ LEAN
 }
 fi
 
+# --- T1: threat model. Every threat maps to controls; every gate it names must have PASSed in THIS run;
+#     PARTIAL/OPEN must point at a tracking issue (#N). A threat with no control is visible, never silent. ---
+threat_check() { # <threat-model.tsv> <results.tsv> <lean mode: run|skip>
+  # Controls prefixed "lean:" are required only when the Lean stage ran (REQUIRE_LEAN=0 Rust-only runs skip them).
+  local tm="$1" res="$2" mode="${3:-run}"
+  [[ "$mode" == run || "$mode" == skip ]] || { echo "THREAT invalid lean mode: $mode"; return 1; }
+  [ -f "$tm" ] || { echo "THREAT model missing: $tm"; return 1; }
+  awk -F'\t' -v res="$res" -v mode="$mode" '
+    BEGIN { while ((getline l < res) > 0) { split(l, f, "\t"); if (f[6]=="PASS") pass[f[1]]=1 } }
+    NR==1 { if ($0 != "id\tthreat\tcontrols\tstatus\tnote") { print "THREAT model header invalid"; bad=1 } next }
+    /^#/ || !NF { next }
+    {
+      n++
+      if (NF != 5) { print "THREAT row needs 5 columns: " $1; bad=1; next }
+      if (seen[$1]++) { print "THREAT duplicate id: " $1; bad=1 }
+      st=$4; count[st]++
+      if (st !~ /^(COVERED|PARTIAL|OPEN|OUT_OF_SCOPE)$/) { print "THREAT unknown status: " $1 " " st; bad=1 }
+      if (st != "OUT_OF_SCOPE" && st != "OPEN" && ($3 == "-" || $3 == "")) { print "THREAT without control: " $1; bad=1 }
+      if ((st == "PARTIAL" || st == "OPEN") && $5 !~ /#[0-9]+/) { print "THREAT open without tracking issue: " $1; bad=1 }
+      if (st == "OUT_OF_SCOPE" && $5 !~ /[^[:space:]-]/) { print "THREAT out of scope without reason: " $1; bad=1 }
+      m = split($3, c, " "); live=0
+      for (i = 1; i <= m; i++) {
+        g = c[i]; if (g == "-") continue
+        if (g ~ /^ext:/) { live++; continue }
+        if (g ~ /^lean:/) { g = substr(g, 6); if (mode == "skip") continue }
+        live++
+        if (!pass[g]) { print "THREAT unknown or failed gate " g " in " $1; bad=1 }
+      }
+      if (mode == "skip" && (st == "COVERED" || st == "PARTIAL") && !live) print "THREAT not applicable in Rust-only mode: " $1
+    }
+    END {
+      if (!n) { print "THREAT model empty"; bad=1 }
+      printf "THREATS total=%d covered=%d partial=%d open=%d out_of_scope=%d\n", n, count["COVERED"], count["PARTIAL"], count["OPEN"], count["OUT_OF_SCOPE"]
+      exit bad
+    }' "$tm"
+}
+TM_DIR="$ROOT"; while [ "$TM_DIR" != / ] && [ ! -f "$TM_DIR/threat-model.tsv" ]; do TM_DIR="$(dirname "$TM_DIR")"; done
+# canaries run on copies, never on the real model; T1 must not name itself as a control
+mkdir -p "$CAN/threat"
+{ head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-1\tcanary\tS9z\tCOVERED\tgate does not exist\n'; } > "$CAN/threat/unknown.tsv"
+run C11 canary-threat-unknown-gate fail '^THREAT unknown or failed gate S9z' "$ROOT" threat_check "$CAN/threat/unknown.tsv" "$RES" run
+{ head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-2\tcanary\tS0a\tOPEN\tno issue reference\n'; } > "$CAN/threat/untracked.tsv"
+run C12 canary-threat-open-untracked fail '^THREAT open without tracking issue: X-2' "$ROOT" threat_check "$CAN/threat/untracked.tsv" "$RES" run
+# C13: a Lean gate WITHOUT the lean: prefix is still required in Rust-only mode (the prefix is the only way out)
+{ head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-3\tcanary\tS0a L2x\tCOVERED\tunprefixed Lean-style gate\n'; } > "$CAN/threat/unprefixed.tsv"
+run C13 canary-threat-unprefixed-lean-gate fail '^THREAT unknown or failed gate L2x' "$ROOT" threat_check "$CAN/threat/unprefixed.tsv" "$RES" skip
+run T1 threat-model pass - "$ROOT" threat_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$LMODE"
+
 # --- summary ---
 TOTAL=$(($(wc -l < "$RES") - 1)); OK=$(grep -c $'\tPASS$' "$RES" || true)
 echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..10} CL29 CL30 CL32 LSKIP
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..13} CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..10} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..13} T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi
