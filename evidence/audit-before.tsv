@@ -41,3 +41,6 @@ CL22	canary-custom-library-root	fail	0	n/a	FAIL_GATE_DID_NOT_FIRE
 CL23	canary-unimported-submodule	fail	0	n/a	FAIL_GATE_DID_NOT_FIRE
 CL24	canary-toml-library-discovery	fail	0	n/a	FAIL_GATE_DID_NOT_FIRE
 CL25	canary-version-command-status	fail	0	n/a	FAIL_GATE_DID_NOT_FIRE
+CL26	canary-private-theorem	fail	0	n/a	FAIL_GATE_DID_NOT_FIRE
+CL27	canary-theorem-without-source-range	fail	0	n/a	FAIL_GATE_DID_NOT_FIRE
+CL28	canary-empty-default-targets	fail	0	n/a	FAIL_GATE_DID_NOT_FIRE
