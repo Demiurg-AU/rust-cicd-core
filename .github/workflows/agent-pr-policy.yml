@@ -73,7 +73,7 @@ jobs:
           fi
           cat policy.out; cat policy.out >> "$GITHUB_STEP_SUMMARY"
           state=failure; [ "$rc" = 0 ] && state=success
-          desc=$(grep -m1 -E '^AGENT ' policy.out | cut -c1-140)
+          desc=$(grep -m1 -E '^AGENT ' policy.out | cut -c1-140 || true)
           gh api "repos/$REPO/statuses/$head" -f state="$state" -f context=agent-pr-policy \
             -f description="${desc:-no decision}" > /dev/null || { echo "AGENT status publish failed"; exit 1; }
           # The DECISION lives only in the required status "agent-pr-policy". This job is green when the
