@@ -1,0 +1,1 @@
+$ bash -c for t in $(cat '/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/mnt/rust-cicd-core/evidence/20261115T160745Z/lean-theorems.txt'); do grep -q "^$t"$'\t' proof-map.tsv || { echo "unmapped theorem: $t"; exit 1; }; done

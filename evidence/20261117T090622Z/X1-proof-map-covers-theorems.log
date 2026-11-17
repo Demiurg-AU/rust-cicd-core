@@ -1,0 +1,16 @@
+$ bash -c pm_check () 
+{ 
+    local th="$1" pm="$2" rc=0 t;
+    [ -f "$pm" ] || { 
+        echo "proof-map missing: $pm";
+        return 1
+    };
+    while read -r t; do
+        [ -z "$t" ] && continue;
+        awk -F'\t' -v t="$t" '$1==t && $2 ~ /[^[:space:]]/ {f=1} END{exit !f}' "$pm" || { 
+            echo "unmapped theorem: $t";
+            rc=1
+        };
+    done < "$th";
+    return $rc
+}; pm_check '/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/mnt/rust-cicd-core/evidence/20261117T090622Z/lean-theorems.txt' proof-map.tsv

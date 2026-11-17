@@ -1,0 +1,68 @@
+$ bash -c lean_audit () 
+{ 
+    local d="$1" mods m;
+    mods="$(awk '/^\[\[lean_lib\]\]/{f=1;next} f&&/^name *=/{gsub(/.*= *"|".*/,"");print;f=0}' "$d/lakefile.toml")";
+    [ -n "$mods" ] || { 
+        echo "audit: no lean_lib in lakefile.toml";
+        return 2
+    };
+    { 
+        echo "import Lean";
+        for m in $mods;
+        do
+            echo "import $m";
+        done;
+        echo 'open Lean Elab Command';
+        echo 'elab "#audit_axioms" : command => do';
+        echo '  let env ← getEnv';
+        printf '  let mods : Array Name := #[%s]\n' "$(for m in $mods; do printf '`%s, ' "$m"; done | sed 's/, $//')";
+        cat <<'LEAN'
+  -- lean_lib roots AND their submodules (Root.Sub...), so imported project files are audited too
+  let inProject (m : Name) : Bool := mods.any (fun r => r == m || r.isPrefixOf m)
+  if (mods.filterMap env.getModuleIdx?).size != mods.size then throwError "AUDIT module not found"
+  let mut bad : Array Name := #[]
+  let mut n : Nat := 0
+  for (name, ci) in env.constants.map₁.toList do
+    let some mi := env.getModuleIdxFor? name | continue
+    unless inProject (env.header.moduleNames[mi.toNat]!) do continue
+    let .thmInfo _ := ci | continue
+    if name.isInternal then continue
+    let some _ ← liftCoreM (findDeclarationRanges? name) | continue
+    n := n + 1
+    let axs ← liftCoreM (collectAxioms name)
+    logInfo m!"AUDIT theorem {name} axioms {axs}"
+    if axs.contains ``sorryAx then bad := bad.push name
+  logInfo m!"AUDIT theorems={n}"
+  if n == 0 then throwError "AUDIT found no theorems"
+  unless bad.isEmpty do throwError m!"AUDIT sorryAx in {bad}"
+#audit_axioms
+LEAN
+
+    } > "$d/ZzAudit.lean";
+    ( cd "$d" && { 
+        "${LX[@]}" lake build || { 
+            echo "AUDIT build failed";
+            exit 3
+        }
+    } && "${LX[@]}" lake env lean ZzAudit.lean ) > "$d/axioms.out" 2>&1;
+    local rc=$?;
+    cat "$d/axioms.out";
+    return $rc
+}
+pm_check () 
+{ 
+    local th="$1" pm="$2" rc=0 t;
+    [ -f "$pm" ] || { 
+        echo "proof-map missing: $pm";
+        return 1
+    };
+    while read -r t; do
+        [ -z "$t" ] && continue;
+        awk -F'\t' -v t="$t" '$1==t && $2 ~ /[^[:space:]]/ {f=1} END{exit !f}' "$pm" || { 
+            echo "unmapped theorem: $t";
+            rc=1
+        };
+    done < "$th";
+    return $rc
+}; LX=(elan run lean-4.35.0); lean_audit /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.nyREKx/canaries/lunmap >/dev/null; grep -oE 'AUDIT theorem [^ ]+' axioms.out | awk '{print $3}' > th.txt; pm_check th.txt '/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/mnt/rust-cicd-core/proof-map.tsv'
+unmapped theorem: canary_unmapped

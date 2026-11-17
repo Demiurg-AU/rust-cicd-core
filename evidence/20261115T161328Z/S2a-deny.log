@@ -1,0 +1,8 @@
+$ cargo deny --locked check
+warning[license-not-encountered]: license was not encountered
+  ┌─ /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/mnt/rust-cicd-core/deny.toml:7:32
+  │
+7 │ allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
+  │                                ━━━━━━━━━━━ unmatched license allowance
+
+advisories ok, bans ok, licenses ok, sources ok

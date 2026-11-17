@@ -1,0 +1,6 @@
+name = "rust_cicd_core_model"
+version = "0.1.0"
+defaultTargets = ["CheckedAdd"]
+
+[[lean_lib]]
+name = "CheckedAdd"

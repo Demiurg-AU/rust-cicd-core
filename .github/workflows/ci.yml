@@ -36,7 +36,28 @@ jobs:
         with:
           tool: cargo-nextest@0.9.152,cargo-llvm-cov@0.9.1,cargo-deny@0.20.2,cargo-audit@0.23.0
 
+      - name: Install Lean (pinned versions, sha256-verified, no curl|sh)
+        env:
+          ELAN_VERSION: v4.2.4
+          ELAN_SHA256: 42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63
+          LEAN_VERSION: 4.35.0
+          LEAN_SHA256: 7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -sSfLO "https://github.com/leanprover/elan/releases/download/${ELAN_VERSION}/elan-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${ELAN_SHA256}  elan-x86_64-unknown-linux-gnu.tar.gz" | sha256sum -c -
+          tar xzf elan-x86_64-unknown-linux-gnu.tar.gz
+          ./elan-init -y --default-toolchain none --no-modify-path
+          curl -sSfL -o lean.tar.zst "https://github.com/leanprover/lean4/releases/download/v${LEAN_VERSION}/lean-${LEAN_VERSION}-linux.tar.zst"
+          echo "${LEAN_SHA256}  lean.tar.zst" | sha256sum -c -
+          mkdir lean-tc && tar --zstd -xf lean.tar.zst -C lean-tc --strip-components=1
+          "$HOME/.elan/bin/elan" toolchain link "lean-${LEAN_VERSION}" "$RUNNER_TEMP/lean-tc"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
       - name: Run CI core (same script as local)
+        env:
+          LEAN_TOOLCHAIN: lean-4.35.0
         run: ./scripts/ci-local.sh
 
       - name: Upload evidence

@@ -1,0 +1,3 @@
+PROGRESS=20/21
+evidence=/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/mnt/rust-cicd-core/evidence/20261115T160713Z
+build_dir=/sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.bEe1vs (outside repo, temporary)
