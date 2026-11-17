@@ -69,13 +69,15 @@ FAIL_WRONG_REASON = гейт упал, но не из-за того, что до
 zizmor 1.32.0 предложил синтаксис `$/` для ссылки на свой reusable workflow — применён; работоспособность подтверждена прогоном 43716257897.
 
 ## L — Lean (2026-11-15)
-Стадия L в `scripts/ci-local.sh` включается автоматически, если есть `lakefile.toml`.
+Стадия L в `scripts/ci-local.sh` обязательна: требуется ровно один `lakefile.toml`
+(каталоги `.git`, `.lake`, `target`, `evidence` исключены из поиска).
+Для разбора TOML нужен Python 3.11+; для сборки — elan и закреплённый Lean.
 
 | ID | Гейт | Что ловит |
 |---|---|---|
 | L0 / L0b | `lean-toolchain` в репозитории и версия Lean совпадает с ним | невоспроизводимая сборка |
-| L1 | `lake build` | неверные доказательства |
-| L2 | `#print axioms` для каждой теоремы, `sorryAx` = FAIL | «доказано» через sorry |
+| L1 | `lake build +Module…` для всех обнаруженных модулей | неверные доказательства, в том числе при пустых defaultTargets |
+| L2 | Lean-environment audit каждой теоремы во всех модулях библиотек, включая неимпортированные подмодули и custom roots/globs; `sorryAx` = FAIL | «доказано» через sorry |
 | L3 | нет `sorry`/`admit` в тексте | то же, грубая проверка |
 | X1 / X2 | `proof-map.tsv`: каждая теорема сопоставлена Rust-тесту, тест существует и проходит | разрыв Rust↔Lean |
 | CL1 / CL2 | канарейки: теорема с sorry, ложное доказательство — должны упасть по своей причине | неработающий гейт |
@@ -84,5 +86,44 @@ zizmor 1.32.0 предложил синтаксис `$/` для ссылки н�
 (соответствие в `proof-map.tsv` — утверждение владельца, ASSUMPTION до ревью).
 Lean в CI: elan v4.2.4 и Lean 4.35.0 скачиваются с проверкой sha256 (digest Lean сверен с GitHub API).
 
+### Silent-skip audit
+
+`evidence/audit-before.tsv` records the new canaries against the original gate
+behavior: the existing 24 checks pass, but CL8–CL28 all exit 0
+(`FAIL_GATE_DID_NOT_FIRE`). `evidence/audit-after.tsv` records the fixed run.
+Failure reasons are matched against tool output only, never the logged command.
+
+| Examined location | Verdict / broken input previously accepted |
+|---|---|
+| Script setup, evidence writes and checksum finalization | FIXED (CL21): checksum failure was overwritten by a successful results check; setup/write errors now abort |
+| Environment witness (`head`, optional tool lookup, rustup fallback) | OK: diagnostic only; actual gates invoke tools and check their status |
+| `run` expected-pass status / expected-fail reason | FIXED (CL19): a reason present only in command arguments satisfied the canary |
+| S0a, S1a–S1c, S2a–S2b | OK: commands propagate failure; 80% coverage unchanged; an empty third-party dependency graph is intentional |
+| C1–C4 and CL1–CL7 | OK: preserved; conditional proof-map canaries are now unconditional and required by the witness inventory (CL20) |
+| Lean project discovery | FIXED (CL8, CL9): no project or multiple projects silently omitted checks; no depth limit remains |
+| L0 / L0b and tool invocation | FIXED (CL25): failed version command with plausible output passed the version check; pin and literal version checks are mandatory, no default-toolchain fallback |
+| L1 explicit build targets | FIXED (CL28): `defaultTargets = []` let a false theorem pass L1 with “Nothing to build”; all discovered modules are now explicit targets |
+| L2 build and axiom checks | OK: build/Lean errors, zero theorems and `sorryAx` fail; compiler auxiliaries are axiom-audited without requiring extra proof-map rows; existing CL1–CL5 preserved |
+| L2 module inventory | FIXED (CL22–CL24): custom roots, unimported submodules and valid alternate TOML table syntax omitted proofs |
+| L2 theorem filters | FIXED (CL26, CL27): private theorems and declarations without source ranges were skipped; all project theorem constants are now checked |
+| L3 source inventory and scan | FIXED (CL10, CL11): missing sources / nested `sorry` text passed; discovery and grep errors now fail |
+| X1 theorem inventory | FIXED (CL12–CL14): missing/empty input or an unmapped final line without a newline passed |
+| X2 row loop | FIXED (CL15): comment-only input executed zero tests and passed; rows must be nonempty, two-column TSV |
+| X2 Cargo result | FIXED (CL16–CL18): arbitrary `1 passed` text, failed Cargo status, or `11 passed` satisfied the check; requires exit 0 and an exact one-test success summary |
+| Summary / `results.tsv` | FIXED (CL20): an omitted gate (even an empty table) could satisfy PASS counts; all gate IDs must occur exactly once |
+| `ci.yml`: push/PR/manual triggers, core/tool installation, zizmor | OK: no path filters, gate `if:` conditions, or error suppression; main is the intended branch scope |
+| `ci.yml`: evidence upload | OK: `always()` preserves failure; missing artifacts are an error |
+| `build-reusable.yml`: workflow_call, build, packaging/SBOM, both attestations, upload | OK: unconditional steps, shell error propagation, explicit SBOM presence, required binary and error-on-missing artifacts |
+| `release.yml`: manual/tag triggers, reusable caller | OK: deliberate `v*` release scope; existing `$/` caller syntax already verified by release run 43716257897 |
+
+The script fails closed on unsupported module identifiers, symlinked source
+directories and source directories outside the project. Build products remain
+outside the repository; checksum generation and the required gate inventory must
+both succeed before the run succeeds.
+
 ## Не сделано (S5+)
 Trusted Publishing (решение владельца: первая публикация в crates.io вручную), cargo-vet, MSRV, канарейка удаления main. Изменения в main — только через PR.
+
+### Lean stage switch and Python requirement
+- `REQUIRE_LEAN` (default `1`): the Lean stage is mandatory. `REQUIRE_LEAN=0` skips it **only** when the repository has no `lakefile.toml`; the skip is recorded as gate `LSKIP` in `results.tsv`. Multiple or broken Lean projects always fail. Canaries CL29, CL30, CL32 test the switch. A Rust-only run with `REQUIRE_LEAN=0` needs no Python.
+- The Lean config parser needs Python >= 3.11 (`tomllib`). Gate `L00` checks this before the Lean stage and fails with `PYTHON too old: …`; canary CL31 tests the check. Override the interpreter with `PY=/path/to/python3.12`.

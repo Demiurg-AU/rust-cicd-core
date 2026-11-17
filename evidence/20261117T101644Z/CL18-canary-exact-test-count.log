@@ -1,0 +1,3 @@
+$ pm_tests /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.IgLMg9/canaries/maps/valid.tsv
+rust test missing/failed: tests::adds
+test result: ok. 11 passed; 0 failed; 0 ignored;
