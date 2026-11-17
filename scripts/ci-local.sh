@@ -547,13 +547,49 @@ LEAN
 }
 fi
 
+# --- T1: threat model. Every threat maps to controls; every gate it names must have PASSed in THIS run;
+#     PARTIAL/OPEN must point at a tracking issue (#N). A threat with no control is visible, never silent. ---
+threat_check() { # <threat-model.tsv> <results.tsv>
+  local tm="$1" res="$2"
+  [ -f "$tm" ] || { echo "THREAT model missing: $tm"; return 1; }
+  awk -F'\t' -v res="$res" '
+    BEGIN { while ((getline l < res) > 0) { split(l, f, "\t"); if (f[6]=="PASS") pass[f[1]]=1 } }
+    NR==1 { if ($0 != "id\tthreat\tcontrols\tstatus\tnote") { print "THREAT model header invalid"; bad=1 } next }
+    /^#/ || !NF { next }
+    {
+      n++
+      if (NF != 5) { print "THREAT row needs 5 columns: " $1; bad=1; next }
+      if (seen[$1]++) { print "THREAT duplicate id: " $1; bad=1 }
+      st=$4; count[st]++
+      if (st !~ /^(COVERED|PARTIAL|OPEN|OUT_OF_SCOPE)$/) { print "THREAT unknown status: " $1 " " st; bad=1 }
+      if (st != "OUT_OF_SCOPE" && st != "OPEN" && ($3 == "-" || $3 == "")) { print "THREAT without control: " $1; bad=1 }
+      if ((st == "PARTIAL" || st == "OPEN") && $5 !~ /#[0-9]+/) { print "THREAT open without tracking issue: " $1; bad=1 }
+      if (st == "OUT_OF_SCOPE" && $5 !~ /[^[:space:]-]/) { print "THREAT out of scope without reason: " $1; bad=1 }
+      m = split($3, c, " ")
+      for (i = 1; i <= m; i++) if (c[i] != "-" && c[i] !~ /^ext:/ && !pass[c[i]]) { print "THREAT unknown or failed gate " c[i] " in " $1; bad=1 }
+    }
+    END {
+      if (!n) { print "THREAT model empty"; bad=1 }
+      printf "THREATS total=%d covered=%d partial=%d open=%d out_of_scope=%d\n", n, count["COVERED"], count["PARTIAL"], count["OPEN"], count["OUT_OF_SCOPE"]
+      exit bad
+    }' "$tm"
+}
+TM_DIR="$ROOT"; while [ "$TM_DIR" != / ] && [ ! -f "$TM_DIR/threat-model.tsv" ]; do TM_DIR="$(dirname "$TM_DIR")"; done
+# canaries run on copies, never on the real model; T1 must not name itself as a control
+mkdir -p "$CAN/threat"
+{ head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-1\tcanary\tS9z\tCOVERED\tgate does not exist\n'; } > "$CAN/threat/unknown.tsv"
+run C11 canary-threat-unknown-gate fail '^THREAT unknown or failed gate S9z' "$ROOT" threat_check "$CAN/threat/unknown.tsv" "$RES"
+{ head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-2\tcanary\tS0a\tOPEN\tno issue reference\n'; } > "$CAN/threat/untracked.tsv"
+run C12 canary-threat-open-untracked fail '^THREAT open without tracking issue: X-2' "$ROOT" threat_check "$CAN/threat/untracked.tsv" "$RES"
+run T1 threat-model pass - "$ROOT" threat_check "${TM_DIR%/}/threat-model.tsv" "$RES"
+
 # --- summary ---
 TOTAL=$(($(wc -l < "$RES") - 1)); OK=$(grep -c $'\tPASS$' "$RES" || true)
 echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..10} CL29 CL30 CL32 LSKIP
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..12} CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..10} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..12} T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi
