@@ -18,4 +18,4 @@ CI-4	Gate evidence forged or replaced	lean:CL21 ext:fixture-evidence-checker	PAR
 CI-5	Proved model and shipped code diverge	lean:L2 lean:X1 lean:X2	PARTIAL	Lean theorem <-> Rust test mapping only; Rust-level proof (Kani) pending: #20
 CI-6	Malicious or unsafe workflow change	ext:zizmor ext:codeql-actions	COVERED	zizmor on every PR, CodeQL (actions) on push/PR
 CI-7	AI agent PR carries injected instructions or edits the pipeline	ext:workflow-approval	PARTIAL	agent PR policy: #18
-CI-8	Untested input space (parsers, adversarial inputs)	S1d	OPEN	fuzzing: #19
+CI-8	Untested input space (parsers, adversarial inputs)	S1d ext:fuzz-canary ext:fuzz-weekly	PARTIAL	cargo-fuzz on pinned nightly: differential target checked_add, canary target must crash first; Authority Firewall targets (Resource::from_absolute, decide) still pending: #19
