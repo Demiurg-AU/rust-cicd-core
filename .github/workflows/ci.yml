@@ -186,7 +186,9 @@ jobs:
           mkdir -p "$FIXTURE_DIR/scripts"
           cp scripts/*.sh "$FIXTURE_DIR/scripts/"
           chmod +x "$FIXTURE_DIR/scripts/ci-local.sh"
-          (cd "$FIXTURE_DIR" && ./scripts/ci-local.sh)
+          # invoked from the repo root through a relative path (as alisa-110 does): regression witness
+          # for helper resolution after ci-local's own `cd "$ROOT"`
+          bash "$FIXTURE_DIR/scripts/ci-local.sh"
 
       - name: Upload fixture evidence
         if: always()

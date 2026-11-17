@@ -3,6 +3,8 @@
 # Every step writes a log; results.tsv is the witness table. NO_WITNESS -> NO_CLOSE.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# helper scripts live next to this file; resolve BEFORE any cd (a relative $0/BASH_SOURCE breaks afterwards)
+SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 EV="$ROOT/evidence/$STAMP"
@@ -280,7 +282,9 @@ run S2b audit pass - "$ROOT" cargo audit
 
 # --- A8: gate self-test. Each gate must FAIL on a known-bad input, for the RIGHT reason ---
 CAN="$WORK/canaries"; mkdir -p "$CAN"
-mk() { mkdir -p "$CAN/$1"; cp -r "$ROOT/Cargo.toml" "$ROOT/Cargo.lock" "$ROOT/src" "$ROOT/deny.toml" "$CAN/$1/"; }
+mk() { mkdir -p "$CAN/$1"; cp -r "$ROOT/Cargo.toml" "$ROOT/Cargo.lock" "$ROOT/src" "$ROOT/deny.toml" "$CAN/$1/"
+  # canary copies live outside the project tree: carry the pinned toolchain so they use the same rustc as the real gates
+  if [ -f "${PIN_DIR%/}/rust-toolchain.toml" ]; then cp "${PIN_DIR%/}/rust-toolchain.toml" "$CAN/$1/"; fi; }
 mk fmt;    printf 'pub fn   ugly( ) {}\n' >> "$CAN/fmt/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/fmt/target" run C1 canary-fmt fail 'Diff in' "$CAN/fmt" cargo fmt --all -- --check
 mk clippy; printf '\npub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }\n' >> "$CAN/clippy/src/lib.rs"
@@ -597,7 +601,7 @@ run C12 canary-threat-open-untracked fail '^THREAT open without tracking issue: 
 { head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-3\tcanary\tS0a L2x\tCOVERED\tunprefixed Lean-style gate\n'; } > "$CAN/threat/unprefixed.tsv"
 run C13 canary-threat-unprefixed-lean-gate fail '^THREAT unknown or failed gate L2x' "$ROOT" threat_check "$CAN/threat/unprefixed.tsv" "$RES" skip
 # --- R1/C14-C16: approved release source (SLSA-D). The same script release.yml runs before publishing. ---
-RSC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/release-source-check.sh"
+RSC="$SD/release-source-check.sh"
 [ -f "$RSC" ] || echo "RELEASE helper missing next to ci-local.sh: $RSC (gates R1/C14-C16 will FAIL)" >&2
 gitc() { git -c user.name=canary -c user.email=canary@invalid -c commit.gpgsign=false -c tag.gpgsign=false "$@"; }
 G="$CAN/relsrc"; rm -rf "$G"; mkdir -p "$G"
@@ -609,7 +613,7 @@ run C14 canary-release-off-main fail '^RELEASE source not approved' "$G" bash "$
 run C15 canary-release-bad-ref fail '^RELEASE ref not approved' "$G" bash "$RSC" refs/tags/vbad "$MAIN_SHA" main
 run C16 canary-release-tag-mismatch fail '^RELEASE tag does not point at built commit' "$G" bash "$RSC" refs/tags/v1.2.3 "$SIDE_SHA" main
 # --- E1/C17-C19: signed gate evidence (CI-4). Same scripts the attest job and release.yml run. ---
-SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; EPS="$SD/evidence-predicate.sh"; EVD="$SD/evidence-verdict.sh"
+EPS="$SD/evidence-predicate.sh"; EVD="$SD/evidence-verdict.sh"
 for h in "$EPS" "$EVD"; do [ -f "$h" ] || echo "EVIDENCE helper missing next to ci-local.sh: $h (gates E1/C17-C19 will FAIL)" >&2; done
 mkev() { # <dir> <verdict of the second gate row>
   mkdir -p "$1"
