@@ -210,9 +210,13 @@ witness_check() {
 }
 seal_evidence() {
   local dir="$1"; shift
-  ( cd "$dir" && sha256sum ./*.log env.txt results.tsv summary.txt lean-theorems.txt > SHA256SUMS ) ||
+  rm -f "$dir/SHA256SUMS" ||
     { echo "witness checksum failed"; return 1; }
-  witness_check "$dir/results.tsv" "$@"
+  printf '%s\n' "$@" > "$dir/expected-gates.txt" ||
+    { echo "witness gate inventory failed"; return 1; }
+  witness_check "$dir/results.tsv" "$@" || return 1
+  ( cd "$dir" && sha256sum ./*.log env.txt expected-gates.txt results.tsv summary.txt lean-theorems.txt > SHA256SUMS ) ||
+    { echo "witness checksum failed"; return 1; }
 }
 
 # --- S0: skeleton builds with the locked graph ---
@@ -411,7 +415,8 @@ LEAN
     if grep -q FAIL_WRONG_REASON \"\$RES\"; then echo 'reason absent from tool output'; exit 1; fi"
   printf 'id\tstep\texpect\texit\treason_check\tverdict\n' > "$CAN/witness/results.tsv"
   run CL20 canary-missing-witness-row fail '^witness missing gate: L2' "$ROOT" witness_check "$CAN/witness/results.tsv" L2
-  run CL21 canary-checksum-failure fail '^witness checksum failed' "$ROOT" seal_evidence "$CAN/witness"
+  printf 'L2\tlean-audit\tpass\t0\tn/a\tPASS\n' >> "$CAN/witness/results.tsv"
+  run CL21 canary-checksum-failure fail '^witness checksum failed' "$ROOT" seal_evidence "$CAN/witness" L2
   mkL lroots
   # project-independent: derive the library name instead of assuming the template's "CheckedAdd"
   sed -i "/^name = \"$ROOTMOD\"/a roots = [\"$ROOTMOD\", \"Other\"]" "$CAN/lroots/lakefile.toml"

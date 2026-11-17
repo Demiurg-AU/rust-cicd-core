@@ -85,6 +85,7 @@ jobs:
       - id: fixtures
         name: Discover and verify fixture coverage
         run: |
+          python3 scripts/check-fixture-evidence.py --self-test
           python3 scripts/fixture-matrix.py --self-test
           matrix="$(python3 scripts/fixture-matrix.py)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
@@ -178,9 +179,12 @@ jobs:
           FIXTURE_ARTIFACTS: ${{ runner.temp }}/fixture-artifacts
           RUN_ID: ${{ github.run_id }}
           RUN_ATTEMPT: ${{ github.run_attempt }}
+          FIXTURE_JOB_RESULT: ${{ needs.fixture.result }}
+          DISCOVERY_JOB_RESULT: ${{ needs.discover-fixtures.result }}
         run: |
           python3 scripts/check-fixture-evidence.py \
-            "$FIXTURE_MATRIX" "$FIXTURE_ARTIFACTS" "$RUN_ID" "$RUN_ATTEMPT"
+            "$FIXTURE_MATRIX" "$FIXTURE_ARTIFACTS" "$RUN_ID" "$RUN_ATTEMPT" \
+            "$FIXTURE_JOB_RESULT" "$DISCOVERY_JOB_RESULT"
 
   zizmor:
     name: zizmor (workflow security)
