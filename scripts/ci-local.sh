@@ -353,7 +353,7 @@ LEAN
   run CL20 canary-missing-witness-row fail '^witness missing gate: L2' "$ROOT" witness_check "$CAN/witness/results.tsv" L2
   run CL21 canary-checksum-failure fail '^witness checksum failed' "$ROOT" seal_evidence "$CAN/witness"
   mkL lroots
-  sed -i '/^name = "CheckedAdd"/a roots = ["Other"]' "$CAN/lroots/lakefile.toml"
+  sed -i '/^name = "CheckedAdd"/a roots = ["CheckedAdd", "Other"]' "$CAN/lroots/lakefile.toml"
   printf 'theorem canary_custom_root : True := trivial\n' > "$CAN/lroots/Other.lean"
   run CL22 canary-custom-library-root fail '^unmapped theorem: canary_custom_root' "$CAN/lroots" bash -euo pipefail -c "$AUDIT; $(declare -f pm_check); lean_audit \"\$1\" >/dev/null; grep -oE '^AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt \"\$2\"" _ "$CAN/lroots" "$ROOT/proof-map.tsv"
   mkL lorphan
