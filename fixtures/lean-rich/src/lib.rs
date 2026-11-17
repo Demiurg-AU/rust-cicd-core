@@ -44,6 +44,8 @@ mod tests {
     fn vector_total_at_least_x() {
         let vector = Vec2 { x: 2, y: 3 };
         assert!(vector_total(&vector) >= vector.x);
+        // exact value: the property alone let `+ -> *` survive mutation testing
+        assert_eq!(vector_total(&vector), 5);
     }
 
     #[test]
@@ -81,5 +83,7 @@ mod tests {
         let shape = Shape::Circle(radius);
         assert!(matches!(shape, Shape::Circle(r) if r > 0));
         assert!(circle_area(radius) > 0);
+        // exact value: positivity alone let `* -> +`, `* -> /` and `-> 1` survive mutation testing
+        assert_eq!(circle_area(radius), 16);
     }
 }

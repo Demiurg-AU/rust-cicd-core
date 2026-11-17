@@ -1,0 +1,5 @@
+$ lean_build /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/lean
+info: rust_cicd_core_model: no previous manifest, creating one from scratch
+info: toolchain not updated; already up-to-date
+✔ [2/2] Built CheckedAdd (338ms)
+Build completed successfully (2 jobs).

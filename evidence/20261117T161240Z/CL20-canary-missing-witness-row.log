@@ -1,0 +1,3 @@
+$ witness_check /sessions/rcw-01p47zwxfqmkyjbfvzkscr5d/tmp/rust-cicd-core.BIRDF3/canaries/witness/results.tsv L2
+witness missing gate: L2
+witness has no gate rows
