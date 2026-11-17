@@ -85,6 +85,8 @@ zizmor 1.32.0 предложил синтаксис `$/` для ссылки н�
 Граница: X1/X2 доказывают трассируемость и прохождение тестов, но НЕ семантическое соответствие модели коду
 (соответствие в `proof-map.tsv` — утверждение владельца, ASSUMPTION до ревью).
 Lean в CI: elan v4.2.4 и Lean 4.35.0 скачиваются с проверкой sha256 (digest Lean сверен с GitHub API).
+Fixture CI uses a matrix generated from every fixture Rust root containing a Lean `lakefile.toml`;
+its coverage canary creates a temporary omitted fixture and requires `FIXTURE not covered: …`.
 
 ### Silent-skip audit
 

@@ -69,8 +69,32 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
-  fixture-lean-rich:
-    name: fixture (lean-rich)
+  discover-fixtures:
+    name: fixture inventory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.fixtures.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: fixtures
+        name: Discover and verify fixture coverage
+        run: |
+          python3 scripts/fixture-matrix.py --self-test
+          matrix="$(python3 scripts/fixture-matrix.py)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  fixture:
+    name: fixture (${{ matrix.name }})
+    needs: discover-fixtures
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover-fixtures.outputs.matrix) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -108,21 +132,22 @@ jobs:
           "$HOME/.elan/bin/elan" toolchain link "lean-${LEAN_VERSION}" "$RUNNER_TEMP/lean-tc"
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: Run CI on lean-rich fixture (same script)
+      - name: Run CI on fixture (same script)
         env:
+          FIXTURE_DIR: ${{ matrix.dir }}
           LEAN_TOOLCHAIN: lean-4.35.0
         run: |
-          mkdir -p fixtures/lean-rich/scripts
-          cp scripts/ci-local.sh fixtures/lean-rich/scripts/ci-local.sh
-          chmod +x fixtures/lean-rich/scripts/ci-local.sh
-          ./fixtures/lean-rich/scripts/ci-local.sh
+          mkdir -p "$FIXTURE_DIR/scripts"
+          cp scripts/ci-local.sh "$FIXTURE_DIR/scripts/ci-local.sh"
+          chmod +x "$FIXTURE_DIR/scripts/ci-local.sh"
+          (cd "$FIXTURE_DIR" && ./scripts/ci-local.sh)
 
       - name: Upload fixture evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: evidence-lean-rich-${{ github.run_id }}-${{ github.run_attempt }}
-          path: fixtures/lean-rich/evidence/
+          name: evidence-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ matrix.dir }}/evidence/
           retention-days: 90
           if-no-files-found: error
 
