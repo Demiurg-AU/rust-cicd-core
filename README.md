@@ -86,7 +86,9 @@ zizmor 1.32.0 предложил синтаксис `$/` для ссылки н�
 (соответствие в `proof-map.tsv` — утверждение владельца, ASSUMPTION до ревью).
 Lean в CI: elan v4.2.4 и Lean 4.35.0 скачиваются с проверкой sha256 (digest Lean сверен с GitHub API).
 Fixture CI uses a matrix generated from every fixture Rust root containing a Lean `lakefile.toml`;
-its coverage canary creates a temporary omitted fixture and requires `FIXTURE not covered: …`.
+its final coverage job requires a checksum-sealed `results.tsv` with all PASS rows for every matrix
+entry. The root Lean scan excludes only the top-level `fixtures/` directory; nested directories
+named `fixtures` remain in scope.
 
 ### Silent-skip audit
 

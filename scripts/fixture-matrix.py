@@ -11,18 +11,21 @@ IGNORED = {".git", ".lake", "evidence", "target"}
 
 
 def fixture_roots():
-    projects = set()
+    projects = {}
     for lakefile in FIXTURES.rglob("lakefile.toml"):
         if IGNORED.intersection(lakefile.relative_to(FIXTURES).parts):
             continue
         parent = lakefile.parent
         while parent != FIXTURES and parent != ROOT:
             if (parent / "Cargo.toml").is_file():
-                projects.add(parent)
+                projects.setdefault(parent, []).append(lakefile)
                 break
             parent = parent.parent
         else:
             raise ValueError(f"FIXTURE project root missing Cargo.toml: {lakefile.parent.relative_to(ROOT)}")
+    for project, lakefiles in projects.items():
+        if len(lakefiles) != 1:
+            raise ValueError(f"FIXTURE project must contain exactly one lakefile.toml: {project.relative_to(ROOT)}")
     return sorted(projects)
 
 
@@ -63,13 +66,14 @@ def main():
     projects = fixture_roots()
     if not projects:
         raise ValueError("FIXTURE projects missing")
-    matrix = {
-        "include": [{"dir": project.relative_to(ROOT).as_posix(), "name": project.name}
-                    for project in projects]
-    }
-    scheduled = [ROOT / item["dir"] for item in matrix["include"]]
-    if not check_coverage(projects, scheduled):
-        raise ValueError("FIXTURE coverage incomplete")
+    matrix = {"include": [
+        {
+            "id": f"fixture-{index}",
+            "dir": project.relative_to(ROOT).as_posix(),
+            "name": project.name,
+        }
+        for index, project in enumerate(projects)
+    ]}
     print(json.dumps(matrix, separators=(",", ":")))
 
 

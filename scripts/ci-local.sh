@@ -51,7 +51,7 @@ run() {
 
 lean_project() {
   local files
-  files="$(find "$1" -type d \( -name .lake -o -name .git -o -name evidence -o -name target -o -name fixtures \) -prune -o -type f -name lakefile.toml -print)" ||
+  files="$(find "$1" -type d \( -name .lake -o -name .git -o -name evidence -o -name target -o -path "$1/fixtures" \) -prune -o -type f -name lakefile.toml -print)" ||
     { echo "LEAN project discovery failed"; return 1; }
   [ -n "$files" ] || { echo "LEAN project missing"; return 1; }
   [[ "$files" != *$'\n'* ]] || { echo "LEAN multiple projects: $files"; return 1; }
@@ -379,6 +379,10 @@ LEAN
   cp -r "$LSRC/." "$CAN/discovery/a/"
   cp -r "$LSRC/." "$CAN/discovery/b/"
   run CL9 canary-multiple-lean-projects fail '^LEAN multiple projects' "$ROOT" lean_project "$CAN/discovery"
+  mkdir -p "$CAN/nested-fixtures/a" "$CAN/nested-fixtures/x/fixtures"
+  cp -r "$LSRC/." "$CAN/nested-fixtures/a/"
+  cp -r "$LSRC/." "$CAN/nested-fixtures/x/fixtures/"
+  run CL36 canary-nested-fixtures-project-discovered fail '^LEAN multiple projects' "$ROOT" lean_project "$CAN/nested-fixtures"
   run CL10 canary-missing-lean-sources fail '^LEAN sources missing' "$ROOT" lean_text "$CAN/text"
   printf '%s\n' '-- clean root' > "$CAN/text/Root.lean"
   printf '%s\n' '-- sorry in a nested source' > "$CAN/text/Sub/Nested.lean"
@@ -481,5 +485,5 @@ echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
   seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL29 CL30 CL32 LSKIP
 else
-  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..35}
+  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi

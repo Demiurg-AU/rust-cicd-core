@@ -146,10 +146,41 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: evidence-${{ matrix.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: fixture-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.id }}
           path: ${{ matrix.dir }}/evidence/
           retention-days: 90
           if-no-files-found: error
+
+  fixture-coverage:
+    name: fixture evidence coverage
+    needs: [discover-fixtures, fixture]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download fixture evidence
+        if: always()
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: fixture-evidence-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: ${{ runner.temp }}/fixture-artifacts
+
+      - name: Verify every fixture has sealed passing evidence
+        if: always()
+        env:
+          FIXTURE_MATRIX: ${{ needs.discover-fixtures.outputs.matrix }}
+          FIXTURE_ARTIFACTS: ${{ runner.temp }}/fixture-artifacts
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          python3 scripts/check-fixture-evidence.py \
+            "$FIXTURE_MATRIX" "$FIXTURE_ARTIFACTS" "$RUN_ID" "$RUN_ATTEMPT"
 
   zizmor:
     name: zizmor (workflow security)
