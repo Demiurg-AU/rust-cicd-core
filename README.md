@@ -70,14 +70,14 @@ zizmor 1.32.0 предложил синтаксис `$/` для ссылки н�
 
 ## L — Lean (2026-11-15)
 Стадия L в `scripts/ci-local.sh` обязательна: требуется ровно один `lakefile.toml`
-(каталоги `.git`, `.lake`, `target`, `evidence` исключены из поиска).
+(каталоги `.git`, `.lake`, `target`, `evidence`, `fixtures` исключены из поиска).
 Для разбора TOML нужен Python 3.11+; для сборки — elan и закреплённый Lean.
 
 | ID | Гейт | Что ловит |
 |---|---|---|
 | L0 / L0b | `lean-toolchain` в репозитории и версия Lean совпадает с ним | невоспроизводимая сборка |
 | L1 | `lake build +Module…` для всех обнаруженных модулей | неверные доказательства, в том числе при пустых defaultTargets |
-| L2 | Lean-environment audit каждой теоремы во всех модулях библиотек, включая неимпортированные подмодули и custom roots/globs; `sorryAx` = FAIL | «доказано» через sorry |
+| L2 | Lean-environment audit каждой теоремы во всех модулях библиотек, включая неимпортированные подмодули и custom roots/globs; `sorryAx` = FAIL; generated constructor auxiliaries and protected `brecOn.eq` are audited but need no proof-map row | «доказано» через sorry |
 | L3 | нет `sorry`/`admit` в тексте | то же, грубая проверка |
 | X1 / X2 | `proof-map.tsv`: каждая теорема сопоставлена Rust-тесту, тест существует и проходит | разрыв Rust↔Lean |
 | CL1 / CL2 | канарейки: теорема с sorry, ложное доказательство — должны упасть по своей причине | неработающий гейт |
@@ -85,6 +85,11 @@ zizmor 1.32.0 предложил синтаксис `$/` для ссылки н�
 Граница: X1/X2 доказывают трассируемость и прохождение тестов, но НЕ семантическое соответствие модели коду
 (соответствие в `proof-map.tsv` — утверждение владельца, ASSUMPTION до ревью).
 Lean в CI: elan v4.2.4 и Lean 4.35.0 скачиваются с проверкой sha256 (digest Lean сверен с GitHub API).
+Fixture CI uses a matrix generated from every fixture Rust root containing a Lean `lakefile.toml`;
+its final coverage job requires successful discovery and fixture jobs plus checksum-sealed,
+all-PASS `results.tsv` evidence matching the complete `expected-gates.txt` inventory and an N/N
+summary. The root Lean scan excludes only the top-level `fixtures/` directory; nested directories
+named `fixtures` remain in scope.
 
 ### Silent-skip audit
 
@@ -104,6 +109,7 @@ Failure reasons are matched against tool output only, never the logged command.
 | L0 / L0b and tool invocation | FIXED (CL25): failed version command with plausible output passed the version check; pin and literal version checks are mandatory, no default-toolchain fallback |
 | L1 explicit build targets | FIXED (CL28): `defaultTargets = []` let a false theorem pass L1 with “Nothing to build”; all discovered modules are now explicit targets |
 | L2 build and axiom checks | OK: build/Lean errors, zero theorems and `sorryAx` fail; compiler auxiliaries are axiom-audited without requiring extra proof-map rows; existing CL1–CL5 preserved |
+| L2 generated auxiliary classification | FIXED (CL35): mutual-inductive `brecOn.eq` declarations were mistaken for user theorems; exemption requires the exact protected name and Lean auxiliary-recursor metadata, and the canary confirms they remain axiom-checked |
 | L2 module inventory | FIXED (CL22–CL24): custom roots, unimported submodules and valid alternate TOML table syntax omitted proofs |
 | L2 theorem filters | FIXED (CL26, CL27): private theorems and declarations without source ranges were skipped; all project theorem constants are now checked |
 | L3 source inventory and scan | FIXED (CL10, CL11): missing sources / nested `sorry` text passed; discovery and grep errors now fail |

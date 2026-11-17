@@ -1,0 +1,7 @@
+name = "lean_rich_fixture"
+version = "0.1.0"
+defaultTargets = ["RichModel"]
+srcDir = "src"
+
+[[lean_lib]]
+name = "RichModel"

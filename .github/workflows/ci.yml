@@ -69,6 +69,123 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
+  discover-fixtures:
+    name: fixture inventory
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.fixtures.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - id: fixtures
+        name: Discover and verify fixture coverage
+        run: |
+          python3 scripts/check-fixture-evidence.py --self-test
+          python3 scripts/fixture-matrix.py --self-test
+          matrix="$(python3 scripts/fixture-matrix.py)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  fixture:
+    name: fixture (${{ matrix.name }})
+    needs: discover-fixtures
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover-fixtures.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
+        with:
+          toolchain: stable
+          components: clippy, rustfmt, llvm-tools-preview
+
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+        with:
+          tool: cargo-nextest@0.9.152,cargo-llvm-cov@0.9.1,cargo-deny@0.20.2,cargo-audit@0.23.0
+
+      - name: Install Lean (pinned versions, sha256-verified, no curl|sh)
+        env:
+          ELAN_VERSION: v4.2.4
+          ELAN_SHA256: 42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63
+          LEAN_VERSION: 4.35.0
+          LEAN_SHA256: 7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -sSfLO "https://github.com/leanprover/elan/releases/download/${ELAN_VERSION}/elan-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${ELAN_SHA256}  elan-x86_64-unknown-linux-gnu.tar.gz" | sha256sum -c -
+          tar xzf elan-x86_64-unknown-linux-gnu.tar.gz
+          ./elan-init -y --default-toolchain none --no-modify-path
+          curl -sSfL -o lean.tar.zst "https://github.com/leanprover/lean4/releases/download/v${LEAN_VERSION}/lean-${LEAN_VERSION}-linux.tar.zst"
+          echo "${LEAN_SHA256}  lean.tar.zst" | sha256sum -c -
+          mkdir lean-tc && tar --zstd -xf lean.tar.zst -C lean-tc --strip-components=1
+          "$HOME/.elan/bin/elan" toolchain link "lean-${LEAN_VERSION}" "$RUNNER_TEMP/lean-tc"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Run CI on fixture (same script)
+        env:
+          FIXTURE_DIR: ${{ matrix.dir }}
+          LEAN_TOOLCHAIN: lean-4.35.0
+        run: |
+          mkdir -p "$FIXTURE_DIR/scripts"
+          cp scripts/ci-local.sh "$FIXTURE_DIR/scripts/ci-local.sh"
+          chmod +x "$FIXTURE_DIR/scripts/ci-local.sh"
+          (cd "$FIXTURE_DIR" && ./scripts/ci-local.sh)
+
+      - name: Upload fixture evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fixture-evidence-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.id }}
+          path: ${{ matrix.dir }}/evidence/
+          retention-days: 90
+          if-no-files-found: error
+
+  fixture-coverage:
+    name: fixture evidence coverage
+    needs: [discover-fixtures, fixture]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download fixture evidence
+        if: always()
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: fixture-evidence-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: ${{ runner.temp }}/fixture-artifacts
+
+      - name: Verify every fixture has sealed passing evidence
+        if: always()
+        env:
+          FIXTURE_MATRIX: ${{ needs.discover-fixtures.outputs.matrix }}
+          FIXTURE_ARTIFACTS: ${{ runner.temp }}/fixture-artifacts
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          FIXTURE_JOB_RESULT: ${{ needs.fixture.result }}
+          DISCOVERY_JOB_RESULT: ${{ needs.discover-fixtures.result }}
+        run: |
+          python3 scripts/check-fixture-evidence.py \
+            "$FIXTURE_MATRIX" "$FIXTURE_ARTIFACTS" "$RUN_ID" "$RUN_ATTEMPT" \
+            "$FIXTURE_JOB_RESULT" "$DISCOVERY_JOB_RESULT"
+
   zizmor:
     name: zizmor (workflow security)
     runs-on: ubuntu-24.04
