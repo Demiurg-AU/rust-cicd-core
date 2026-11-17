@@ -7,7 +7,7 @@ name: agent-pr-policy
 on:
   # Safe use: default-branch workflow + default-branch checkout; PR content is only read via the API.
   pull_request_target: # zizmor: ignore[dangerous-triggers]
-    types: [opened, synchronize, reopened, labeled, unlabeled]
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
   # Safe use: only the Codex integration's comments trigger a job; comment text is never interpolated.
   issue_comment: # zizmor: ignore[dangerous-triggers]
     types: [created, edited]
@@ -18,7 +18,10 @@ jobs:
   revoke:
     # separate job WITHOUT a concurrency group: a comment run can never cancel a revocation
     name: revoke owner approval on push
-    if: github.event_name == 'pull_request_target' && github.event.action == 'synchronize'
+    # a new push OR a base-branch change changes what was approved
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      (github.event.action == 'synchronize' || (github.event.action == 'edited' && github.event.changes.base))
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
