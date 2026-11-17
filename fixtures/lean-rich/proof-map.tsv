@@ -1,0 +1,9 @@
+# lean_theorem	rust_test
+point_sum_comm	tests::point_sum_commutes
+Vec2.total_at_least_x	tests::vector_total_at_least_x
+Vec2.ext	tests::vector_extensionality
+Vec2.ext_iff	tests::vector_extensionality
+_private.RichModel.0.private_add_zero	tests::private_add_zero
+zero_add_identity	tests::zero_add_identity
+Imported.triple_at_least_input	tests::triple_at_least_input
+Shape.circle.area_pos	tests::circle_area_is_positive

@@ -51,7 +51,7 @@ run() {
 
 lean_project() {
   local files
-  files="$(find "$1" -type d \( -name .lake -o -name .git -o -name evidence -o -name target \) -prune -o -type f -name lakefile.toml -print)" ||
+  files="$(find "$1" -type d \( -name .lake -o -name .git -o -name evidence -o -name target -o -name fixtures \) -prune -o -type f -name lakefile.toml -print)" ||
     { echo "LEAN project discovery failed"; return 1; }
   [ -n "$files" ] || { echo "LEAN project missing"; return 1; }
   [[ "$files" != *$'\n'* ]] || { echo "LEAN multiple projects: $files"; return 1; }
@@ -306,7 +306,14 @@ run CL31 canary-python-too-old fail '^PYTHON too old' "$ROOT" env PY_MIN=99.0 ba
     let ctorAux := genSuffix && match env.find? name.getPrefix with
       | some (.ctorInfo _) => true
       | _ => false
-    unless userName.isInternal || ctorAux do logInfo m!"AUDIT theorem {name} axioms {axs}"
+    -- Lean generates protected brecOn.eq equation theorems for recursive inductives.
+    -- The exact protected name plus auxiliary-recursor metadata distinguishes these from user theorems.
+    let recursorAux := match name with
+      | .str parent "eq" => match parent with
+        | .str _ "brecOn" => isProtected env name && isBRecOnRecursor env parent
+        | _ => false
+      | _ => false
+    unless userName.isInternal || ctorAux || recursorAux do logInfo m!"AUDIT theorem {name} axioms {axs}"
     if axs.contains ``sorryAx then bad := bad.push name
   logInfo m!"AUDIT theorems={n}"
   if n == 0 then throwError "AUDIT found no theorems"
@@ -369,7 +376,8 @@ LEAN
   mkdir -p "$CAN/discovery" "$CAN/text/Sub" "$CAN/maps" "$CAN/witness"
   run CL8 canary-missing-lean-project fail '^LEAN project missing' "$ROOT" lean_project "$CAN/discovery"
   mkdir -p "$CAN/discovery/a" "$CAN/discovery/b"
-  touch "$CAN/discovery/a/lakefile.toml" "$CAN/discovery/b/lakefile.toml"
+  cp -r "$LSRC/." "$CAN/discovery/a/"
+  cp -r "$LSRC/." "$CAN/discovery/b/"
   run CL9 canary-multiple-lean-projects fail '^LEAN multiple projects' "$ROOT" lean_project "$CAN/discovery"
   run CL10 canary-missing-lean-sources fail '^LEAN sources missing' "$ROOT" lean_text "$CAN/text"
   printf '%s\n' '-- clean root' > "$CAN/text/Root.lean"
@@ -412,7 +420,7 @@ LEAN
   run CL23 canary-unimported-submodule fail 'AUDIT sorryAx in .*canary_orphan' "$CAN/lorphan" bash -c "$AUDIT; lean_audit \"\$1\"" _ "$CAN/lorphan"
   mkL ltoml
   printf '\n[[ lean_lib ]]\nname = "Extra"\n' >> "$CAN/ltoml/lakefile.toml"
-  printf 'theorem canary_extra_library : True := trivial\n' > "$CAN/ltoml/Extra.lean"
+  printf 'theorem canary_extra_library : True := trivial\n' > "$CAN/ltoml/$(dirname "$ROOTFILE")/Extra.lean"
   run CL24 canary-toml-library-discovery fail '^unmapped theorem: canary_extra_library' "$CAN/ltoml" bash -euo pipefail -c "$AUDIT; $(declare -f pm_check); lean_audit \"\$1\" >/dev/null; grep -oE '^AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt \"\$2\"" _ "$CAN/ltoml" "$ROOT/proof-map.tsv"
   elan() { printf 'Lean (version 4.35.0, fixture)\n'; return 1; }
   run CL25 canary-version-command-status fail '^LEAN version command failed' "$ROOT" lean_version 'leanprover/lean4:v4.35.0'
@@ -445,6 +453,23 @@ LEAN
   mkL luserctor
   printf '\nstructure CanaryS where\n  x : Nat\ntheorem CanaryS.mk.user_property : True := trivial\n' >> "$CAN/luserctor/$ROOTFILE"
   run CL34 canary-user-theorem-in-ctor-namespace fail '^unmapped theorem: CanaryS.mk.user_property' "$CAN/luserctor" bash -euo pipefail -c "$AUDIT; $(declare -f pm_check); lean_audit \"\$1\" >/dev/null; grep -oE '^AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt \"\$2\"" _ "$CAN/luserctor" "$ROOT/proof-map.tsv"
+  # CL35: mutual recursor equations are axiom-checked but are not user theorems to map
+  mkL lmutual
+  cat >> "$CAN/lmutual/$ROOTFILE" <<'LEAN'
+
+mutual
+  inductive CanaryTree where
+    | leaf : Nat → CanaryTree
+    | branch : CanaryForest → CanaryTree
+
+  inductive CanaryForest where
+    | nil : CanaryForest
+    | cons : CanaryTree → CanaryForest → CanaryForest
+end
+
+theorem CanaryTree.brecOn.user_property : True := trivial
+LEAN
+  run CL35 canary-mutual-recursion-auxiliaries pass - "$CAN/lmutual" bash -euo pipefail -c "$AUDIT; $(declare -f pm_check); lean_audit \"\$1\" >/dev/null; for n in CanaryTree CanaryForest; do grep -q \"^AUDIT checked \$n.brecOn.eq \" axioms.out || { echo \"mutual recursor auxiliary not axiom-checked: \$n\"; exit 1; }; if grep -q \"^AUDIT theorem \$n.brecOn.eq \" axioms.out; then echo \"mutual recursor auxiliary incorrectly requires proof-map row: \$n\"; exit 1; fi; done; grep -q '^AUDIT theorem CanaryTree.brecOn.user_property ' axioms.out || { echo 'user theorem in recursor namespace not inventoried'; exit 1; }; grep -oE '^AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; if pm_check th.txt \"\$2\" > missing.out 2>&1; then echo 'user theorem incorrectly exempted from proof-map'; exit 1; fi; grep -qx 'unmapped theorem: CanaryTree.brecOn.user_property' missing.out || { cat missing.out; exit 1; }; cp \"\$2\" proof-map.tsv; printf 'CanaryTree.brecOn.user_property\\ttests::adds\\n' >> proof-map.tsv; pm_check th.txt proof-map.tsv" _ "$CAN/lmutual" "$ROOT/proof-map.tsv"
 }
 fi
 
@@ -456,5 +481,5 @@ echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
   seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL29 CL30 CL32 LSKIP
 else
-  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL33 CL34
+  seal_evidence "$EV" S0a S1a S1b S1c S2a S2b C{1..4} CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..35}
 fi
