@@ -22,6 +22,9 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+    outputs:
+      # evaluated in the attempt that ran core; preserved when only later jobs are re-run
+      evidence-artifact: evidence-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -86,7 +89,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          name: evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          name: ${{ needs.core.outputs.evidence-artifact }}
           path: ev
       - name: Build test-result predicate from SEALED evidence; deterministic bundle
         env:
