@@ -7,7 +7,9 @@ name: agent-pr-policy
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
-  issue_comment:
+  # Safe use: runs only for the Codex bot's comments on PRs, checks out the DEFAULT branch,
+  # never executes PR code and never interpolates comment text (only the PR number via env).
+  issue_comment: # zizmor: ignore[dangerous-triggers]
     types: [created, edited]
 
 permissions: {}
@@ -19,7 +21,9 @@ concurrency:
 jobs:
   policy:
     name: agent PR policy
-    if: github.event_name == 'pull_request' || github.event.issue.pull_request
+    if: >-
+      github.event_name == 'pull_request' ||
+      (github.event.issue.pull_request && github.event.comment.user.login == 'chatgpt-codex-connector[bot]')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
