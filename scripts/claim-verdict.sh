@@ -4,7 +4,8 @@
 #   FAIL     some evidence for the claim failed
 #   ABSTAIN  claim unknown, evidence missing, or its scope does not cover the request
 #   PASS     every evidence item passed AND the scope covers the request
-# status.tsv: "<evidence-id>\t<PASS|FAIL>" lines.
+# status.tsv: "<evidence-id>\t<verdict>" lines. Only PASS passes; ANY other recorded verdict
+# (FAIL, FAIL_WRONG_REASON, FAIL_GATE_DID_NOT_FIRE, ...) is FAIL; only an absent row is ABSTAIN.
 set -uo pipefail
 [ $# -eq 4 ] || { echo "usage: claim-verdict.sh <claims.tsv> <status.tsv> <claim-id> <any|bounded>"; exit 2; }
 claims="$1" status="$2" id="$3" want="$4"
@@ -21,8 +22,8 @@ for e in "${items[@]}"; do
   v="$(awk -F'\t' -v e="$e" '$1==e {print $2}' "$status" | tail -1)"
   case "$v" in
     PASS) ;;
-    FAIL) echo "FAIL $id: evidence $e failed"; exit 0 ;;
-    *) missing="$missing $e" ;;
+    "") missing="$missing $e" ;;
+    *) echo "FAIL $id: evidence $e failed ($v)"; exit 0 ;;
   esac
 done
 [ -z "$missing" ] || { echo "ABSTAIN $id: evidence not run:$missing"; exit 0; }
