@@ -11,18 +11,21 @@ set -uo pipefail
 die() { echo "KANI $*"; exit 2; }
 
 harnesses_in_src() { # compiler-side discovery (cargo kani list): visibility, comments, macros and
-  # cfg_attr cannot hide a harness from it; standard and contract harnesses, fully qualified names
-  local d="$1" tmp; tmp="$(mktemp -d)"
-  ( cd "$d" && cargo kani list --format json ) > "$tmp/list.log" 2>&1 || { cat "$tmp/list.log"; die "cargo kani list failed"; }
+  # cfg_attr cannot hide a harness from it; standard and contract harnesses, fully qualified names.
+  # Any failure (build, missing or malformed JSON) returns non-zero: no inventory, no PASS.
+  local d="$1" log rc
+  rm -f "$d/kani-list.json"
+  log="$( cd "$d" && cargo kani list --format json 2>&1 )" || { printf '%s\n' "$log" | tail -5 >&2; return 1; }
   python3 - "$d/kani-list.json" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
+assert d.get("file-version") == "0.1", f"unknown kani list file-version {d.get('file-version')!r}"
 for group in ("standard-harnesses", "contract-harnesses"):
-    for names in d.get(group, {}).values():
+    for names in d[group].values():
         for n in names:
             print(n)
 PY
-  rm -f "$d/kani-list.json"; rm -rf "$tmp"
+  rc=$?; rm -f "$d/kani-list.json"; return "$rc"
 }
 
 run_gate() { # <crate-dir> <out-dir>
@@ -31,9 +34,14 @@ run_gate() { # <crate-dir> <out-dir>
   mkdir -p "$out"; printf 'harness\tverdict\treason\n' > "$out/kani-results.tsv"
   local listed; listed="$(awk -F'\t' '!/^#/ && NF {print $1}' "$cfg")"
   [ -n "$listed" ] || die "no harness listed in $cfg"
+  local found
+  if ! found="$(harnesses_in_src "$d")" || [ -z "$found" ]; then
+    echo "KANI FAIL harness inventory unavailable (cargo kani list failed, returned bad JSON or found no harness)"
+    printf 'inventory\tFAIL\tunavailable\n' >> "$out/kani-results.tsv"; return 1
+  fi
   while read -r h; do
     grep -qx "$h" <<< "$listed" || { echo "KANI FAIL unlisted harness: $h"; printf '%s\tFAIL\tunlisted\n' "$h" >> "$out/kani-results.tsv"; rc=1; }
-  done < <(harnesses_in_src "$d")
+  done <<< "$found"
   while IFS=$'\t' read -r h flags secs covers; do
     [[ -z "$h" || "$h" = \#* ]] && continue
     [[ "$secs" =~ ^[0-9]+$ && "$covers" =~ ^[0-9]+$ ]] || die "malformed row for $h in $cfg"
