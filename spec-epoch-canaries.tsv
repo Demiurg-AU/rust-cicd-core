@@ -1,0 +1,3 @@
+# id	mode (test|kani)	code file	code text	code replacement	spec file	spec text (- = delete file)	spec replacement	reason the epoch must report (ERE)
+SE1	test	src/lib.rs	    a.checked_add(b)	    Some(a.wrapping_add(b))	src/tests.rs	    assert_eq!(checked_add(u32::MAX, 1), None);	    let _ = checked_add(u32::MAX, 1);	^SPEC-EPOCH old spec fails on new code \[test\]
+SE2	kani	src/lib.rs	    a.checked_add(b)	    Some(a.wrapping_add(b))	src/kani_proofs.rs	    let (a, b): (u32, u32) = (kani::any(), kani::any());	    kani::assume(false);\n    let (a, b): (u32, u32) = (kani::any(), kani::any());	^SPEC-EPOCH old spec fails on new code \[kani\]

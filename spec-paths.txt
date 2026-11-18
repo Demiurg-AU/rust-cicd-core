@@ -1,0 +1,13 @@
+# Spec (not code), relative to the crate root. The spec epoch reads THIS list from the BASE
+# branch and runs the base spec against the PR's code, so a PR cannot hide a regression by
+# weakening or deleting the spec (or this list) in the same change.
+spec-paths.txt
+src/tests.rs
+tests
+src/kani_proofs.rs
+kani-harnesses.tsv
+kani-canaries.tsv
+lean
+proof-map.tsv
+fuzz/fuzz_targets
+claims.tsv

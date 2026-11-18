@@ -1,0 +1,86 @@
+# Spec epochs: the BASE branch's spec (spec-paths.txt, read from base) must pass on the PR's code -
+# tests always, Kani harnesses whenever non-spec files change. A PR cannot hide a regression by
+# weakening the spec in the same change. A deliberate break needs the owner label
+# owner-approved-spec-change after the last push. Check scripts are taken from the BASE commit.
+name: spec-epoch
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions: {}
+
+concurrency:
+  group: spec-epoch-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  spec-epoch:
+    name: spec epoch (base spec x PR code)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    env:
+      BASE: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
+        with:
+          toolchain: "1.100.0"
+      - name: Take the check scripts from the base commit
+        run: |
+          set -euo pipefail
+          for f in spec-epoch.sh spec-approval.sh kani-gate.sh; do
+            if git cat-file -e "$BASE:scripts/$f" 2>/dev/null; then
+              git show "$BASE:scripts/$f" > "$RUNNER_TEMP/$f"
+            else
+              echo "::warning::bootstrap: scripts/$f not on base, using the PR's copy"; cp "scripts/$f" "$RUNNER_TEMP/$f"
+            fi
+          done
+          git config user.name ci; git config user.email ci@invalid
+      - name: Canaries - owner approval decisions (relabel by non-owner, stale, fork, bot)
+        run: bash "$RUNNER_TEMP/spec-approval.sh" canary
+      - name: Did the PR change code (not only spec)?
+        id: scope
+        run: echo "code=$(bash "$RUNNER_TEMP/spec-epoch.sh" code-changed "$BASE")" >> "$GITHUB_OUTPUT"
+      - name: Install Kani 0.68.0
+        if: steps.scope.outputs.code == 'yes'
+        run: |
+          cargo install --locked kani-verifier@0.68.0
+          cargo kani setup
+      - name: Canaries - break the code AND weaken the spec; the base spec must catch it
+        if: steps.scope.outputs.code == 'yes'
+        env:
+          KANI_GATE: ${{ runner.temp }}/kani-gate.sh
+        run: bash "$RUNNER_TEMP/spec-epoch.sh" canary
+      - name: Base spec x PR code
+        id: epoch
+        if: steps.scope.outputs.code == 'yes'
+        env:
+          KANI_GATE: ${{ runner.temp }}/kani-gate.sh
+        run: |
+          set -uo pipefail
+          held=true
+          bash "$RUNNER_TEMP/spec-epoch.sh" test "$BASE" || held=false
+          bash "$RUNNER_TEMP/spec-epoch.sh" kani "$BASE" || held=false
+          echo "held=$held" >> "$GITHUB_OUTPUT"
+      - name: Owner approval for a deliberate spec break
+        if: steps.scope.outputs.code == 'yes' && steps.epoch.outputs.held != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          OWNER: ${{ github.repository_owner }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: bash "$RUNNER_TEMP/spec-approval.sh"
+      - name: Spec-only change
+        if: steps.scope.outputs.code != 'yes'
+        run: echo "SPEC-EPOCH skipped - PR changes only spec files; base spec x unchanged code holds on base"
