@@ -1,0 +1,2 @@
+# harness	extra cargo-kani flags (or -)	timeout seconds	covers that must be SATISFIED
+kani_checked_add_matches_spec	-	600	2

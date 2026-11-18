@@ -1,0 +1,2 @@
+# regex (cargo-mutants --exclude-re)	justification (required)
+kani_proofs\.rs	Harness code under #[cfg(kani)] is not compiled for cargo test, so its mutants are unobservable by tests by construction; the harness is checked by the kani job instead (scripts/kani-gate.sh: VERIFICATION SUCCESSFUL + all covers SATISFIED) and its canaries KC1-KC3.

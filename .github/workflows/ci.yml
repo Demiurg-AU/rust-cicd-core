@@ -73,6 +73,43 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
+  kani:
+    name: kani (proofs + canaries)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
+        with:
+          toolchain: "1.100.0"
+
+      - name: Install Kani 0.68.0
+        run: |
+          cargo install --locked kani-verifier@0.68.0
+          cargo kani setup
+
+      # canaries first: a gate that cannot catch a planted bug, a vacuous proof or an unlisted
+      # harness proves nothing (kani-canaries.tsv)
+      - name: Kani gate canaries
+        run: bash scripts/kani-gate.sh canary . "$RUNNER_TEMP/kani/canaries"
+
+      - name: Kani gate (kani-harnesses.tsv)
+        run: bash scripts/kani-gate.sh run . "$RUNNER_TEMP/kani/run"
+
+      - name: Upload Kani evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kani-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/kani/
+          retention-days: 90
+          if-no-files-found: error
+
   attest-evidence:
     name: sign gate evidence (main only)
     needs: core

@@ -6,6 +6,9 @@ pub fn checked_add(a: u32, b: u32) -> Option<u32> {
     a.checked_add(b)
 }
 
+#[cfg(kani)]
+mod kani_proofs;
+
 #[cfg(test)]
 mod tests {
     use super::checked_add;
