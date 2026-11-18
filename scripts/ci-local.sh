@@ -19,6 +19,10 @@ export CARGO_TERM_COLOR=never
 # and the run does not depend on being allowed to delete files in the project folder.
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/rust-cicd-core.XXXXXX")"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
+# Code under test (build.rs, proc macros, tests, Lean elaboration) runs jailed: it cannot write the
+# evidence, the scripts, .git, cargo config or the runner's command files (threat CI-9, gates S0s/C28/C29).
+# shellcheck source=sandbox.sh
+. "$SD/sandbox.sh"; export SANDBOX_WORK="$WORK"; sandbox_enable
 
 # --- environment witness ---
 # No "| head" here: under pipefail a closed pipe (SIGPIPE) would abort the whole run before any gate (found 2026-11-17).
@@ -238,6 +242,8 @@ RUSTC_VERSION="$(rustc --version 2>&1 || true)"
 PIN_DIR="$ROOT"; while [ "$PIN_DIR" != / ] && [ ! -f "$PIN_DIR/rust-toolchain.toml" ]; do PIN_DIR="$(dirname "$PIN_DIR")"; done
 echo "rust_pin_file=$PIN_DIR/rust-toolchain.toml | $RUSTC_VERSION" >> "$EV/env.txt"
 run S0b rust-toolchain-pinned pass - "$ROOT" rust_pin "${PIN_DIR%/}/rust-toolchain.toml" "$RUSTC_VERSION"
+# S0s: the jail must actually start (no bubblewrap / no user namespaces -> every jailed gate would fail anyway)
+run S0s sandbox-active pass - "$ROOT" sandbox bash -c 'echo "SANDBOX active"'
 # --- S0: skeleton builds with the locked graph ---
 run S0a build pass - "$ROOT" cargo build --locked --all-targets
 # --- S1: quality ---
@@ -272,7 +278,7 @@ mutants_gate() {
     done < "$d/mutants-exclusions.tsv"
   fi
   rm -rf "$out" 2>/dev/null; mkdir -p "$out"
-  ( cd "$d" && env -u CARGO_TARGET_DIR cargo mutants --test-tool nextest --no-shuffle -o "$out" "${args[@]}" "$@" ); rc=$?
+  ( cd "$d" && unset CARGO_TARGET_DIR && SANDBOX_RW="$out" cargo mutants --test-tool nextest --no-shuffle -o "$out" "${args[@]}" "$@" ); rc=$?
   local o="$out/mutants.out"
   [ -f "$o/outcomes.json" ] || { echo "MUTANTS no outcomes (exit $rc)"; return 1; }
   if [ -s "$o/missed.txt" ]; then sed 's/^/MISSED /' "$o/missed.txt"; return 1; fi
@@ -297,6 +303,13 @@ mk clippy; printf '\npub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }\n' 
 CARGO_TARGET_DIR="$CAN/clippy/target" run C2 canary-clippy fail 'len_zero' "$CAN/clippy" cargo clippy --all-targets -- -D warnings
 mk nopanic; printf '\npub fn first_byte(v: &[u8]) -> u8 { v[0] }\n' >> "$CAN/nopanic/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic/target" run C26 canary-panic-construct fail 'indexing may panic' "$CAN/nopanic" cargo clippy -- -D warnings "${NOPANIC[@]}"
+# C28: from inside the jail, every protected path must refuse a write (zero-byte append / temp file).
+PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN")
+[ -n "${GITHUB_ENV:-}" ] && PROTECT+=("$GITHUB_ENV" "$GITHUB_OUTPUT")
+run C28 canary-sandbox-blocks-writes fail '^SANDBOX all writes blocked' "$ROOT" sandbox_probe "${PROTECT[@]}"
+# C29: the real attack path - a planted #[test] run by `cargo test` tries to open results.tsv for append.
+mk tamper; printf '\n#[test]\nfn canary_tamper() {\n    let p = std::env::var("TAMPER_PATH").unwrap_or_default();\n    if let Err(e) = std::fs::OpenOptions::new().append(true).open(&p) { panic!("TAMPER blocked: {e}"); }\n}\n' >> "$CAN/tamper/src/lib.rs"
+TAMPER_PATH="$RES" CARGO_TARGET_DIR="$CAN/tamper/target" run C29 canary-test-cannot-touch-evidence fail 'TAMPER blocked: Read-only file system' "$CAN/tamper" cargo test --lib canary_tamper
 mk test;   printf '\n#[test]\nfn canary_fails() { assert_eq!(1 + 1, 3); }\n' >> "$CAN/test/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/test/target" run C3 canary-test fail 'canary_fails' "$CAN/test" cargo nextest run
 mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.toml"
@@ -674,7 +687,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..27} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S1a S1b S1e S1c S1d S2a S2b C{1..29} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..27} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S0s S1a S1b S1e S1c S1d S2a S2b C{1..29} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi

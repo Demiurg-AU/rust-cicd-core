@@ -58,6 +58,15 @@ jobs:
           "$HOME/.elan/bin/elan" toolchain link "lean-${LEAN_VERSION}" "$RUNNER_TEMP/lean-tc"
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
+      - name: Jail for code under test (bubblewrap; threat CI-9)
+        # Ubuntu 24.04 blocks unprivileged user namespaces via AppArmor; the VM is ephemeral, so lift it here.
+        run: |
+          set -euo pipefail
+          command -v bwrap >/dev/null || { sudo apt-get update -q; sudo apt-get install -y -q bubblewrap; }
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --version
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid --die-with-parent true
+
       - name: Run CI core (same script as local)
         id: ci
         env:
@@ -246,6 +255,15 @@ jobs:
           mkdir lean-tc && tar --zstd -xf lean.tar.zst -C lean-tc --strip-components=1
           "$HOME/.elan/bin/elan" toolchain link "lean-${LEAN_VERSION}" "$RUNNER_TEMP/lean-tc"
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Jail for code under test (bubblewrap; threat CI-9)
+        # Ubuntu 24.04 blocks unprivileged user namespaces via AppArmor; the VM is ephemeral, so lift it here.
+        run: |
+          set -euo pipefail
+          command -v bwrap >/dev/null || { sudo apt-get update -q; sudo apt-get install -y -q bubblewrap; }
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --version
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid --die-with-parent true
 
       - name: Run CI on fixture (same script)
         env:

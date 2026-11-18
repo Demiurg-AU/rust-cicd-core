@@ -3,7 +3,11 @@
 **Статус и что осталось до цели:** [docs/ROADMAP.md](docs/ROADMAP.md).
 
 Запуск: `./scripts/ci-local.sh` (Linux/WSL; нужны cargo, clippy, rustfmt, cargo-nextest,
-cargo-llvm-cov + llvm-tools-preview, cargo-deny, cargo-audit). Логи → `evidence/<UTC>/`.
+cargo-llvm-cov + llvm-tools-preview, cargo-deny, cargo-audit, **bubblewrap**). Логи → `evidence/<UTC>/`.
+
+Код под проверкой (тесты, `build.rs`, proc-macro, Lean) запускается в тюрьме bubblewrap: свидетельства и скрипты
+для него только для чтения (угроза CI-9, ворота S0s/C28/C29). Ubuntu 24.04 / WSL: `sudo apt install bubblewrap`;
+если `bwrap` пишет `setting up uid map: Permission denied` — `sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0`.
 
 ## Гейты
 | ID | Шаг | Ожидание |
