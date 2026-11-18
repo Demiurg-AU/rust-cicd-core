@@ -1,0 +1,9 @@
+# id	property	scope	bounds	evidence (comma-separated, ALL must PASS)
+# scope: code = proved on the Rust code for every input it names; model = proved for every input on a Lean
+#        model, Rust link only by tests; bounded = proved on the Rust code within the stated bounds.
+# A query for "any" input on the Rust code gets PASS only from scope=code; model/bounded answer ABSTAIN.
+# evidence ids: gate:<results.tsv id> (sealed core evidence), kani:<fully qualified harness> (kani-results.tsv)
+CA1	checked_add returns Some(a+b) iff a+b fits in u32	code	every (a, b) in u32 x u32; 2 covers SATISFIED	kani:kani_proofs::kani_checked_add_matches_spec
+CA2	shipped code contains no panicking construct	code	lib + bins; std calls trusted not to panic; allocation failure aborts	gate:S1e,gate:C26
+CA3	checkedAdd is none iff overflow, some is the sum	model	every Nat on the Lean model; Rust link: proof-map tests adds, detects_overflow	gate:L2,gate:X1,gate:X2
+CA4	tests exercise the code (coverage >= 80 %, no surviving mutant)	bounded	the test suite as written; says nothing about missing tests	gate:S1c,gate:S1d,gate:C5,gate:C8

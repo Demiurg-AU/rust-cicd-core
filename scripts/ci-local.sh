@@ -656,7 +656,7 @@ mkpr "$CAN/pr-agent-findings" claude/x 'owner\towner\t1\th1\n' 'src/lib.rs\n' ''
 mkpr "$CAN/pr-agent-stale-label" copilot/x 'Copilot\towner\t0\th1\n' 'scripts/ci-local.sh\n' 'owner-approved-pipeline\towner\tUser\t2025-12-31T00:00:00Z\n' "$LBL" "$CDX"
 mkpr "$CAN/pr-agent-spoofed-codex" claude/x 'owner\towner\t1\th1\n' 'src/lib.rs\n' '' '' 'h1\tcompleted\ttrue\tchatgpt-codex-connector[bot]\tBot\nh1\tcompleted\tfalse\tnot-the-codex-reviewer\tUser\n'
 # config-only change: gate configuration (Kani, cargo, nextest) is pipeline too
-mkpr "$CAN/pr-agent-config-only" copilot/x 'Copilot\towner\t0\th1\n' 'kani-harnesses.tsv\n.cargo/config.toml\n' '' '' "$CDX"
+mkpr "$CAN/pr-agent-config-only" copilot/x 'Copilot\towner\t0\th1\n' 'kani-harnesses.tsv\n.cargo/config.toml\nclaims.tsv\nspec-paths.txt\n' '' '' "$CDX"
 run A1 agent-policy-human-pass pass - "$ROOT" bash "$APP" "$CAN/pr-human"
 run A2 agent-policy-approved-agent-pass pass - "$ROOT" bash "$APP" "$CAN/pr-agent-ok"
 run C20 canary-agent-pipeline-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-nolabel"
