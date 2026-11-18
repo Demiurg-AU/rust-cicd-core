@@ -1,5 +1,7 @@
 # rust-cicd-core — минимальное ядро CI (S0–S2) + самопроверка гейтов
 
+**Статус и что осталось до цели:** [docs/ROADMAP.md](docs/ROADMAP.md).
+
 Запуск: `./scripts/ci-local.sh` (Linux/WSL; нужны cargo, clippy, rustfmt, cargo-nextest,
 cargo-llvm-cov + llvm-tools-preview, cargo-deny, cargo-audit). Логи → `evidence/<UTC>/`.
 
