@@ -45,6 +45,8 @@ jobs:
             fi
           done
           git config user.name ci; git config user.email ci@invalid
+      - name: Canaries - owner approval decisions (relabel by non-owner, stale, fork, bot)
+        run: bash "$RUNNER_TEMP/spec-approval.sh" canary
       - name: Did the PR change code (not only spec)?
         id: scope
         run: echo "code=$(bash "$RUNNER_TEMP/spec-epoch.sh" code-changed "$BASE")" >> "$GITHUB_OUTPUT"

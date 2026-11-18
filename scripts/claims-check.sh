@@ -16,10 +16,19 @@ rc=0
 check() { local o; o="$(bash "$SD/claim-verdict.sh" "$c/claims.tsv" "$c/status.tsv" "$1" "$2")"
   [[ "$o" == "$3"* ]] && echo "CLAIM canary $1/$2 -> $3" || { echo "CLAIM canary $1/$2: got '$o', want $3"; rc=1; }; }
 check X any PASS; check Y any ABSTAIN; check Y bounded PASS; check Z any FAIL; check W any ABSTAIN; check M any ABSTAIN; check NOPE any ABSTAIN; check V bounded FAIL
+printf 'B\tp\tcdoe\tall\tkani:a\nD\tp\tcode\tall\tkani:a\nD\tp\tcode\tall\tkani:a\n' > "$c/bad.tsv"
+for id in B D; do bash "$SD/claim-verdict.sh" "$c/bad.tsv" "$c/status.tsv" "$id" any >/dev/null; r=$?
+  [ "$r" -eq 2 ] && echo "CLAIM canary $id malformed -> evaluator error" || { echo "CLAIM canary $id malformed: exit $r, want 2"; rc=1; }; done
 printf 'claim\tany input on the Rust code\twithin stated bounds\n' > "$out/verdicts.tsv"
 for id in $(awk -F'\t' '!/^#/ && NF {print $1}' "$claims"); do
-  a="$(bash "$SD/claim-verdict.sh" "$claims" "$st" "$id" any)"; b="$(bash "$SD/claim-verdict.sh" "$claims" "$st" "$id" bounded)"
-  echo "$a"; echo "$b"; printf '%s\t%s\t%s\n' "$id" "${a%% *}" "${b%% *}" >> "$out/verdicts.tsv"
+  a="$(bash "$SD/claim-verdict.sh" "$claims" "$st" "$id" any)"; ra=$?
+  b="$(bash "$SD/claim-verdict.sh" "$claims" "$st" "$id" bounded)"; rb=$?
+  echo "$a"; echo "$b"
+  # an evaluator error (bad scope, duplicate id, ...) or any answer outside PASS/FAIL/ABSTAIN fails the job
+  for p in "$ra:$a" "$rb:$b"; do
+    if [ "${p%%:*}" -ne 0 ] || [[ ! "${p#*:}" =~ ^(PASS|FAIL|ABSTAIN)\  ]]; then echo "CLAIMS evaluator error for $id: ${p#*:}"; rc=1; fi
+  done
+  printf '%s\t%s\t%s\n' "$id" "${a%% *}" "${b%% *}" >> "$out/verdicts.tsv"
   [[ "$a" == FAIL* || "$b" == FAIL* ]] && rc=1
 done
 exit "$rc"
