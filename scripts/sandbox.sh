@@ -28,7 +28,7 @@ sandbox() {
   if [ -n "${SANDBOX_RW:-}" ]; then IFS=: read -ra p <<< "$SANDBOX_RW"; rw+=("${p[@]}"); fi
   local ch="${CARGO_HOME:-$HOME/.cargo}"
   for p in "$ch/registry" "$ch/git"; do mkdir -p "$p" 2>/dev/null && rw+=("$p"); done
-  for p in "${rw[@]}"; do [ -n "$p" ] && [ -e "$p" ] && args+=(--bind "$p" "$p"); done
+  for p in "${rw[@]}"; do [ -n "$p" ] && [ -e "$p" ] && { p="$(realpath -- "$p")"; args+=(--bind "$p" "$p"); }; done
   for p in GITHUB_TOKEN ACTIONS_RUNTIME_TOKEN ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL \
            ACTIONS_CACHE_URL ACTIONS_RESULTS_URL GITHUB_ENV GITHUB_OUTPUT GITHUB_PATH GITHUB_STATE GITHUB_STEP_SUMMARY; do
     args+=(--unsetenv "$p")

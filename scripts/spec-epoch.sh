@@ -12,6 +12,12 @@ set -uo pipefail
 CRATE="${CRATE:-.}"
 TOP="$(git rev-parse --show-toplevel)" || exit 2
 KANI_GATE="${KANI_GATE:-$TOP/scripts/kani-gate.sh}"
+# PR code runs jailed (threat CI-9): it must not reach GITHUB_ENV/GITHUB_OUTPUT of later steps
+# (e.g. BASH_ENV into the owner-approval step) or this script. sandbox.sh sits next to this file.
+SANDBOX_SH="$(dirname "${BASH_SOURCE[0]}")/sandbox.sh"
+# shellcheck source=sandbox.sh
+[ -f "$SANDBOX_SH" ] && . "$SANDBOX_SH" || { echo "SPEC-EPOCH missing $SANDBOX_SH (no unjailed mode)"; exit 2; }
+sandbox_enable
 
 spec_list() { git -C "$TOP" show "$1:$CRATE/spec-paths.txt" 2>/dev/null; }
 
@@ -24,6 +30,7 @@ epoch() { # <base-ref> <head-ref> <test|kani>
   wt="$(mktemp -d)"; git -C "$TOP" worktree add -q --detach "$wt" "$head" || return 2
   (
     cd "$wt/$CRATE" || exit 2
+    export SANDBOX_WORK="$wt"
     while IFS= read -r p || [ -n "$p" ]; do
       [[ -z "$p" || "$p" = \#* ]] && continue
       rm -rf -- "$p"
@@ -31,7 +38,7 @@ epoch() { # <base-ref> <head-ref> <test|kani>
     done <<< "$list"
     echo "SPEC-EPOCH base spec $(git rev-parse --short "$base") x head code $(git rev-parse --short "$head") [$mode]"
     case "$mode" in
-      test) env -u CARGO_TARGET_DIR cargo test --locked -q 2>&1 | tail -30; exit "${PIPESTATUS[0]}" ;;
+      test) unset CARGO_TARGET_DIR; cargo test --locked -q 2>&1 | tail -30; exit "${PIPESTATUS[0]}" ;;
       kani) bash "$KANI_GATE" run . "$(mktemp -d)" 2>&1 | grep '^KANI' ; exit "${PIPESTATUS[0]}" ;;
       *) echo "SPEC-EPOCH bad mode: $mode"; exit 2 ;;
     esac
