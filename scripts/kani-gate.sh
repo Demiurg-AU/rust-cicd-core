@@ -42,7 +42,7 @@ run_gate() { # <crate-dir> <out-dir>
   while read -r h; do
     grep -qx "$h" <<< "$listed" || { echo "KANI FAIL unlisted harness: $h"; printf '%s\tFAIL\tunlisted\n' "$h" >> "$out/kani-results.tsv"; rc=1; }
   done <<< "$found"
-  while IFS=$'\t' read -r h flags secs covers; do
+  while IFS=$'\t' read -r h flags secs covers || [ -n "$h" ]; do
     [[ -z "$h" || "$h" = \#* ]] && continue
     [[ "$secs" =~ ^[0-9]+$ && "$covers" =~ ^[0-9]+$ ]] || die "malformed row for $h in $cfg"
     log="$out/${h//::/__}.log"; local -a extra=(); [ "$flags" = "-" ] || read -ra extra <<< "$flags"
@@ -65,7 +65,7 @@ run_canaries() { # <crate-dir> <out-dir>
   local d="$1" out="$2" cfg="$1/kani-canaries.tsv" id file old new want rc=0 n=0
   [ -f "$cfg" ] || die "missing $cfg"
   mkdir -p "$out"; printf 'canary\tverdict\n' > "$out/kani-canaries.tsv"
-  while IFS=$'\t' read -r id file old new want; do
+  while IFS=$'\t' read -r id file old new want || [ -n "$id" ]; do
     [[ -z "$id" || "$id" = \#* ]] && continue
     n=$((n + 1)); local tmp; tmp="$(mktemp -d)"
     ( cd "$d" && git ls-files -z --cached --others --exclude-standard | xargs -0 -I{} cp --parents {} "$tmp/" ) 2>/dev/null \
