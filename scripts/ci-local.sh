@@ -655,6 +655,8 @@ mkpr "$CAN/pr-agent-stale-codex" codex/x 'owner\towner\t0\th1\n' 'src/lib.rs\n' 
 mkpr "$CAN/pr-agent-findings" claude/x 'owner\towner\t1\th1\n' 'src/lib.rs\n' '' '' 'h1\tcompleted\ttrue\tchatgpt-codex-connector[bot]\tBot\n'
 mkpr "$CAN/pr-agent-stale-label" copilot/x 'Copilot\towner\t0\th1\n' 'scripts/ci-local.sh\n' 'owner-approved-pipeline\towner\tUser\t2025-12-31T00:00:00Z\n' "$LBL" "$CDX"
 mkpr "$CAN/pr-agent-spoofed-codex" claude/x 'owner\towner\t1\th1\n' 'src/lib.rs\n' '' '' 'h1\tcompleted\ttrue\tchatgpt-codex-connector[bot]\tBot\nh1\tcompleted\tfalse\tnot-the-codex-reviewer\tUser\n'
+# config-only change: gate configuration (Kani, cargo, nextest) is pipeline too
+mkpr "$CAN/pr-agent-config-only" copilot/x 'Copilot\towner\t0\th1\n' 'kani-harnesses.tsv\n.cargo/config.toml\n' '' '' "$CDX"
 run A1 agent-policy-human-pass pass - "$ROOT" bash "$APP" "$CAN/pr-human"
 run A2 agent-policy-approved-agent-pass pass - "$ROOT" bash "$APP" "$CAN/pr-agent-ok"
 run C20 canary-agent-pipeline-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-nolabel"
@@ -663,6 +665,7 @@ run C22 canary-agent-codex-not-on-head fail '^AGENT PR head not reviewed by Code
 run C23 canary-agent-unresolved-findings fail '^AGENT PR has unresolved Codex findings' "$ROOT" bash "$APP" "$CAN/pr-agent-findings"
 run C24 canary-agent-label-before-push fail '^AGENT PR touches pipeline without owner label \(label predates the latest push' "$ROOT" bash "$APP" "$CAN/pr-agent-stale-label"
 run C25 canary-agent-spoofed-codex fail '^AGENT PR has unresolved Codex findings' "$ROOT" bash "$APP" "$CAN/pr-agent-spoofed-codex"
+run C27 canary-agent-config-only-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-config-only"
 run T1 threat-model pass - "$ROOT" threat_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$LMODE"
 
 # --- summary ---
@@ -671,7 +674,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..26} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..27} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..26} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..27} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi

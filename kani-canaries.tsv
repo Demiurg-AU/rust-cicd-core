@@ -1,0 +1,6 @@
+# id	file	exact text to replace (\n = newline)	replacement	reason the gate must report (ERE)
+KC1	src/lib.rs	    a.checked_add(b)	    Some(a.wrapping_add(b))	^KANI FAIL kani_proofs::kani_checked_add_matches_spec: verification failed
+KC2	src/kani_proofs.rs	    let (a, b): (u32, u32) = (kani::any(), kani::any());	    kani::assume(false);\n    let (a, b): (u32, u32) = (kani::any(), kani::any());	^KANI FAIL kani_proofs::kani_checked_add_matches_spec: [0-9]+ of 2 covers SATISFIED \(vacuous or unreachable\)
+KC3	src/kani_proofs.rs	use super::checked_add;	use super::checked_add;\n\n#[kani::proof]\n// a comment between attribute and fn, restricted visibility\npub(crate) fn kani_unlisted() { assert!(false) }	^KANI FAIL unlisted harness: kani_proofs::kani_unlisted
+KC4	src/lib.rs	pub fn checked_add(a: u32, b: u32) -> Option<u32> {	pub fn checked_add(a: u32, b: u32) -> Option<u32> { compile_error!("canary: no inventory");	^KANI FAIL harness inventory unavailable
+KC5	kani-harnesses.tsv	2\n	3	^KANI FAIL kani_proofs::kani_checked_add_matches_spec: expected 3 covers, found 2

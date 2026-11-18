@@ -9,3 +9,7 @@ publish = false
 
 [dependencies]
 # Zero third-party dependencies at S0-S2: no foreign build.rs / proc-macro code executes.
+
+[lints.rust]
+# `cfg(kani)` is set by `cargo kani` (src/kani_proofs.rs)
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
