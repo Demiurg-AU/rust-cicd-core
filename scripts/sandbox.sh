@@ -49,10 +49,14 @@ sandbox_cargo() {
 }
 sandbox_elan() { sandbox elan "$@"; }
 
+jail_armed() { # are bare cargo/elan still the jail wrappers? (a test mock or `unset -f` would disarm them)
+  [[ "$(declare -f cargo 2>/dev/null)" == *sandbox_cargo* && "$(declare -f elan 2>/dev/null)" == *sandbox_elan* ]]
+}
+
 sandbox_enable() { # turn bare `cargo` and `elan` into jailed calls, also inside `bash -c` children
   cargo() { sandbox_cargo "$@"; }
   elan() { sandbox_elan "$@"; }
-  export -f sandbox sandbox_cargo sandbox_elan cargo elan
+  export -f sandbox sandbox_cargo sandbox_elan cargo elan jail_armed
   export SANDBOX_BWRAP
 }
 
