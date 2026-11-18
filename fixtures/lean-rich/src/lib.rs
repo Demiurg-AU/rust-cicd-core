@@ -5,7 +5,7 @@ pub struct Point {
 }
 
 pub fn point_sum(point: &Point) -> u64 {
-    point.x + point.y
+    point.x.saturating_add(point.y)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -15,7 +15,7 @@ pub struct Vec2 {
 }
 
 pub fn vector_total(vector: &Vec2) -> u64 {
-    vector.x + vector.y
+    vector.x.saturating_add(vector.y)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -26,7 +26,7 @@ pub enum Shape {
 }
 
 pub fn circle_area(radius: u64) -> u64 {
-    radius * radius
+    radius.saturating_mul(radius)
 }
 
 #[cfg(test)]

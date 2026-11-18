@@ -8,6 +8,7 @@ SLSA-F	Published artifact differs from built artifact	ext:release-provenance ext
 SLSA-G	Distribution channel compromised	ext:release-sigstore-bundles	COVERED	consumers detect replacement with gh attestation verify (also offline via the attached bundle; tampered binary rejected in test)
 SLSA-H	Consumer selects the wrong package	-	OUT_OF_SCOPE	consumer side; template is not published (publish = false)
 SLSA-I	Consumer uses the artifact unsafely	-	OUT_OF_SCOPE	consumer side
+CODE-1	Shipped code panics on unexpected input (denial of service)	S1e C26	COVERED	S1e: clippy on non-test targets denies indexing/slicing/string slicing/overflowing arithmetic/unwrap/expect/panic/unreachable/todo/unimplemented; C26 proves a planted index is rejected. Trusted: std calls used by the crate do not panic; allocation failure aborts (not a panic). Local #[allow] stays visible in review
 DEP-1	Vulnerable or yanked dependency	S2a S2b C9 ext:dependabot	COVERED	cargo-deny advisories + cargo-audit; C9 proves the audit fires
 DEP-2	Disallowed license or unknown source	S2a C4	COVERED	cargo-deny licenses/sources; C4 proves the license check fires
 DEP-3	Freshly published malicious version pulled in	ext:dependabot-cooldown ext:locked-lockfile	COVERED	7-day cooldown; every cargo call uses --locked
