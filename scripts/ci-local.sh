@@ -243,6 +243,12 @@ run S0a build pass - "$ROOT" cargo build --locked --all-targets
 # --- S1: quality ---
 run S1a fmt pass - "$ROOT" cargo fmt --all -- --check
 run S1b clippy pass - "$ROOT" cargo clippy --locked --all-targets -- -D warnings
+# S1e: no panicking construct in non-test code (lib + bins; cargo's default targets exclude tests).
+# A panic in shipped code is a denial of service; a local #[allow(...)] stays visible in review.
+NOPANIC=(-D clippy::indexing_slicing -D clippy::string_slice -D clippy::arithmetic_side_effects
+  -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::unreachable
+  -D clippy::todo -D clippy::unimplemented -D clippy::panic_in_result_fn)
+run S1e no-panic-lints pass - "$ROOT" cargo clippy --locked -- -D warnings "${NOPANIC[@]}"
 # S1c in two steps so the log says WHY it failed (cargo-llvm-cov alone exits 1 without a reason).
 coverage_gate() { # <min line %>
   local min="$1" out rc
@@ -289,6 +295,8 @@ mk fmt;    printf 'pub fn   ugly( ) {}\n' >> "$CAN/fmt/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/fmt/target" run C1 canary-fmt fail 'Diff in' "$CAN/fmt" cargo fmt --all -- --check
 mk clippy; printf '\npub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }\n' >> "$CAN/clippy/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/clippy/target" run C2 canary-clippy fail 'len_zero' "$CAN/clippy" cargo clippy --all-targets -- -D warnings
+mk nopanic; printf '\npub fn first_byte(v: &[u8]) -> u8 { v[0] }\n' >> "$CAN/nopanic/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/nopanic/target" run C26 canary-panic-construct fail 'indexing may panic' "$CAN/nopanic" cargo clippy -- -D warnings "${NOPANIC[@]}"
 mk test;   printf '\n#[test]\nfn canary_fails() { assert_eq!(1 + 1, 3); }\n' >> "$CAN/test/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/test/target" run C3 canary-test fail 'canary_fails' "$CAN/test" cargo nextest run
 mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.toml"
@@ -663,7 +671,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..25} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..26} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S1a S1b S1c S1d S2a S2b C{1..25} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..26} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
 fi
