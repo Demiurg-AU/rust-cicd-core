@@ -12,7 +12,7 @@ set -euo pipefail
 F="${1:?facts dir}"
 LABEL="${OWNER_LABEL:-owner-approved-pipeline}"
 CODEX_LOGIN="${CODEX_LOGIN:-chatgpt-codex-connector[bot]}"
-PIPE='^(\.github/|scripts/|threat-model\.tsv$|deny\.toml$|rust-toolchain\.toml$|lean-toolchain$|proof-map\.tsv$|mutants-exclusions\.tsv$)'
+PIPE='^(\.github/|scripts/|\.cargo/|\.config/|threat-model\.tsv$|deny\.toml$|rust-toolchain\.toml$|lean-toolchain$|proof-map\.tsv$|mutants-exclusions\.tsv$|kani-harnesses\.tsv$|kani-canaries\.tsv$|\.?clippy\.toml$|\.?rustfmt\.toml$)'
 for f in branch.txt head_sha.txt pushed_at.txt commits.tsv files.txt labels.tsv labels_now.txt codex.tsv owners.txt; do
   [ -f "$F/$f" ] || { echo "AGENT facts missing: $f"; exit 1; }
 done

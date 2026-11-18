@@ -11,12 +11,16 @@ Kani 0.68.0, Rust 1.100.0. Каждый приём ниже засвидетел
 |---|---|---|
 | `VERIFICATION:- SUCCESSFUL` | доказательство прошло | **KC1**: внедрённая ошибка (`wrapping_add` вместо `checked_add`) → `verification failed` |
 | **все** cover-проверки SATISFIED, и их ровно столько, сколько указано в конфиге | доказательство не пустое | **KC2**: `kani::assume(false)` в начале харнесса |
-| каждый `#[kani::proof]` в `src/` есть в `kani-harnesses.tsv` | нет тихого пропуска | **KC3**: харнесс, которого нет в конфиге, → `unlisted harness` |
+| каждый харнесс крейта есть в `kani-harnesses.tsv` (полное имя `module::fn`, запуск с `--exact`) | нет тихого пропуска | **KC3**: неучтённый харнесс с `pub(crate)`, комментарием между атрибутом и `fn` и `assert!(false)` → `unlisted harness` |
 
 **Главное свидетельство (VERIFIED_PRIMARY, канарейка KC2).** На пустом доказательстве Kani
 сообщает `Complete - 1 successfully verified harnesses, 0 failures`. Пустоту видно только по строке
 `** 0 of 2 cover properties satisfied (2 unreachable)`. Ворота, которые смотрят лишь на
 SUCCESSFUL, принимают доказательство «ничего».
+
+Харнессы ищет сам компилятор (`cargo kani list --format json`, стандартные и contract-харнессы), а не regex по исходникам. Видимость, комментарии, макросы и `cfg_attr` не скрывают харнесс. Первая версия на regex пропускала `pub(crate) fn` — это нашёл Codex на PR #35.
+
+Конфиги ворот (`kani-*.tsv`, `.cargo/`, `.config/`, `clippy.toml`, `rustfmt.toml`) — часть пайплайна. Политика агента требует для них метку владельца (канарейка C27).
 
 Для крейта-потребителя нужна только конфигурация: свои `kani-harnesses.tsv` и `kani-canaries.tsv`.
 Скрипт ворот менять не нужно.

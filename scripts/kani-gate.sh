@@ -1,22 +1,28 @@
 #!/usr/bin/env bash
 # Kani gate (threat CI-5), driven by configuration only:
-#   kani-harnesses.tsv  harness <TAB> extra cargo-kani flags or - <TAB> timeout s <TAB> covers that must be SATISFIED
+#   kani-harnesses.tsv  fully qualified harness (module::fn) <TAB> extra cargo-kani flags or - <TAB> timeout s <TAB> covers that must be SATISFIED
 #   kani-canaries.tsv   id <TAB> file <TAB> exact text <TAB> replacement (\n = newline) <TAB> reason ERE
 # A harness passes only if Kani reports VERIFICATION:- SUCCESSFUL AND exactly the configured number
 # of covers is SATISFIED (a proof whose covers are unreachable is vacuous). Every #[kani::proof] in
-# src/ must be listed (an unlisted harness is a silent skip).
+# the crate (found by `cargo kani list`, not by parsing source) must be listed (an unlisted harness is a silent skip).
 #   kani-gate.sh run    <crate-dir> <out-dir>   prove every listed harness
 #   kani-gate.sh canary <crate-dir> <out-dir>   every planted defect must make `run` fail for its reason
 set -uo pipefail
 die() { echo "KANI $*"; exit 2; }
 
-harnesses_in_src() { # every function annotated #[kani::proof], however many attributes follow
-  python3 - "$1" <<'PY'
-import pathlib, re, sys
-for f in sorted(pathlib.Path(sys.argv[1], "src").rglob("*.rs")):
-    for m in re.finditer(r"#\[kani::proof\](?:\s*#\[[^\]]*\])*\s*(?:pub\s+)?fn\s+(\w+)", f.read_text()):
-        print(m.group(1))
+harnesses_in_src() { # compiler-side discovery (cargo kani list): visibility, comments, macros and
+  # cfg_attr cannot hide a harness from it; standard and contract harnesses, fully qualified names
+  local d="$1" tmp; tmp="$(mktemp -d)"
+  ( cd "$d" && cargo kani list --format json ) > "$tmp/list.log" 2>&1 || { cat "$tmp/list.log"; die "cargo kani list failed"; }
+  python3 - "$d/kani-list.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for group in ("standard-harnesses", "contract-harnesses"):
+    for names in d.get(group, {}).values():
+        for n in names:
+            print(n)
 PY
+  rm -f "$d/kani-list.json"; rm -rf "$tmp"
 }
 
 run_gate() { # <crate-dir> <out-dir>
@@ -31,8 +37,8 @@ run_gate() { # <crate-dir> <out-dir>
   while IFS=$'\t' read -r h flags secs covers; do
     [[ -z "$h" || "$h" = \#* ]] && continue
     [[ "$secs" =~ ^[0-9]+$ && "$covers" =~ ^[0-9]+$ ]] || die "malformed row for $h in $cfg"
-    log="$out/$h.log"; local -a extra=(); [ "$flags" = "-" ] || read -ra extra <<< "$flags"
-    ( cd "$d" && timeout "$secs" cargo kani "${extra[@]}" --harness "$h" --output-format regular ) > "$log" 2>&1
+    log="$out/${h//::/__}.log"; local -a extra=(); [ "$flags" = "-" ] || read -ra extra <<< "$flags"
+    ( cd "$d" && timeout "$secs" cargo kani "${extra[@]}" --harness "$h" --exact --output-format regular ) > "$log" 2>&1
     local krc=$? reason="" ok=1
     line="$(grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | tail -1)"
     local sat=0 tot=0; [ -n "$line" ] && { sat="$(awk '{print $2}' <<< "$line")"; tot="$(awk '{print $4}' <<< "$line")"; }
