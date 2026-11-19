@@ -307,9 +307,47 @@ CFG = re.compile(r"(#!?\[\s*cfg(_attr)?\s*\(|\bcfg!\s*\()")
 ALLOWED_ATTR = re.compile(r"^\s*#\[\s*cfg\s*\(\s*(test|kani)\s*\)\s*\]\s*$")
 MOD = re.compile(r"^\s*(pub(\([^)]*\))?\s+)?mod\s+\w+")
 ENVLIT = re.compile(r'"(CARGO_[A-Z0-9_]*|RUST_TEST[A-Z0-9_]*)"')
-# No lexing: comments and string literals are NOT skipped. A hand-written skipper mis-read a char literal '"' as a
-# string start and blanked the fork after it; scanning the raw text over-approximates (a comment mentioning
-# cfg(test) is flagged too - reword it), which is the safe direction for a gate.
+def rust_blank(text):
+    """Rust lexing just far enough to blank comments (nested /* */ too), string, byte, raw-string and char
+    literals - newlines kept, delimiters kept - so cfg expressions are cut by real parentheses only.
+    Char literal vs lifetime as rustc decides: ' + escape or ' + one char + ' is a char literal, else a lifetime.
+    Returns (code, problem); an unterminated comment or literal is a problem (fail closed)."""
+    out, k, n = [], 0, len(text)
+    blank = lambda seg: "".join(ch if ch == "\n" else " " for ch in seg)
+    while k < n:
+        c = text[k]
+        if text.startswith("//", k):
+            e = text.find("\n", k); e = n if e < 0 else e
+            out.append(blank(text[k:e])); k = e; continue
+        if text.startswith("/*", k):
+            depth, e = 1, k + 2
+            while e < n and depth:
+                if text.startswith("/*", e): depth += 1; e += 2
+                elif text.startswith("*/", e): depth -= 1; e += 2
+                else: e += 1
+            if depth: return None, f"unterminated block comment at offset {k}"
+            out.append(blank(text[k:e])); k = e; continue
+        m = re.match(r'(b|c)?r(#*)"', text[k:]) if c in "brc" and (k == 0 or not (text[k - 1].isalnum() or text[k - 1] == "_")) else None
+        if m:
+            close = '"' + m.group(2); e = text.find(close, k + m.end())
+            if e < 0: return None, f"unterminated raw string at offset {k}"
+            e += len(close); out.append(text[k] + blank(text[k + 1:e - 1]) + text[e - 1]); k = e; continue
+        if c == '"' or (c in "bc" and text.startswith('"', k + 1) and (k == 0 or not (text[k - 1].isalnum() or text[k - 1] == "_"))):
+            s0 = k if c == '"' else k + 1; e = s0 + 1
+            while e < n and text[e] != '"': e += 2 if text[e] == "\\" else 1
+            if e >= n: return None, f"unterminated string at offset {k}"
+            out.append(text[k:s0 + 1] + blank(text[s0 + 1:e]) + '"'); k = e + 1; continue
+        if c == "'":
+            if text.startswith("\\", k + 1):
+                e = k + 2
+                while e < n and text[e] != "'": e += 2 if text[e] == "\\" else 1
+                if e >= n: return None, f"unterminated char literal at offset {k}"
+                out.append("'" + blank(text[k + 1:e]) + "'"); k = e + 1; continue
+            if k + 2 < n and text[k + 2] == "'" and text[k + 1] != "\n":
+                out.append("' '"); k += 3; continue
+            out.append(c); k += 1; continue   # a lifetime
+        out.append(c); k += 1
+    return "".join(out), None
 START = re.compile(r"(#!?\[\s*)?\bcfg(_attr)?\s*(!\s*)?\(")
 bad = []; files = 0
 for d, dirs, names in os.walk(os.path.join(root, "src")):
@@ -318,7 +356,9 @@ for d, dirs, names in os.walk(os.path.join(root, "src")):
         path = os.path.join(d, name); rel = os.path.relpath(path, root)
         if is_spec(rel): continue
         files += 1
-        raw = open(path, encoding="utf-8").read(); lits = text = raw
+        raw = open(path, encoding="utf-8").read(); lits = raw
+        text, problem = rust_blank(raw)
+        if problem: bad.append(f"{rel}: cannot read safely ({problem})"); continue
         # whole cfg expressions, balanced parentheses, across lines (a multi-line #[cfg(any(test, kani))] too)
         for m in START.finditer(text):
             k, depth = m.end(), 1
@@ -442,6 +482,12 @@ fork_canary fork-charlit "    const _Q: char = '\"';
     #[cfg(not(test))]
     2"
 run C43 canary-fork-after-char-literal fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-charlit" judge_forks "$CAN/fork-charlit"
+# C44: a comment holding ')' inside the cfg expression must not cut it short before the judging identifier
+fork_canary fork-comment-paren '    #[cfg(any(/* )) */ test))]
+    return 1;
+    #[cfg(not(/* )) */ test))]
+    2'
+run C44 canary-fork-comment-paren fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(any\(/\* \)\) \*/ test\)\)\]' "$CAN/fork-comment-paren" judge_forks "$CAN/fork-comment-paren"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -887,7 +933,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..43} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..44} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..43} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..44} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
