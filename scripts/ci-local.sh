@@ -453,6 +453,62 @@ mutants_gate() {
   echo "MUTANTS caught=$(wc -l < "$o/caught.txt") unviable=$(grep -c . "$o/unviable.txt")"
 }
 run S1d mutation pass - "$ROOT" mutants_gate "$ROOT" "$WORK/mutants-root"
+# S1h "neutral mutant" (#45 item 2): S1d counts a mutant as caught when ANY test fails - a test that only checks
+# the source text (a hash of include_str!("lib.rs")) catches every mutant without checking behaviour. Here the
+# shipped source gets edits that change its text but not its behaviour - a comment on top of each file and a
+# `let _ = <random>u64;` at the start of every function body, the places mutants edit - and the unchanged test
+# suite must still pass. A test that fails on a behaviour-preserving edit reads the source, not the behaviour.
+neutral_gate() { # <crate dir> <work dir>
+  local d="$1" w="$2"
+  rm -rf "$w"; mkdir -p "$w/crate"
+  ( cd "$d" && tar --exclude=./target --exclude=./.git -cf - . ) | ( cd "$w/crate" && tar -xf - ) || { echo "NEUTRAL copy failed"; return 2; }
+  "$PY" - "$w/crate" <<'PY' || return 2
+import os, random, re, sys
+root = sys.argv[1]
+spec = set()
+try:
+    for line in open(os.path.join(root, "spec-paths.txt")):
+        line = line.strip()
+        if line and not line.startswith("#"): spec.add(os.path.normpath(line))
+except OSError:
+    pass
+rng = random.SystemRandom()
+edited = bodies = 0
+for d, _, names in os.walk(os.path.join(root, "src")):
+    for nm in sorted(names):
+        if not nm.endswith(".rs"): continue
+        p = os.path.join(d, nm); rel = os.path.relpath(p, root)
+        if any(rel == q or rel.startswith(q + os.sep) for q in spec): continue
+        text = open(p, encoding="utf-8").read()
+        # blank comments/strings/chars (same rules as S1g's lexer, kept short here) to find `fn` bodies safely
+        code = re.sub(r"//[^\n]*", lambda m: " " * len(m.group()), text)
+        code = re.sub(r"/\*.*?\*/", lambda m: re.sub(r"[^\n]", " ", m.group()), code, flags=re.S)
+        code = re.sub(r'"(?:\\.|[^"\\])*"', lambda m: '"' + " " * (len(m.group()) - 2) + '"', code)
+        inserts = []
+        for m in re.finditer(r"\bfn\s+\w+", code):
+            k, depth = m.end(), 0
+            while k < len(code):
+                c = code[k]
+                if c in "([<": depth += 1
+                elif c in ")]>" and not code.startswith("->", k - 1): depth -= 1
+                elif c == ";" and depth <= 0: k = -1; break          # declaration without a body
+                elif c == "{" and depth <= 0: break
+                k += 1
+            if k < 0 or k >= len(code): continue
+            inserts.append(k + 1)
+        for pos in sorted(inserts, reverse=True):
+            text = text[:pos] + f" let _ = {rng.randrange(1, 2**63)}u64; " + text[pos:]
+        bodies += len(inserts)
+        text = f"// neutral edit {rng.randrange(2**63):x}: behaviour unchanged\n" + text
+        open(p, "w", encoding="utf-8").write(text); edited += 1
+if edited == 0: sys.exit("NEUTRAL no shipped source file to edit")
+print(f"NEUTRAL edited {edited} files, {bodies} function bodies")
+PY
+  ( cd "$w/crate" && CARGO_TARGET_DIR="$w/target" cargo test --locked -q 2>&1 | tail -15; exit "${PIPESTATUS[0]}" ) \
+    || { echo "NEUTRAL tests fail on a behaviour-preserving edit: they read the source text, not the behaviour"; return 1; }
+  echo "NEUTRAL tests pass on behaviour-preserving edits"
+}
+run S1h neutral-mutant pass - "$ROOT" neutral_gate "$ROOT" "$WORK/neutral-root"
 # --- S2: supply chain ---
 run S2a deny pass - "$ROOT" cargo deny --locked check
 run S2b audit pass - "$ROOT" cargo audit
@@ -546,6 +602,13 @@ mk fork-inc; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/fo
 printf '#[must_use]\npub fn canary_fork() -> u32 {\n    #[cfg(test)]\n    return 1;\n    #[cfg(not(test))]\n    2\n}\n' > "$CAN/fork-inc/implementation.inc"
 printf '\ninclude!("../implementation.inc");\n' >> "$CAN/fork-inc/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/fork-inc/target" run C48 canary-fork-in-included-file fail '^JUDGE-FORK implementation.inc:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-inc" judge_forks "$CAN/fork-inc"
+# C49: a test that only hashes the shipped source catches every mutant (S1d passes) - S1h must fail it
+mk neutral-hash; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/neutral-hash/"
+NH="$("$PY" -c 'import sys; h=0
+for b in open(sys.argv[1],"rb").read(): h=(h*31+b)%(1<<64)
+print(h)' "$CAN/neutral-hash/src/lib.rs")"
+printf '\n#[cfg(test)]\nmod canary_source_hash {\n    #[test]\n    fn source_unchanged() {\n        let all = include_str!("lib.rs");\n        let src = &all[..all.find("\\n#[cfg(test)]\\nmod canary_source_hash").unwrap_or(all.len())];\n        let h = src.bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(u64::from(b)));\n        assert_eq!(h, %s);\n    }\n}\n' "$NH" >> "$CAN/neutral-hash/src/lib.rs"
+run C49 canary-source-hash-test fail '^NEUTRAL tests fail on a behaviour-preserving edit' "$CAN/neutral-hash" neutral_gate "$CAN/neutral-hash" "$WORK/neutral-c49"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -991,7 +1054,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..48} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..49} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..48} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..49} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
