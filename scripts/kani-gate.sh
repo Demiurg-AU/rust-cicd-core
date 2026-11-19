@@ -47,7 +47,7 @@ run_gate() { # <crate-dir> <out-dir>
   ( cd "$d" && cargo fetch ) >/dev/null 2>&1 || echo "KANI warning: cargo fetch failed (the jail has no network)"
   local listed; listed="$(awk -F'\t' '!/^#/ && NF {print $1}' "$cfg")"
   [ -n "$listed" ] || die "no harness listed in $cfg"
-  local found
+  local found outside=""
   if ! found="$(harnesses_in_src "$d")" || [ -z "$found" ]; then
     echo "KANI FAIL harness inventory unavailable (cargo kani list failed, returned bad JSON or found no harness)"
     printf 'inventory\tFAIL\tunavailable\n' >> "$out/kani-results.tsv"; return 1
@@ -72,11 +72,15 @@ PY
       [ -n "$h" ] || continue
       grep -qx "$h" <<< "$listed" || continue   # already reported as unlisted
       echo "KANI FAIL $h: defined outside the spec ($f)"; printf '%s\tFAIL\toutside spec: %s\n' "$h" "$f" >> "$out/kani-results.tsv"; rc=1
+      outside+="$h"$'\n'
     done <<< "$bad"
   fi
   while IFS=$'\t' read -r h flags secs covers || [ -n "$h" ]; do
     [[ -z "$h" || "$h" = \#* ]] && continue
     [[ "$secs" =~ ^[0-9]+$ && "$covers" =~ ^[0-9]+$ ]] || die "malformed row for $h in $cfg"
+    # one verdict row per harness: a shadow harness is not proved, or its PASS row would follow the FAIL and
+    # claim-verdict.sh (last row wins) would report PASS for evidence this gate rejected
+    grep -qxF "$h" <<< "$outside" && continue
     log="$out/${h//::/__}.log"; local -a extra=(); [ "$flags" = "-" ] || read -ra extra <<< "$flags"
     ( cd "$d" && sandbox timeout "$secs" cargo kani "${extra[@]}" --harness "$h" --exact --output-format regular ) > "$log" 2>&1
     local krc=$? reason="" ok=1
