@@ -258,9 +258,9 @@ run S1a fmt pass - "$ROOT" cargo fmt --all -- --check
 run S1b clippy pass - "$ROOT" cargo clippy --locked --all-targets -- -D warnings
 # S1e: no panicking construct in non-test code (lib + bins; cargo's default targets exclude tests).
 # A panic in shipped code is a denial of service; a local #[allow(...)] stays visible in review.
-NOPANIC=(-D clippy::indexing_slicing -D clippy::string_slice -D clippy::arithmetic_side_effects
-  -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic -D clippy::unreachable
-  -D clippy::todo -D clippy::unimplemented -D clippy::panic_in_result_fn)
+NOPANIC=(-F clippy::indexing_slicing -F clippy::string_slice -F clippy::arithmetic_side_effects
+  -F clippy::unwrap_used -F clippy::expect_used -F clippy::panic -F clippy::unreachable
+  -F clippy::todo -F clippy::unimplemented -F clippy::panic_in_result_fn)
 run S1e no-panic-lints pass - "$ROOT" cargo clippy --locked -- -D warnings "${NOPANIC[@]}"
 # S1c in two steps so the log says WHY it failed (cargo-llvm-cov alone exits 1 without a reason).
 coverage_gate() { # <min line %>
@@ -310,13 +310,17 @@ mk clippy; printf '\npub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }\n' 
 CARGO_TARGET_DIR="$CAN/clippy/target" run C2 canary-clippy fail 'len_zero' "$CAN/clippy" cargo clippy --all-targets -- -D warnings
 mk nopanic; printf '\npub fn first_byte(v: &[u8]) -> u8 { v[0] }\n' >> "$CAN/nopanic/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic/target" run C26 canary-panic-construct fail 'indexing may panic' "$CAN/nopanic" cargo clippy -- -D warnings "${NOPANIC[@]}"
+# C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
+mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
 # C28: from inside the jail, every protected path must refuse a write (zero-byte append / temp file).
-PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN")
+PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN"
+         "${CARGO_HOME:-$HOME/.cargo}/registry")
 [ -n "${GITHUB_ENV:-}" ] && PROTECT+=("$GITHUB_ENV" "$GITHUB_OUTPUT")
 run C28 canary-sandbox-blocks-writes fail '^SANDBOX all writes blocked' "$ROOT" sandbox_probe "${PROTECT[@]}"
 # C29: the real attack path - a planted #[test] run by `cargo test` tries to open results.tsv for append.
 mk tamper; printf '\n#[test]\nfn canary_tamper() {\n    let p = std::env::var("TAMPER_PATH").unwrap_or_default();\n    if let Err(e) = std::fs::OpenOptions::new().append(true).open(&p) { panic!("TAMPER blocked: {e}"); }\n}\n' >> "$CAN/tamper/src/lib.rs"
-TAMPER_PATH="$RES" CARGO_TARGET_DIR="$CAN/tamper/target" run C29 canary-test-cannot-touch-evidence fail 'TAMPER blocked: Read-only file system' "$CAN/tamper" cargo test --lib canary_tamper
+SANDBOX_ENV_KEEP=TAMPER_PATH TAMPER_PATH="$RES" CARGO_TARGET_DIR="$CAN/tamper/target" run C29 canary-test-cannot-touch-evidence fail 'TAMPER blocked: Read-only file system' "$CAN/tamper" cargo test --lib canary_tamper
 # C30: a leftover mock / `unset -f` that leaves an unjailed cargo must stop the next gate, not run it unjailed.
 cargo() { command cargo "$@"; }
 run C30 canary-jail-disarmed fail '^JAIL disarmed before C30' "$ROOT" true
@@ -324,6 +328,20 @@ sandbox_enable
 # C31: jailed code reaches no unix socket (docker.sock = full escape; read-only binds do not stop connect())
 # and no network. The host opens its own decoy socket in /tmp so the probe is meaningful on any machine.
 run C31 canary-sandbox-no-sockets-no-network fail '^SANDBOX no socket or network reachable' "$ROOT" sandbox_probe_sockets "$(mktemp -d)"
+# C34: a writable path that is (or passes through) a symlink - e.g. a committed fuzz/artifacts/<t> -> $RUNNER_TEMP -
+# would re-mount the link's target writable; the jail must refuse to start.
+mkdir "$HOST/c34-target"; mkdir "$CAN/c34"; ln -s "$HOST/c34-target" "$CAN/c34/artifacts"
+SANDBOX_RW="$CAN/c34/artifacts" run C34 canary-symlinked-writable-path fail '^SANDBOX writable path is or passes through a symlink' "$CAN/c34" sandbox true
+# C35: secrets in the caller's environment and in $HOME are invisible to jailed code (it could print them into
+# the logs and evidence). A fake secret in the env and a fake key file in $HOME must not be readable.
+secret_probe() {
+  local key="$HOME/.ci-local-fake-secret-$$"; printf 'FAKE-KEY\n' > "$key"
+  local out; out="$(CI_LOCAL_FAKE_SECRET=FAKE-ENV sandbox sh -c 'echo "env=${CI_LOCAL_FAKE_SECRET:-}"; cat "$1" 2>/dev/null' _ "$key")"
+  rm -f "$key"
+  if grep -q 'FAKE-' <<< "$out"; then echo "SANDBOX secret visible: $out"; return 0; fi
+  echo "SANDBOX secrets hidden (env cleared, \$HOME empty)"; return 1
+}
+run C35 canary-sandbox-hides-secrets fail '^SANDBOX secrets hidden' "$ROOT" secret_probe
 # C32: a checkout-controlled .cargo/config.toml rustc-wrapper must never run outside the jail - not even
 # during fetch / metadata / deny / audit, which run unjailed (network) from a neutral directory.
 # Non-vacuous: the same wrapper must have run INSIDE the jail during the build (marker in the target dir).
@@ -414,6 +432,7 @@ run CL31 canary-python-too-old fail '^PYTHON too old' "$ROOT" env PY_MIN=99.0 ba
   let inProject (m : Name) : Bool := mods.any (fun r => r == m || r.isPrefixOf m)
   if (mods.filterMap env.getModuleIdx?).size != mods.size then throwError "AUDIT module not found"
   let mut bad : Array Name := #[]
+  let mut nonstd : Array Name := #[]
   let mut n : Nat := 0
   for (name, ci) in env.constants.map₁.toList do
     let some mi := env.getModuleIdxFor? name | continue
@@ -443,9 +462,13 @@ run CL31 canary-python-too-old fail '^PYTHON too old' "$ROOT" env PY_MIN=99.0 ba
       | _ => false
     unless userName.isInternal || ctorAux || recursorAux do logInfo m!"AUDIT theorem {name} axioms {axs}"
     if axs.contains ``sorryAx then bad := bad.push name
+    -- only Lean's three standard axioms: a user `axiom cheat : ∀ p, p` would prove anything without sorryAx
+    if axs.any (fun a => a != ``sorryAx && a != ``propext && a != ``Classical.choice && a != ``Quot.sound) then
+      nonstd := nonstd.push name
   logInfo m!"AUDIT theorems={n}"
   if n == 0 then throwError "AUDIT found no theorems"
   unless bad.isEmpty do throwError m!"AUDIT sorryAx in {bad}"
+  unless nonstd.isEmpty do throwError m!"AUDIT non-standard axiom in {nonstd}"
 #audit_axioms
 LEAN
     } >| "$audit" || return 2
@@ -460,6 +483,10 @@ LEAN
   run L2 lean-axiom-audit pass - "$LW" bash -c "$AUDIT; lean_audit \"\$1\"" _ "$LW"
   grep -oE '^AUDIT theorem [^ ]+' "$LW/axioms.out" | awk '{print $3}' | sort -u > "$EV/lean-theorems.txt"
   run L3 lean-no-sorry-text pass - "$LW" bash -c "$(declare -f lean_text); lean_text '$LW'"
+  # L4: Lean code runs at elaboration (#eval IO.FS.writeFile ...) in the jail's writable $LW: what was built and
+  # audited must still be byte-identical to the PR's Lean sources, or the evidence is about other text.
+  lean_same() { diff -rq --exclude=.lake --exclude=axioms.out --exclude=lake-manifest.json "$1" "$2" && echo "LEAN sources unchanged by the build"; }
+  run L4 lean-sources-unchanged pass - "$ROOT" lean_same "$LSRC" "$LW"
   # Rust<->Lean traceability: proof-map.tsv lines "lean_theorem<TAB>rust_test_path"
   # proof-map check: each theorem needs a row whose Rust-test column is non-empty
   pm_check() { local th="$1" pm="$2" rc=0 t count=0
@@ -483,6 +510,10 @@ LEAN
   ROOTFILE="${FIRST_MODULE#*$'\t'}"
   mkL lsorry; printf '\ntheorem canary_bad : False := by sorry\n' >> "$CAN/lsorry/$ROOTFILE"
   run CL1 canary-lean-sorry fail "AUDIT sorryAx in \\[canary_bad" "$CAN/lsorry" bash -c "$AUDIT; lean_audit \"\$1\"" _ "$CAN/lsorry"
+  mkL laxiom; printf '\naxiom canary_cheat : ∀ (p : Prop), p\ntheorem canary_by_axiom : (1 : Nat) = 2 := canary_cheat _\n' >> "$CAN/laxiom/$ROOTFILE"
+  run CL38 canary-lean-user-axiom fail "AUDIT non-standard axiom in \\[canary_by_axiom" "$CAN/laxiom" bash -c "$AUDIT; lean_audit \"\$1\"" _ "$CAN/laxiom"
+  mkL lrewrite; printf '\n#eval IO.FS.writeFile "%s" "-- rewritten during elaboration\\n"\n' "$ROOTFILE" >> "$CAN/lrewrite/$ROOTFILE"
+  run CL39 canary-lean-rewrites-itself fail '^Files .* differ' "$ROOT" bash -c "$AUDIT; $(declare -f lean_same); ( lean_build \"\$1\" ) >/dev/null 2>&1; lean_same \"\$2\" \"\$1\"" _ "$CAN/lrewrite" "$LSRC"
   mkL lwrong; printf '\ntheorem canary_wrong : (1 : Nat) = 2 := by rfl\n' >> "$CAN/lwrong/$ROOTFILE"
   run CL2 canary-lean-false-proof fail 'canary_wrong|rfl. failed' "$CAN/lwrong" "${LX[@]}" lake build
   # CL3: an annotated theorem missing from proof-map.tsv must be reported (discovery covers @[attr])
@@ -724,7 +755,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..32} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..35} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..32} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..37}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..35} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

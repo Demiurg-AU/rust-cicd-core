@@ -45,9 +45,19 @@ run_gate() { # <repo-dir> <out-dir>
     [ -n "$t" ] || continue
     grep -qx "$t" <<< "$found" || { echo "FUZZ FAIL listed target does not exist: $t"; printf '%s\tFAIL\tmissing\n' "$t" >> "$out/fuzz-results.tsv"; rc=1; continue; }
     mkdir -p "$d/fuzz/corpus/$t" "$d/fuzz/artifacts/$t"; log="$out/$t.log"
+    # build first, so the timed part below is the fuzzing session alone
+    ( cd "$d/fuzz" && cargo fuzz build --target "$FUZZ_TARGET" "$t" ) > "$out/$t.build.log" 2>&1 \
+      || { echo "FUZZ FAIL $t: build failed"; tail -5 "$out/$t.build.log"; printf '%s\tFAIL\tbuild\n' "$t" >> "$out/fuzz-results.tsv"; rc=1; continue; }
+    local t0; t0="$(date +%s)"
     ( cd "$d/fuzz" && SANDBOX_RW="$d/fuzz/corpus/$t:$d/fuzz/artifacts/$t" \
         cargo fuzz run --target "$FUZZ_TARGET" "$t" "corpus/$t" -- -max_total_time="$secs" ) > "$log" 2>&1
-    local frc=$?
+    local frc=$? took=$(( $(date +%s) - t0 ))
+    # the log is written by the fuzz target's own process: "Done N runs" and exit 0 can be faked (e.g. a raw
+    # exit_group syscall after printing it). The host's clock cannot: a clean run must last the whole budget.
+    if [ "$frc" -eq 0 ] && [ "$took" -lt $(( secs * 9 / 10 )) ]; then
+      echo "FUZZ FAIL $t: clean exit after ${took}s of a ${secs}s budget (session did not run)"
+      printf '%s\tFAIL\tshort session %ss\n' "$t" "$took" >> "$out/fuzz-results.tsv"; rc=1; continue
+    fi
     local kept; kept="$(find "$d/fuzz/corpus/$t" -type f | wc -l)"
     if [ "$frc" -eq 0 ] && grep -q '^Done [0-9]* runs' "$log" && [ "$kept" -eq 0 ]; then
       echo "FUZZ FAIL $t: corpus not persisted (0 inputs in fuzz/corpus/$t after the run)"
@@ -84,6 +94,13 @@ open(p, "w").write(s.replace(old, new))
 PY
     then echo "FUZZ CANARY $id cannot be planted"; printf '%s\tFAIL\n' "$id" >> "$out/fuzz-canaries.tsv"; rc=1; rm -rf "$tmp"; continue; fi
     local log="$out/canary-$id.log"
+    if [[ "$want" == GATE:* ]]; then
+      # a canary against the GATE itself (e.g. a target that fakes a finished session): run_gate must FAIL for the reason
+      local g; g="$(FUZZ_SECONDS=20 run_gate "$tmp" "$out/canary-$id" 2>&1)"; local grc=$?
+      if [ "$grc" -ne 0 ] && grep -Eq "${want#GATE:}" <<< "$g"; then echo "FUZZ CANARY $id caught"; printf '%s\tPASS\n' "$id" >> "$out/fuzz-canaries.tsv"
+      else echo "FUZZ CANARY $id NOT caught by the gate (exit $grc):"; tail -5 <<< "$g"; printf '%s\tFAIL\n' "$id" >> "$out/fuzz-canaries.tsv"; rc=1; fi
+      rm -rf "$tmp"; continue
+    fi
     ( cd "$tmp/fuzz" && cargo fuzz run --target "$FUZZ_TARGET" "$t" -- -seed=1 -max_total_time="$secs" ) > "$log" 2>&1
     local frc=$?
     if [ "$frc" -ne 0 ] && grep -Eq "$want" "$log"; then

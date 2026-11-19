@@ -28,6 +28,10 @@ printf 'M\tA1\tx\tgate:K2\n' >> "$c/asm.tsv"; abg M bounded 0 '^FAIL M: breaker 
 abg Y bounded 2 'is not a canary'
 printf 'Z2\tp\tbounded\tsmall\tkani:a\n' >> "$c/claims.tsv"; printf 'Z2\tA1\tx\tgate:K9\nZ2\tA2\tx\tgate:K2\n' >> "$c/asm.tsv"
 abg Z2 bounded 0 '^FAIL Z2: breaker gate:K2'   # missing K9 first, failed K2 second: FAIL, not ABSTAIN
+printf 'T\tp\tbounded\tsmall\tkani:a\n' >> "$c/claims.tsv"; printf 'T\tA1\tx\ttrusted:a\nT\tA2\tx\ttrusted:b\n' >> "$c/asm.tsv"
+abg T bounded 0 '^ABSTAIN T: every assumption is trusted'
+printf 'U\tp\tcode\tall\tkani:a,gate:K1\n' >> "$c/claims.tsv"; printf 'U\tA1\tx\tgate:K1\n' >> "$c/asm.tsv"
+abg U any 0 '^ABSTAIN U: evidence gate:K1 does not speak for every input'   # scope=code on bounded evidence
 printf 'B\tp\tcdoe\tall\tkani:a\nD\tp\tcode\tall\tkani:a\nD\tp\tcode\tall\tkani:a\n' > "$c/bad.tsv"
 for id in B D; do bash "$SD/claim-verdict.sh" "$c/bad.tsv" "$c/status.tsv" "$id" any >/dev/null; r=$?
   [ "$r" -eq 2 ] && echo "CLAIM canary $id malformed -> evaluator error" || { echo "CLAIM canary $id malformed: exit $r, want 2"; rc=1; }; done

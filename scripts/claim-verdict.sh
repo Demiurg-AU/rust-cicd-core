@@ -48,8 +48,19 @@ if [ -n "$assumptions" ]; then
   done <<< "$arows"
   # missing breakers are reported only after every present one was checked: a known failure must not hide behind ABSTAIN
   [ -z "$bmissing" ] || { echo "ABSTAIN $id: breaker not run:$bmissing"; exit 0; }
+  # at least one assumption must actually be broken by a canary: a claim resting only on trusted: lines has no
+  # demonstrated way to fail
+  awk -F'\t' '$4 !~ /^trusted:/' <<< "$arows" | grep -q . || { echo "ABSTAIN $id: every assumption is trusted - none is broken by a canary"; exit 0; }
 fi
 if [ "$want" = any ] && [ "$scope" != code ]; then
   echo "ABSTAIN $id: proved only as $scope ($bounds); not for every input on the Rust code"; exit 0
+fi
+# scope=code is not taken on the claim's word: every evidence item must be of a kind that speaks for EVERY input
+# of the Rust code (a Kani proof, the no-panic lint gate and its canary). Tests, coverage, mutants, Lean models
+# cannot carry an any-input PASS, whatever claims.tsv says.
+UNIVERSAL='^(kani:.+|gate:S1e|gate:C26|gate:C33)$'
+if [ "$want" = any ]; then
+  IFS=',' read -ra ev <<< "$evidence"
+  for e in "${ev[@]}"; do [[ "$e" =~ $UNIVERSAL ]] || { echo "ABSTAIN $id: evidence $e does not speak for every input (scope=code needs Kani or the no-panic lint gate)"; exit 0; }; done
 fi
 echo "PASS $id ($scope: $bounds)${trusting:+; trusting:${trusting%;}}"

@@ -3,11 +3,14 @@
 # so that it cannot rewrite the evidence that judges it (threat CI-9 / ROADMAP O1).
 #
 #   sandbox <cmd...>   run <cmd> in a bubblewrap jail:
-#       read-only : the whole filesystem (repo, evidence, scripts, .git, ~/.cargo/config + bin,
-#                   toolchains, $RUNNER_TEMP with GITHUB_ENV/GITHUB_OUTPUT files)
+#       read-only : the whole filesystem (repo, evidence, scripts, .git, toolchains, the dependency cache
+#                   ~/.cargo/registry + git, $RUNNER_TEMP with GITHUB_ENV/GITHUB_OUTPUT files)
+#       hidden    : $HOME (an empty tmpfs; only ~/.cargo ~/.rustup ~/.elan ~/.kani come back, read-only) -
+#                   no ~/.ssh, ~/.config/gh, ... for the code under test to read and print into the logs
 #       writable  : a fresh private TMPDIR (removed afterwards), $CARGO_TARGET_DIR, the current directory when it is under
-#                   the run's work dir ($SANDBOX_WORK), every path in $SANDBOX_RW (":"-separated),
-#                   and ~/.cargo/registry + ~/.cargo/git (dependency downloads)
+#                   the run's work dir ($SANDBOX_WORK), every path in $SANDBOX_RW (":"-separated, no symlinks)
+#       environment: cleared; only toolchain variables (PATH, CARGO_*, RUSTUP_*, RUST*, LEAN/ELAN/LAKE*, KANI*,
+#                   NEXTEST_*, LLVM_*, locale) and the names in $SANDBOX_ENV_KEEP pass in
 #       no network namespace shared (no TCP/UDP, no abstract unix sockets) and an empty /run (no docker.sock,
 #       dbus, systemd sockets): a read-only bind does NOT stop connect() to a unix socket, and the runner
 #       user's docker socket would be a full escape. Dependencies are fetched beforehand (cargo fetch).
@@ -27,11 +30,35 @@ sandbox() {
               --setenv CARGO_NET_OFFLINE true)
   # unix sockets: an empty /run and /tmp hide docker.sock, dbus, systemd and stray /tmp sockets; any other socket
   # found by sandbox_enable is masked with /dev/null. The run's own WORK stays visible (read-only).
+  # environment: start empty, pass toolchain variables only (secrets in the caller's env stay outside)
+  args+=(--clearenv)
+  local v
+  while IFS='=' read -r v _; do
+    case "$v" in
+      PATH|HOME|USER|LOGNAME|SHELL|TERM|TZ|LANG|LC_*|CARGO_*|RUSTUP_*|RUSTC*|RUSTDOC*|RUSTFLAGS|RUST_*|ELAN_*|LEAN_*|LAKE_*|KANI_*|NEXTEST_*|LLVM_*|CC|CXX|AR) ;;
+      *) [[ " ${SANDBOX_ENV_KEEP:-} " == *" $v "* ]] || continue ;;
+    esac
+    case "$v" in GITHUB_*|ACTIONS_*|*TOKEN*|*SECRET*|*PASSWORD*|*_KEY) continue ;; esac
+    args+=(--setenv "$v" "${!v}")
+  done < <(compgen -e | sed 's/$/=/')
+  # $HOME: empty, then the toolchain directories read-only (credentials, ssh keys, gh config stay hidden)
+  if [ -n "${HOME:-}" ] && [ -d "$HOME" ] && [ "$HOME" != / ]; then
+    args+=(--tmpfs "$HOME")
+    for p in .cargo .rustup .elan .kani; do [ -e "$HOME/$p" ] && args+=(--ro-bind "$HOME/$p" "$HOME/$p"); done
+    # what the command needs to read comes back read-only: the project it runs in (git top level of the cwd),
+    # the Actions work dir (checkout + RUNNER_TEMP toolchains), the run's WORK and any $SANDBOX_RO path
+    local top; top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || echo "$cwd")"
+    for p in "$top" "$cwd" ${GITHUB_WORKSPACE:+"$(dirname "$GITHUB_WORKSPACE")"}; do
+      [[ "$p/" == "$HOME/"* && -e "$p" ]] && args+=(--ro-bind "$p" "$p")
+    done
+  fi
   [ -d /run ] && args+=(--tmpfs /run)
   args+=(--tmpfs /tmp)
   if [ -n "${SANDBOX_WORK:-}" ]; then args+=(--ro-bind "$SANDBOX_WORK" "$SANDBOX_WORK"); fi
+  [ -n "${CARGO_TARGET_DIR:-}" ] && [ -e "$CARGO_TARGET_DIR" ] && args+=(--ro-bind "$CARGO_TARGET_DIR" "$CARGO_TARGET_DIR")
   # the directory the command runs in must stay visible (read-only unless granted below), also under /tmp
   case "$cwd" in /tmp|/tmp/*) args+=(--ro-bind "$cwd" "$cwd") ;; esac
+  if [ -n "${SANDBOX_RO:-}" ]; then IFS=: read -ra p <<< "$SANDBOX_RO"; for a in "${p[@]}"; do [ -e "$a" ] && args+=(--ro-bind "$a" "$a"); done; fi
   while IFS= read -r s; do [ -n "$s" ] && [ -S "$s" ] && args+=(--ro-bind /dev/null "$s"); done <<< "${SANDBOX_SOCKS:-}"
   tmp="$(mktemp -d "${SANDBOX_WORK:-${TMPDIR:-/tmp}}/sbx-tmp.XXXXXX")" || { echo "SANDBOX no temp dir"; return 125; }
   local rw=("$tmp")
@@ -40,16 +67,16 @@ sandbox() {
   if [ -n "${SANDBOX_RW:-}" ]; then
     IFS=: read -ra p <<< "$SANDBOX_RW"
     # an explicit writable path that does not exist is a caller bug: fail loudly instead of a silent read-only run
-    for a in "${p[@]}"; do [ -e "$a" ] || { echo "SANDBOX writable path missing: $a (cwd $cwd)" >&2; return 125; }; done
+    for a in "${p[@]}"; do
+      [ -e "$a" ] || { echo "SANDBOX writable path missing: $a (cwd $cwd)" >&2; return 125; }
+      # a symlink anywhere in the path would re-mount its TARGET writable (e.g. a committed link to $RUNNER_TEMP)
+      [ "$(realpath -s -- "$a")" = "$(realpath -- "$a")" ] || { echo "SANDBOX writable path is or passes through a symlink: $a -> $(realpath -- "$a")" >&2; return 125; }
+    done
     rw+=("${p[@]}")
   fi
-  local ch="${CARGO_HOME:-$HOME/.cargo}"
-  for p in "$ch/registry" "$ch/git"; do mkdir -p "$p" 2>/dev/null && rw+=("$p"); done
+  # the dependency cache stays read-only: dependencies are fetched before any jailed step (S0f), and a writable
+  # cache let a test rewrite a dependency's sources for every later gate (and later builds on the host)
   for p in "${rw[@]}"; do [ -n "$p" ] && [ -e "$p" ] && { p="$(realpath -- "$p")"; args+=(--bind "$p" "$p"); }; done
-  for p in GITHUB_TOKEN ACTIONS_RUNTIME_TOKEN ACTIONS_ID_TOKEN_REQUEST_TOKEN ACTIONS_ID_TOKEN_REQUEST_URL \
-           ACTIONS_CACHE_URL ACTIONS_RESULTS_URL GITHUB_ENV GITHUB_OUTPUT GITHUB_PATH GITHUB_STATE GITHUB_STEP_SUMMARY; do
-    args+=(--unsetenv "$p")
-  done
   args+=(--setenv TMPDIR "$tmp" --chdir "$cwd")
   "$SANDBOX_BWRAP" "${args[@]}" -- "$@"; rc=$?
   rm -rf "$tmp"; return "$rc"

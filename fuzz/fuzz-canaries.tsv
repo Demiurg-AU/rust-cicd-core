@@ -1,2 +1,3 @@
 # id	target	file (repo-relative)	exact text	replacement	reason the fuzzer must report (ERE)
 FC1	checked_add	src/lib.rs	    a.checked_add(b)	    Some(a.wrapping_add(b))	FUZZ-ORACLE checked_add\(
+FC2	checked_add	fuzz/fuzz_targets/checked_add.rs	    assert_eq!(rust_cicd_core::checked_add(a, b), want, "FUZZ-ORACLE checked_add({a}, {b})");	    assert_eq!(rust_cicd_core::checked_add(a, b), want, "FUZZ-ORACLE checked_add({a}, {b})");\n    println!("Done 1 runs in 0 second(s)");\n    unsafe { core::arch::asm!("syscall", in("rax") 231, in("rdi") 0, options(noreturn)); }	GATE:session did not run
