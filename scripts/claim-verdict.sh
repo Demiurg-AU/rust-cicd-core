@@ -30,7 +30,7 @@ done
 # Assumption Breaker Gate (ROADMAP O4a): a claim states its assumptions; each is either broken on purpose by a
 # CANARY (breaker:gate:<id> with expect=fail, or breaker:kcanary:<id>) that must have fired for its reason, or
 # declared trusted:<reason> and then printed with every PASS. No assumption listed -> ABSTAIN.
-trusting=""
+trusting="" bmissing=""
 if [ -n "$assumptions" ]; then
   arows="$(awk -F'\t' -v id="$id" '!/^#/ && $1==id' "$assumptions")"
   [ -n "$arows" ] || { echo "ABSTAIN $id: no assumptions declared (Assumption Breaker Gate)"; exit 0; }
@@ -40,12 +40,14 @@ if [ -n "$assumptions" ]; then
       gate:?*|kcanary:?*)
         line="$(awk -F'\t' -v e="$breaker" '$1==e' "$status" | tail -1)"
         v="$(cut -f2 <<< "$line")"; ex="$(cut -f3 <<< "$line")"
-        [ -n "$line" ] || { echo "ABSTAIN $id: breaker $breaker for $aid not run"; exit 0; }
+        [ -n "$line" ] || { bmissing="$bmissing $breaker($aid)"; continue; }
         [[ "$breaker" == gate:* && "$ex" != fail ]] && { echo "VERDICT breaker $breaker for $aid is not a canary (expect=$ex)"; exit 2; }
         [ "$v" = PASS ] || { echo "FAIL $id: breaker $breaker for $aid did not fire for its reason ($v)"; exit 0; } ;;
       *) echo "VERDICT bad breaker for $id/$aid: '$breaker' (gate:<canary> | kcanary:<id> | trusted:<reason>)"; exit 2 ;;
     esac
   done <<< "$arows"
+  # missing breakers are reported only after every present one was checked: a known failure must not hide behind ABSTAIN
+  [ -z "$bmissing" ] || { echo "ABSTAIN $id: breaker not run:$bmissing"; exit 0; }
 fi
 if [ "$want" = any ] && [ "$scope" != code ]; then
   echo "ABSTAIN $id: proved only as $scope ($bounds); not for every input on the Rust code"; exit 0
