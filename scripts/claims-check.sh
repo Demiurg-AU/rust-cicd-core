@@ -25,7 +25,9 @@ abg() { local o r; o="$(bash "$SD/claim-verdict.sh" "$c/claims.tsv" "$c/status.t
 check X any PASS; check Y any ABSTAIN; check Y bounded PASS; check Z any FAIL; check W any ABSTAIN; check M any ABSTAIN; check NOPE any ABSTAIN; check V bounded FAIL
 abg X any 0 '^PASS X .*trusting: A2'; abg W any 0 '^ABSTAIN W: evidence not run'; abg M bounded 0 '^ABSTAIN M: no assumptions declared'
 printf 'M\tA1\tx\tgate:K2\n' >> "$c/asm.tsv"; abg M bounded 0 '^FAIL M: breaker gate:K2'
-abg Y bounded 2 'is not a canary' 
+abg Y bounded 2 'is not a canary'
+printf 'Z2\tp\tbounded\tsmall\tkani:a\n' >> "$c/claims.tsv"; printf 'Z2\tA1\tx\tgate:K9\nZ2\tA2\tx\tgate:K2\n' >> "$c/asm.tsv"
+abg Z2 bounded 0 '^FAIL Z2: breaker gate:K2'   # missing K9 first, failed K2 second: FAIL, not ABSTAIN
 printf 'B\tp\tcdoe\tall\tkani:a\nD\tp\tcode\tall\tkani:a\nD\tp\tcode\tall\tkani:a\n' > "$c/bad.tsv"
 for id in B D; do bash "$SD/claim-verdict.sh" "$c/bad.tsv" "$c/status.tsv" "$id" any >/dev/null; r=$?
   [ "$r" -eq 2 ] && echo "CLAIM canary $id malformed -> evaluator error" || { echo "CLAIM canary $id malformed: exit $r, want 2"; rc=1; }; done
