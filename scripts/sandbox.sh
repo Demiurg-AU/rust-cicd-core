@@ -20,12 +20,17 @@ SANDBOX_BWRAP="${SANDBOX_BWRAP:-bwrap}"
 sandbox() {
   local args=(--ro-bind / / --dev /dev --proc /proc
               --unshare-pid --die-with-parent --new-session)
-  local p cwd tmp rc; cwd="$(pwd -P)"
+  local p a cwd tmp rc; cwd="$(pwd -P)"
   tmp="$(mktemp -d "${SANDBOX_WORK:-${TMPDIR:-/tmp}}/sbx-tmp.XXXXXX")" || { echo "SANDBOX no temp dir"; return 125; }
   local rw=("$tmp")
   [ -n "${CARGO_TARGET_DIR:-}" ] && { mkdir -p "$CARGO_TARGET_DIR"; rw+=("$CARGO_TARGET_DIR"); }
   if [ -n "${SANDBOX_WORK:-}" ] && [[ "$cwd/" == "$SANDBOX_WORK/"* ]]; then rw+=("$cwd"); fi
-  if [ -n "${SANDBOX_RW:-}" ]; then IFS=: read -ra p <<< "$SANDBOX_RW"; rw+=("${p[@]}"); fi
+  if [ -n "${SANDBOX_RW:-}" ]; then
+    IFS=: read -ra p <<< "$SANDBOX_RW"
+    # an explicit writable path that does not exist is a caller bug: fail loudly instead of a silent read-only run
+    for a in "${p[@]}"; do [ -e "$a" ] || { echo "SANDBOX writable path missing: $a (cwd $cwd)" >&2; return 125; }; done
+    rw+=("${p[@]}")
+  fi
   local ch="${CARGO_HOME:-$HOME/.cargo}"
   for p in "$ch/registry" "$ch/git"; do mkdir -p "$p" 2>/dev/null && rw+=("$p"); done
   for p in "${rw[@]}"; do [ -n "$p" ] && [ -e "$p" ] && { p="$(realpath -- "$p")"; args+=(--bind "$p" "$p"); }; done

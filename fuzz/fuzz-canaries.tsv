@@ -1,0 +1,2 @@
+# id	target	file (repo-relative)	exact text	replacement	reason the fuzzer must report (ERE)
+FC1	checked_add	src/lib.rs	    a.checked_add(b)	    Some(a.wrapping_add(b))	FUZZ-ORACLE checked_add\(
