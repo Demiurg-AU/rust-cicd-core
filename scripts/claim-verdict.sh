@@ -36,7 +36,7 @@ if [ -n "$assumptions" ]; then
   [ -n "$arows" ] || { echo "ABSTAIN $id: no assumptions declared (Assumption Breaker Gate)"; exit 0; }
   while IFS=$'\t' read -r _ aid _ breaker; do
     case "$breaker" in
-      trusted:?*) trusting="$trusting $aid" ;;
+      trusted:?*) trusting="$trusting $aid (${breaker#trusted:});" ;;
       gate:?*|kcanary:?*)
         line="$(awk -F'\t' -v e="$breaker" '$1==e' "$status" | tail -1)"
         v="$(cut -f2 <<< "$line")"; ex="$(cut -f3 <<< "$line")"
@@ -52,4 +52,4 @@ fi
 if [ "$want" = any ] && [ "$scope" != code ]; then
   echo "ABSTAIN $id: proved only as $scope ($bounds); not for every input on the Rust code"; exit 0
 fi
-echo "PASS $id ($scope: $bounds)${trusting:+; trusting:$trusting}"
+echo "PASS $id ($scope: $bounds)${trusting:+; trusting:${trusting%;}}"
