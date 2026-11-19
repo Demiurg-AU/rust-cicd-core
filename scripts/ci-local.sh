@@ -26,6 +26,7 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
 # HOST: trusted scratch under WORK that is never a jail work dir. Files the host writes or must not have
 # swapped (audit scripts, audit output) live here, not in a directory jailed code could write.
 HOST="$WORK/host"; mkdir "$HOST"
+export PY="${PY:-python3}"   # used by S1f/S1g before the Lean stage too
 
 # --- environment witness ---
 # No "| head" here: under pipefail a closed pipe (SIGPIPE) would abort the whole run before any gate (found 2026-11-17).
@@ -262,6 +263,163 @@ NOPANIC=(-F clippy::indexing_slicing -F clippy::string_slice -F clippy::arithmet
   -F clippy::unwrap_used -F clippy::expect_used -F clippy::panic -F clippy::unreachable
   -F clippy::todo -F clippy::unimplemented -F clippy::panic_in_result_fn)
 run S1e no-panic-lints pass - "$ROOT" cargo clippy --locked -- -D warnings "${NOPANIC[@]}"
+# S1f/S1g: judge the program that ships (threat CODE-2). Every other gate judges a variant: tests run in the
+# dev profile with cfg(test) and the env cargo sets, clippy under cfg(clippy), Kani under cfg(kani), fuzzing under
+# cfg(fuzzing). A fork on any of these lets the judged variant be correct and the shipped one wrong.
+# S1f (behaviour): the test binaries, built in RELEASE, run directly under `env -i` (no CARGO_* runtime variables).
+release_tests() { # <crate dir>
+  local exes n=0 e
+  exes="$(cd "$1" && cargo test --release --locked --no-run --message-format=json 2>/dev/null | "$PY" -c '
+import json, sys
+for line in sys.stdin:
+    try: m = json.loads(line)
+    except ValueError: continue
+    if m.get("reason") == "compiler-artifact" and (m.get("profile") or {}).get("test") and m.get("executable"):
+        print(m["executable"])')" || { echo "RELEASE-TESTS build failed"; return 1; }
+  [ -n "$exes" ] || { echo "RELEASE-TESTS no test binary built"; return 1; }
+  while IFS= read -r e; do
+    n=$((n + 1)); echo "RELEASE-TESTS run $(basename "$e")"
+    ( cd "$1" && sandbox env -i PATH=/usr/bin:/bin "$e" -q ) || { echo "RELEASE-TESTS FAILED: $(basename "$e") (release profile, clean environment)"; return 1; }
+  done <<< "$exes"
+  echo "RELEASE-TESTS $n binaries passed in release under env -i"
+}
+run S1f release-clean-env-tests pass - "$ROOT" release_tests "$ROOT"
+# S1g (syntax): shipped source (src/ minus the spec files in spec-paths.txt) may not branch on a judging context.
+# Allowed: `#[cfg(test)]` / `#[cfg(kani)]` directly on a `mod` item (the spec modules). Flagged: any other
+# cfg/cfg!/cfg_attr naming test, debug_assertions, kani, fuzzing, clippy, miri, coverage, and string literals
+# naming CARGO_* or RUST_TEST* variables (runtime "am I under cargo?" checks). Heuristic: macros or concat! can
+# hide a fork from this scan; S1f is the behavioural check behind it.
+judge_forks() { # <crate dir>
+  # the files to scan are the files the SHIPPED build compiles (rustc dep-info of a release lib+bins build):
+  # #[path = "../x.rs"] modules and include!() files outside src/ are in it; src/ is walked as well
+  local t; t="$(mktemp -d "${SANDBOX_WORK:-${TMPDIR:-/tmp}}/s1g.XXXXXX")"
+  ( cd "$1" && CARGO_TARGET_DIR="$t" cargo build --release --locked --lib --bins -q ) >/dev/null 2>&1 \
+    || { echo "JUDGE-FORK shipped build failed (cannot list the compiled sources)"; return 1; }
+  "$PY" - "$1" "$t" "${CARGO_HOME:-$HOME/.cargo}" <<'PY'
+import os, re, sys
+root = sys.argv[1]
+def compiled_sources(target, crate_root, cargo_home):
+    found = set()
+    for d, _, names in os.walk(target):
+        for nm in names:
+            if not nm.endswith(".d"): continue
+            try: text = open(os.path.join(d, nm)).read()
+            except OSError: continue
+            for line in text.splitlines():
+                if ":" not in line: continue
+                for p in line.split(":", 1)[1].replace("\\ ", "\0").split():
+                    p = p.replace("\0", " ")
+                    p = os.path.realpath(p if os.path.isabs(p) else os.path.join(crate_root, p))
+                    # every compiled input, whatever its extension: include!("x.inc") and #[path = "x.txt"] are Rust too
+                    if os.path.isfile(p) and not p.startswith(os.path.realpath(cargo_home) + os.sep):
+                        found.add(p)
+    return found
+compiled = compiled_sources(sys.argv[2], root, sys.argv[3])
+if not compiled: sys.exit("JUDGE-FORK no compiled source found in the shipped build's dep-info")
+spec = set()
+try:
+    for line in open(os.path.join(root, "spec-paths.txt")):
+        line = line.strip()
+        if line and not line.startswith("#"): spec.add(os.path.normpath(line))
+except OSError:
+    pass
+def is_spec(rel):
+    return any(rel == p or rel.startswith(p + os.sep) for p in spec)
+JUDGE = r"\b(test|debug_assertions|kani|fuzzing|clippy|miri|coverage)\b"
+CFG = re.compile(r"(#!?\[\s*cfg(_attr)?\s*\(|\bcfg!\s*\()")
+ALLOWED_ATTR = re.compile(r"^\s*#\[\s*cfg\s*\(\s*(test|kani)\s*\)\s*\]\s*$")
+MOD = re.compile(r"^\s*(pub(\([^)]*\))?\s+)?mod\s+\w+")
+ENVLIT = re.compile(r'"(CARGO_[A-Z0-9_]*|RUST_TEST[A-Z0-9_]*)"')
+def rust_blank(text):
+    """Rust lexing just far enough to blank comments (nested /* */ too), string, byte, raw-string and char
+    literals - newlines kept, delimiters kept - so cfg expressions are cut by real parentheses only.
+    Char literal vs lifetime as rustc decides: ' + escape or ' + one char + ' is a char literal, else a lifetime.
+    Returns (code, problem); an unterminated comment or literal is a problem (fail closed)."""
+    out, k, n = [], 0, len(text)
+    blank = lambda seg: "".join(ch if ch == "\n" else " " for ch in seg)
+    while k < n:
+        c = text[k]
+        if text.startswith("//", k):
+            e = text.find("\n", k); e = n if e < 0 else e
+            out.append(blank(text[k:e])); k = e; continue
+        if text.startswith("/*", k):
+            depth, e = 1, k + 2
+            while e < n and depth:
+                if text.startswith("/*", e): depth += 1; e += 2
+                elif text.startswith("*/", e): depth -= 1; e += 2
+                else: e += 1
+            if depth: return None, f"unterminated block comment at offset {k}"
+            out.append(blank(text[k:e])); k = e; continue
+        m = re.match(r'(b|c)?r(#*)"', text[k:]) if c in "brc" and (k == 0 or not (text[k - 1].isalnum() or text[k - 1] == "_")) else None
+        if m:
+            close = '"' + m.group(2); e = text.find(close, k + m.end())
+            if e < 0: return None, f"unterminated raw string at offset {k}"
+            e += len(close); out.append(text[k] + blank(text[k + 1:e - 1]) + text[e - 1]); k = e; continue
+        if c == '"' or (c in "bc" and text.startswith('"', k + 1) and (k == 0 or not (text[k - 1].isalnum() or text[k - 1] == "_"))):
+            s0 = k if c == '"' else k + 1; e = s0 + 1
+            while e < n and text[e] != '"': e += 2 if text[e] == "\\" else 1
+            if e >= n: return None, f"unterminated string at offset {k}"
+            out.append(text[k:s0 + 1] + blank(text[s0 + 1:e]) + '"'); k = e + 1; continue
+        if c == "'":
+            if text.startswith("\\", k + 1):
+                e = k + 3   # the backslash AND the escaped char ('\\', '\'') are one unit
+                while e < n and text[e] != "'": e += 2 if text[e] == "\\" else 1
+                if e >= n: return None, f"unterminated char literal at offset {k}"
+                out.append("'" + blank(text[k + 1:e]) + "'"); k = e + 1; continue
+            if k + 2 < n and text[k + 2] == "'" and text[k + 1] != "\n":
+                out.append("' '"); k += 3; continue
+            out.append(c); k += 1; continue   # a lifetime
+        out.append(c); k += 1
+    return "".join(out), None
+# cfg, cfg_attr, cfg! and the cfg_select!/cfg_match! macros, with ANY invocation delimiter: cfg!(..), cfg![..], cfg!{..}
+START = re.compile(r"(#!?\[\s*)?\bcfg(_attr|_select|_match)?\s*(!\s*)?([\(\[\{])")
+PAIR = {"(": ")", "[": "]", "{": "}"}
+bad = []; files = 0
+walked = {os.path.realpath(os.path.join(d, nm)) for d, _, names in os.walk(os.path.join(root, "src")) for nm in names if nm.endswith(".rs")}
+for path in sorted(compiled | walked):
+        name = os.path.basename(path); rel = os.path.relpath(path, os.path.realpath(root))
+        if is_spec(rel): continue
+        files += 1
+        try: raw = open(path, encoding="utf-8").read()
+        except UnicodeDecodeError:
+            files -= 1; continue          # not UTF-8: rustc cannot compile it as source (include_bytes! data)
+        lits = raw
+        text, problem = rust_blank(raw)
+        if problem:
+            if path.endswith(".rs"): bad.append(f"{rel}: cannot read safely ({problem})"); continue
+            # a non-.rs input that does not lex as Rust is data (include_str!: README, ...): scan its raw text for
+            # cfg forks anyway (over-approximation), skip the literal check
+            text, lits = raw, ""
+        # whole cfg expressions, balanced parentheses, across lines (a multi-line #[cfg(any(test, kani))] too)
+        for m in START.finditer(text):
+            k, stack = m.end(), [PAIR[m.group(4)]]
+            while k < len(text) and stack:
+                ch = text[k]
+                if ch in PAIR: stack.append(PAIR[ch])
+                elif ch in ")]}":
+                    if ch != stack.pop(): stack = []; k = len(text); break   # mismatched: take the rest (fail closed)
+                k += 1
+            expr = text[m.start():k]
+            if not re.search(JUDGE, expr): continue
+            line = text.count("\n", 0, m.start()) + 1
+            first = raw.split("\n")[line - 1].strip()
+            if m.group(1) and not m.group(2) and m.group(4) == "(" and re.fullmatch(r"cfg\s*\(\s*(test|kani)\s*\)", text[m.end(1) if m.group(1) else m.start():k].strip()):
+                rest = text[k:].lstrip()
+                if rest.startswith("]"):
+                    after = rest[1:].lstrip()
+                    while after.startswith("#["):
+                        after = after[after.find("]") + 1:].lstrip()
+                    if MOD.match(after): continue
+            bad.append(f"{rel}:{line}: {first}")
+        for i, l in enumerate(lits.split("\n")):
+            if ENVLIT.search(l): bad.append(f"{rel}:{i + 1}: {raw.split(chr(10))[i].strip()}")
+if files == 0: sys.exit("JUDGE-FORK no shipped source found under src/")
+for b in bad: print("JUDGE-FORK " + b)
+if bad: sys.exit(1)
+print(f"JUDGE-FORK none in {files} shipped source files")
+PY
+}
+run S1g no-judge-forks pass - "$ROOT" judge_forks "$ROOT"
 # S1c in two steps so the log says WHY it failed (cargo-llvm-cov alone exits 1 without a reason).
 coverage_gate() { # <min line %>
   local min="$1" out rc
@@ -310,6 +468,84 @@ mk clippy; printf '\npub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }\n' 
 CARGO_TARGET_DIR="$CAN/clippy/target" run C2 canary-clippy fail 'len_zero' "$CAN/clippy" cargo clippy --all-targets -- -D warnings
 mk nopanic; printf '\npub fn first_byte(v: &[u8]) -> u8 { v[0] }\n' >> "$CAN/nopanic/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic/target" run C26 canary-panic-construct fail 'indexing may panic' "$CAN/nopanic" cargo clippy -- -D warnings "${NOPANIC[@]}"
+# C36-C41: fork canaries. Generic for any crate: each appends a forked function (plus, for S1f, a unit test
+# that holds only in the judged variant) to the crate's src/lib.rs.
+fork_canary() { # <dir> <function body> [with-test]
+  mk "$1"; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/$1/"
+  printf '\n#[must_use]\npub fn canary_fork() -> u32 {\n%s\n}\n' "$2" >> "$CAN/$1/src/lib.rs"
+  if [ "${3:-}" = with-test ]; then
+    printf '\n#[cfg(test)]\nmod canary_fork_spec {\n    #[test]\n    fn canary_fork_is_one() {\n        assert_eq!(super::canary_fork(), 1);\n    }\n}\n' >> "$CAN/$1/src/lib.rs"
+  fi
+}
+# C36: env fork - correct under `cargo test`, wrong in the shipped binary: only S1f's direct run sees it
+fork_canary fork-env '    if std::env::var_os(concat!("CARGO_", "MANIFEST_DIR")).is_some() { 1 } else { 2 }' with-test
+CARGO_TARGET_DIR="$CAN/fork-env/target" run C36 canary-env-fork-release fail 'RELEASE-TESTS FAILED' "$CAN/fork-env" release_tests "$CAN/fork-env"
+# C37: cfg(test) fork - the tests see one body, the shipped crate the other
+fork_canary fork-test '    #[cfg(test)]
+    return 1;
+    #[cfg(not(test))]
+    2'
+run C37 canary-cfg-test-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-test" judge_forks "$CAN/fork-test"
+# C38/C39: debug_assertions fork - S1g flags it; S1f catches it too (release turns debug_assertions off)
+fork_canary fork-debug '    if cfg!(debug_assertions) { 1 } else { 2 }' with-test
+run C38 canary-debug-assertions-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: if cfg!\(debug_assertions\)' "$CAN/fork-debug" judge_forks "$CAN/fork-debug"
+CARGO_TARGET_DIR="$CAN/fork-debug/target" run C39 canary-debug-assertions-fork-release fail 'RELEASE-TESTS FAILED' "$CAN/fork-debug" release_tests "$CAN/fork-debug"
+# C40/C41: a fork only Kani / only clippy would see
+fork_canary fork-kani '    #[cfg(kani)]
+    return 1;
+    #[cfg(not(kani))]
+    2'
+run C40 canary-cfg-kani-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(kani\)\]' "$CAN/fork-kani" judge_forks "$CAN/fork-kani"
+fork_canary fork-clippy '    #[cfg(not(clippy))]
+    return 2;
+    #[cfg(clippy)]
+    1'
+run C41 canary-cfg-clippy-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(not\(clippy\)\)\]' "$CAN/fork-clippy" judge_forks "$CAN/fork-clippy"
+# C42: the same fork with the cfg expression spread over several lines (the scan reads whole expressions)
+fork_canary fork-multiline '    #[cfg(any(
+        test,
+        kani
+    ))]
+    return 1;
+    #[cfg(not(any(test, kani)))]
+    2'
+run C42 canary-multiline-cfg-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(any\($' "$CAN/fork-multiline" judge_forks "$CAN/fork-multiline"
+# C43: a char literal '"' before the fork must not hide it (no string/comment skipping in the scan)
+fork_canary fork-charlit "    const _Q: char = '\"';
+    #[cfg(test)]
+    return 1;
+    #[cfg(not(test))]
+    2"
+run C43 canary-fork-after-char-literal fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-charlit" judge_forks "$CAN/fork-charlit"
+# C44: a comment holding ')' inside the cfg expression must not cut it short before the judging identifier
+fork_canary fork-comment-paren '    #[cfg(any(/* )) */ test))]
+    return 1;
+    #[cfg(not(/* )) */ test))]
+    2'
+run C44 canary-fork-comment-paren fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(any\(/\* \)\) \*/ test\)\)\]' "$CAN/fork-comment-paren" judge_forks "$CAN/fork-comment-paren"
+# C45: a backslash char literal before the fork and another char literal after it (escape consumed as a unit)
+fork_canary fork-backslash "    const _B: char = '\\\\';
+    #[cfg(test)]
+    return 1;
+    #[cfg(not(test))]
+    let _q: char = 'q';
+    #[cfg(not(test))]
+    2"
+run C45 canary-fork-after-backslash-char fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-backslash" judge_forks "$CAN/fork-backslash"
+# C46: the fork lives in a #[path = "../..."] module outside src/ - the scan follows what the build compiles
+mk fork-path; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/fork-path/"
+printf '#[must_use]\npub fn value() -> u32 {\n    #[cfg(test)]\n    return 1;\n    #[cfg(not(test))]\n    2\n}\n' > "$CAN/fork-path/impl_outside_src.rs"
+printf '\n#[path = "../impl_outside_src.rs"]\nmod imp;\n#[must_use]\npub fn canary_fork() -> u32 {\n    imp::value()\n}\n' >> "$CAN/fork-path/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/fork-path/target" run C46 canary-fork-in-path-module fail '^JUDGE-FORK impl_outside_src.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-path" judge_forks "$CAN/fork-path"
+# C47: cfg! invoked with brackets and braces - every delimiter of the built-in macro is scanned
+fork_canary fork-delims '    if cfg![test] { return 1; }
+    if cfg!{test} { 1 } else { 2 }'
+run C47 canary-cfg-bang-other-delimiters fail '^JUDGE-FORK src/lib.rs:[0-9]+: if cfg!\[test\]' "$CAN/fork-delims" judge_forks "$CAN/fork-delims"
+# C48: the fork lives in an include!()d file without the .rs extension
+mk fork-inc; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/fork-inc/"
+printf '#[must_use]\npub fn canary_fork() -> u32 {\n    #[cfg(test)]\n    return 1;\n    #[cfg(not(test))]\n    2\n}\n' > "$CAN/fork-inc/implementation.inc"
+printf '\ninclude!("../implementation.inc");\n' >> "$CAN/fork-inc/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/fork-inc/target" run C48 canary-fork-in-included-file fail '^JUDGE-FORK implementation.inc:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-inc" judge_forks "$CAN/fork-inc"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -755,7 +991,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..35} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..48} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..35} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..48} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

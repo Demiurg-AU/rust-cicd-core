@@ -6,10 +6,12 @@ CA1	A1	the harness reaches both branches (not vacuous)	kcanary:KC2
 CA1	A2	the harness calls the shipped function, so a bug in it is visible	kcanary:KC1
 CA1	A3	no proof in the crate is silently skipped	kcanary:KC3
 CA1	A4	the harness property is the intended behaviour (spec independent of the code)	trusted:same author wrote spec and code; independent second spec pending (ROADMAP O4b)
+CA1	A5	the harness judges the shipped body (no cfg(kani) fork)	gate:C40
 CA2	A1	the lint set fires on a planted panicking construct	gate:C26
 CA2	A2	code under test cannot rewrite the lint verdict	gate:C29
-CA2	A3	the forbidden lint set covers every panicking construct the crate uses	trusted:NOT covered - assert!, slice::split_at, Vec::remove, Index::index(v, i), code under #[cfg(not(clippy))] (round 3, finding A5); std calls trusted per their documented contract
+CA2	A3	the forbidden lint set covers every panicking construct the crate uses	trusted:NOT covered - assert!, slice::split_at, Vec::remove, Index::index(v, i) (round 3, finding A5); std calls trusted per their documented contract
 CA2	A4	the code under test cannot switch a lint off with #[allow]	gate:C33
+CA2	A5	clippy judges the shipped body (no cfg(clippy) fork)	gate:C41
 CA3	A1	a sorry cannot pass the axiom audit	gate:CL1
 CA3	A2	a false theorem fails the Lean build	gate:CL2
 CA3	A3	every user theorem is mapped to a Rust test	gate:CL3
@@ -17,3 +19,5 @@ CA3	A4	the Lean model has the Rust semantics	trusted:link only through proof-map
 CA4	A1	the coverage gate fires below its threshold	gate:C8
 CA4	A2	the mutation gate fires on a surviving mutant	gate:C5
 CA4	A3	tests report their own outcome honestly (no early exit, no forged profile)	trusted:tests are code under test (#39 item 3)
+CA4	A4	the tests judge the shipped binary, not a cargo-only variant (env fork)	gate:C36
+CA4	A5	the tests judge the shipped body, not a cfg(test) variant	gate:C37
