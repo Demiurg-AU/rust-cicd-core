@@ -339,7 +339,7 @@ def rust_blank(text):
             out.append(text[k:s0 + 1] + blank(text[s0 + 1:e]) + '"'); k = e + 1; continue
         if c == "'":
             if text.startswith("\\", k + 1):
-                e = k + 2
+                e = k + 3   # the backslash AND the escaped char ('\\', '\'') are one unit
                 while e < n and text[e] != "'": e += 2 if text[e] == "\\" else 1
                 if e >= n: return None, f"unterminated char literal at offset {k}"
                 out.append("'" + blank(text[k + 1:e]) + "'"); k = e + 1; continue
@@ -488,6 +488,15 @@ fork_canary fork-comment-paren '    #[cfg(any(/* )) */ test))]
     #[cfg(not(/* )) */ test))]
     2'
 run C44 canary-fork-comment-paren fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(any\(/\* \)\) \*/ test\)\)\]' "$CAN/fork-comment-paren" judge_forks "$CAN/fork-comment-paren"
+# C45: a backslash char literal before the fork and another char literal after it (escape consumed as a unit)
+fork_canary fork-backslash "    const _B: char = '\\\\';
+    #[cfg(test)]
+    return 1;
+    #[cfg(not(test))]
+    let _q: char = 'q';
+    #[cfg(not(test))]
+    2"
+run C45 canary-fork-after-backslash-char fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-backslash" judge_forks "$CAN/fork-backslash"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -933,7 +942,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..44} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..45} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..44} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..45} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
