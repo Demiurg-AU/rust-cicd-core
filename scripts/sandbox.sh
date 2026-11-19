@@ -56,15 +56,44 @@ sandbox() {
 }
 
 sandbox_cargo() {
-  local sub="${1:-}" a
+  local sub="" a i=0 n=$#
+  local -a argv=("$@") pre=() post=()
   # first non-option argument is the subcommand (cargo +toolchain / -q forms)
-  for a in "$@"; do case "$a" in +*|-*) ;; *) sub="$a"; break ;; esac; done
+  for a in "$@"; do i=$((i + 1)); case "$a" in +*|-*) pre+=("$a") ;; *) sub="$a"; post=("${argv[@]:i}"); break ;; esac; done
   case "$sub" in
-    # read-only or download-only subcommands: no project code runs (fetch downloads, it does not build)
-    fmt|deny|audit|metadata|fetch|--version|-V|version|"") command cargo "$@" ;;
-    *) sandbox cargo "$@" ;;   # build, test, clippy, nextest, llvm-cov, mutants, kani, run, ...
+    # Network steps (download only) run OUTSIDE the jail but from an empty directory with explicit paths:
+    # cargo reads .cargo/config.toml from the cwd, and a checkout-controlled build.rustc-wrapper runs even
+    # during `cargo fetch` / `cargo metadata` (rustc -vV). From $SANDBOX_NEUTRAL no project config is read.
+    fetch|metadata|deny|audit) sandbox_cargo_neutral "$sub" "$(pwd -P)" "${pre[@]}" -- "${post[@]}" ;;
+    --version|-V|version|"") ( cd "$SANDBOX_NEUTRAL" && command cargo "$@" ) ;;
+    *) sandbox cargo "$@" ;;   # build, test, clippy, fmt, nextest, llvm-cov, mutants, kani, fuzz, run, ...
   esac
 }
+
+sandbox_cargo_neutral() { # <sub> <project dir> <pre-args...> -- <post-args...>
+  local sub="$1" proj="$2" a; shift 2
+  local -a pre=() post=() extra=()
+  while [ $# -gt 0 ] && [ "$1" != -- ]; do pre+=("$1"); shift; done; shift
+  post=("$@")
+  has() { local x; for x in "${post[@]}"; do [ "$x" = "$1" ] && return 0; done; return 1; }
+  case "$sub" in
+    fetch|metadata) has --manifest-path || extra=(--manifest-path "$proj/Cargo.toml") ;;
+    deny) has --manifest-path || extra=(--manifest-path "$proj/Cargo.toml")
+          # deny reads <cwd>/deny.toml by default: name the project's file (global option)
+          if [ -f "$proj/deny.toml" ] && ! has --config; then extra+=(--config "$proj/deny.toml"); fi
+          # cargo-deny runs `cargo metadata` with the manifest dir as cwd (project config -> wrapper runs):
+          # hand it metadata computed here, from the neutral dir, instead
+          if ! has --metadata-path; then
+            local meta; meta="$(mktemp "$SANDBOX_NEUTRAL/meta.XXXXXX")" || return 2
+            ( cd "$SANDBOX_NEUTRAL" && command cargo metadata --format-version 1 --manifest-path "$proj/Cargo.toml" ) > "$meta" \
+              || { echo "SANDBOX cargo metadata failed for $proj" >&2; return 2; }
+            extra+=(--metadata-path "$meta")
+          fi ;;
+    audit) has -f || has --file || extra=(-f "$proj/Cargo.lock") ;;
+  esac
+  ( cd "$SANDBOX_NEUTRAL" && command cargo "${pre[@]}" "$sub" "${extra[@]}" "${post[@]}" )
+}
+
 sandbox_elan() { sandbox elan "$@"; }
 
 jail_armed() { # are bare cargo/elan still the jail wrappers? (a test mock or `unset -f` would disarm them)
@@ -79,10 +108,11 @@ sandbox_sockets() { # every unix socket outside /proc /sys /dev /run /tmp (those
 
 sandbox_enable() { # turn bare `cargo` and `elan` into jailed calls, also inside `bash -c` children
   [ -n "${SANDBOX_SOCKS+x}" ] || SANDBOX_SOCKS="$(sandbox_sockets)"
-  export SANDBOX_SOCKS
+  [ -n "${SANDBOX_NEUTRAL:-}" ] && [ -d "$SANDBOX_NEUTRAL" ] || SANDBOX_NEUTRAL="$(mktemp -d "${TMPDIR:-/tmp}/sbx-neutral.XXXXXX")"
+  export SANDBOX_SOCKS SANDBOX_NEUTRAL
   cargo() { sandbox_cargo "$@"; }
   elan() { sandbox_elan "$@"; }
-  export -f sandbox sandbox_cargo sandbox_elan cargo elan jail_armed
+  export -f sandbox sandbox_cargo sandbox_cargo_neutral sandbox_elan cargo elan jail_armed
   export SANDBOX_BWRAP
 }
 

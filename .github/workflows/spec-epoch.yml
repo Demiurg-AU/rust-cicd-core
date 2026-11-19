@@ -69,6 +69,8 @@ jobs:
         run: echo "code=$(bash "$RUNNER_TEMP/spec-epoch.sh" code-changed "$BASE")" >> "$GITHUB_OUTPUT"
       - name: Install Kani 0.68.0
         if: steps.scope.outputs.code == 'yes'
+        # outside the checkout: cargo would read the PR's .cargo/config.toml (build.rustc-wrapper) here
+        working-directory: ${{ runner.temp }}
         run: |
           cargo install --locked kani-verifier@0.68.0
           cargo kani setup

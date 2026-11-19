@@ -118,6 +118,8 @@ jobs:
           rc=0; sandbox_probe_sockets "$(mktemp -d)" || rc=$?; [ "$rc" -eq 1 ] || exit 1
 
       - name: Install Kani 0.68.0
+        # outside the checkout: cargo would read the PR's .cargo/config.toml (build.rustc-wrapper) here
+        working-directory: ${{ runner.temp }}
         run: |
           cargo install --locked kani-verifier@0.68.0
           cargo kani setup

@@ -324,6 +324,20 @@ sandbox_enable
 # C31: jailed code reaches no unix socket (docker.sock = full escape; read-only binds do not stop connect())
 # and no network. The host opens its own decoy socket in /tmp so the probe is meaningful on any machine.
 run C31 canary-sandbox-no-sockets-no-network fail '^SANDBOX no socket or network reachable' "$ROOT" sandbox_probe_sockets "$(mktemp -d)"
+# C32: a checkout-controlled .cargo/config.toml rustc-wrapper must never run outside the jail - not even
+# during fetch / metadata / deny / audit, which run unjailed (network) from a neutral directory.
+# Non-vacuous: the same wrapper must have run INSIDE the jail during the build (marker in the target dir).
+wrapper_probe() { # <canary crate dir>
+  local d="$1" out="$HOST/wrapper-ran" inside="$CARGO_TARGET_DIR/wrapper-inside"
+  rm -f "$out" "$inside"; mkdir -p "$d/.cargo" "$CARGO_TARGET_DIR"
+  printf '#!/bin/sh\necho ran >> "%s" 2>/dev/null\necho ran >> "%s" 2>/dev/null\nexec "$@"\n' "$out" "$inside" > "$d/wrap.sh"; chmod +x "$d/wrap.sh"
+  printf '[build]\nrustc-wrapper = "%s/wrap.sh"\n' "$d" > "$d/.cargo/config.toml"
+  ( cd "$d" && cargo fetch --locked; cargo metadata --format-version 1 >/dev/null; cargo deny --locked check; cargo audit; cargo build --locked ) >/dev/null 2>&1
+  if [ -s "$out" ]; then echo "WRAPPER ran outside the jail ($(wc -l < "$out") times)"; return 0; fi
+  [ -s "$inside" ] || { echo "WRAPPER probe vacuous: the wrapper did not run inside the jail either"; return 2; }
+  echo "WRAPPER contained: checkout config ran code only inside the jail"; return 1
+}
+mk wrapper; CARGO_TARGET_DIR="$CAN/wrapper/target" run C32 canary-checkout-wrapper-only-jailed fail '^WRAPPER contained' "$CAN/wrapper" wrapper_probe "$CAN/wrapper"
 mk test;   printf '\n#[test]\nfn canary_fails() { assert_eq!(1 + 1, 3); }\n' >> "$CAN/test/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/test/target" run C3 canary-test fail 'canary_fails' "$CAN/test" cargo nextest run
 mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.toml"
@@ -710,7 +724,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..31} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..32} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..31} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..37}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..32} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..37}
 fi
