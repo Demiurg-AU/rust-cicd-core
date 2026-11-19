@@ -22,10 +22,3 @@ path = "fuzz_targets/checked_add.rs"
 test = false
 doc = false
 bench = false
-
-[[bin]]
-name = "canary_wrapping_add"
-path = "fuzz_targets/canary_wrapping_add.rs"
-test = false
-doc = false
-bench = false

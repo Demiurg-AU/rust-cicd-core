@@ -21,7 +21,8 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$KWORK/target}"
 harnesses_in_src() { # compiler-side discovery (cargo kani list): visibility, comments, macros and
   # cfg_attr cannot hide a harness from it; standard and contract harnesses, fully qualified names.
   # Any failure (build, missing or malformed JSON) returns non-zero: no inventory, no PASS.
-  local d="$1" log rc
+  local d log rc
+  d="$(cd "$1" && pwd -P)" || return 1   # absolute: SANDBOX_RW is resolved after the cd below
   rm -f "$d/kani-list.json"; : > "$d/kani-list.json"
   log="$( cd "$d" && SANDBOX_RW="$d/kani-list.json" cargo kani list --format json 2>&1 )" || { printf '%s\n' "$log" | tail -5 >&2; return 1; }
   python3 - "$d/kani-list.json" <<'PY'
@@ -40,6 +41,7 @@ run_gate() { # <crate-dir> <out-dir>
   local d="$1" out="$2" cfg="$1/kani-harnesses.tsv" h flags secs covers rc=0 log line
   [ -f "$cfg" ] || die "missing $cfg"
   mkdir -p "$out"; printf 'harness\tverdict\treason\n' > "$out/kani-results.tsv"
+  ( cd "$d" && cargo fetch ) >/dev/null 2>&1 || echo "KANI warning: cargo fetch failed (the jail has no network)"
   local listed; listed="$(awk -F'\t' '!/^#/ && NF {print $1}' "$cfg")"
   [ -n "$listed" ] || die "no harness listed in $cfg"
   local found
@@ -93,7 +95,7 @@ PY
     elif [ "$grc" -eq 0 ]; then
       echo "KANI CANARY $id NOT caught"; printf '%s\tFAIL\n' "$id" >> "$out/kani-canaries.tsv"; rc=1
     else
-      echo "KANI CANARY $id failed for the wrong reason:"; printf '%s\n' "$got" | grep '^KANI' | head -5
+      echo "KANI CANARY $id failed for the wrong reason:"; printf '%s\n' "$got" | tail -12
       printf '%s\tFAIL\n' "$id" >> "$out/kani-canaries.tsv"; rc=1
     fi
     rm -rf "$tmp"

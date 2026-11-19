@@ -11,3 +11,4 @@ lean
 proof-map.tsv
 fuzz/fuzz_targets
 claims.tsv
+assumptions.tsv

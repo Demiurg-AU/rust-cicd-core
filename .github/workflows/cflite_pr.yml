@@ -1,0 +1,38 @@
+# ClusterFuzzLite PR fuzzing - PROBE for ROADMAP O6a (Scorecard "Fuzzing" recognises ClusterFuzzLite).
+# Second engine beside fuzz.yml (which holds the canaries and the corpus): not a required check.
+# Same targets (fuzz/fuzz-targets.tsv). Actions pinned to the v1 tag commit.
+name: cflite-pr
+
+on:
+  pull_request:
+    paths: ["fuzz/**", "src/**", ".clusterfuzzlite/**", ".github/workflows/cflite_pr.yml"]
+
+permissions: {}
+
+concurrency:
+  group: cflite-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr:
+    name: clusterfuzzlite (address, code-change)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Build fuzzers
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: rust
+          github-token: ${{ github.token }}
+          sanitizer: address
+      - name: Run fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          github-token: ${{ github.token }}
+          fuzz-seconds: 300
+          mode: code-change
+          sanitizer: address

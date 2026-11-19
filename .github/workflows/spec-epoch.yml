@@ -34,6 +34,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
         with:
           toolchain: "1.100.0"
+          # the pin lists components; inside the jail rustup cannot install them
+          components: clippy, rustfmt, llvm-tools-preview
       - name: Jail for code under test (bubblewrap; threat CI-9)
         # Ubuntu 24.04 blocks unprivileged user namespaces via AppArmor; the VM is ephemeral, so lift it here.
         run: |
@@ -59,6 +61,12 @@ jobs:
           set -uo pipefail
           . "$RUNNER_TEMP/sandbox.sh"; export SANDBOX_WORK="$(mktemp -d)"
           if sandbox_probe "$GITHUB_ENV" "$GITHUB_OUTPUT" "$GITHUB_WORKSPACE" "$RUNNER_TEMP"; then exit 1; fi
+          sandbox_enable
+          if declare -F sandbox_probe_sockets >/dev/null; then
+            rc=0; sandbox_probe_sockets "$(mktemp -d)" || rc=$?; [ "$rc" -eq 1 ] || exit 1
+          else
+            echo "::warning::bootstrap: the base commit's sandbox.sh predates the socket probe"
+          fi
 
       - name: Canaries - owner approval decisions (relabel by non-owner, stale, fork, bot)
         run: bash "$RUNNER_TEMP/spec-approval.sh" canary
@@ -67,6 +75,8 @@ jobs:
         run: echo "code=$(bash "$RUNNER_TEMP/spec-epoch.sh" code-changed "$BASE")" >> "$GITHUB_OUTPUT"
       - name: Install Kani 0.68.0
         if: steps.scope.outputs.code == 'yes'
+        # outside the checkout: cargo would read the PR's .cargo/config.toml (build.rustc-wrapper) here
+        working-directory: ${{ runner.temp }}
         run: |
           cargo install --locked kani-verifier@0.68.0
           cargo kani setup
@@ -74,7 +84,15 @@ jobs:
         if: steps.scope.outputs.code == 'yes'
         env:
           KANI_GATE: ${{ runner.temp }}/kani-gate.sh
-        run: bash "$RUNNER_TEMP/spec-epoch.sh" canary
+        run: |
+          set -euo pipefail
+          # canary definitions come from the base commit, like the scripts that interpret them
+          if git cat-file -e "$BASE:spec-epoch-canaries.tsv" 2>/dev/null; then
+            git show "$BASE:spec-epoch-canaries.tsv" > spec-epoch-canaries.tsv
+          else
+            echo "::warning::bootstrap: spec-epoch-canaries.tsv not on base, using the PR's copy"
+          fi
+          bash "$RUNNER_TEMP/spec-epoch.sh" canary
       - name: Base spec x PR code
         id: epoch
         if: steps.scope.outputs.code == 'yes'

@@ -99,6 +99,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
         with:
           toolchain: "1.100.0"
+          # the pin lists components; inside the jail rustup cannot install them
+          components: clippy, rustfmt, llvm-tools-preview
 
       - name: Jail for code under test (bubblewrap; threat CI-9)
         # Ubuntu 24.04 blocks unprivileged user namespaces via AppArmor; the VM is ephemeral, so lift it here.
@@ -114,8 +116,12 @@ jobs:
           set -uo pipefail
           . "scripts/sandbox.sh"; export SANDBOX_WORK="$(mktemp -d)"
           if sandbox_probe "$GITHUB_ENV" "$GITHUB_OUTPUT" "$GITHUB_WORKSPACE" "$RUNNER_TEMP"; then exit 1; fi
+          sandbox_enable
+          rc=0; sandbox_probe_sockets "$(mktemp -d)" || rc=$?; [ "$rc" -eq 1 ] || exit 1
 
       - name: Install Kani 0.68.0
+        # outside the checkout: cargo would read the PR's .cargo/config.toml (build.rustc-wrapper) here
+        working-directory: ${{ runner.temp }}
         run: |
           cargo install --locked kani-verifier@0.68.0
           cargo kani setup
@@ -161,9 +167,9 @@ jobs:
       - name: Verdicts for every claim (claims.tsv)
         run: |
           set -uo pipefail
-          bash scripts/claims-check.sh claims.tsv "$RUNNER_TEMP/evidence" "$RUNNER_TEMP/kani/run/kani-results.tsv" "$RUNNER_TEMP/claims"; rc=$?
-          { echo "| claim | any input on the Rust code | within stated bounds |"; echo "|---|---|---|"
-            awk -F'\t' 'NR>1 {print "| " $1 " | " $2 " | " $3 " |"}' "$RUNNER_TEMP/claims/verdicts.tsv"; } >> "$GITHUB_STEP_SUMMARY"
+          bash scripts/claims-check.sh claims.tsv "$RUNNER_TEMP/evidence" "$RUNNER_TEMP/kani/run/kani-results.tsv" "$RUNNER_TEMP/claims" assumptions.tsv "$RUNNER_TEMP/kani/canaries/kani-canaries.tsv"; rc=$?
+          { echo "| claim | any input on the Rust code | within stated bounds | trusted assumptions (no breaker) |"; echo "|---|---|---|---|"
+            awk -F'\t' 'NR>1 {print "| " $1 " | " $2 " | " $3 " | " $4 " |"}' "$RUNNER_TEMP/claims/verdicts.tsv"; } >> "$GITHUB_STEP_SUMMARY"
           exit "$rc"
 
   attest-evidence:
