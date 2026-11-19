@@ -84,7 +84,15 @@ jobs:
         if: steps.scope.outputs.code == 'yes'
         env:
           KANI_GATE: ${{ runner.temp }}/kani-gate.sh
-        run: bash "$RUNNER_TEMP/spec-epoch.sh" canary
+        run: |
+          set -euo pipefail
+          # canary definitions come from the base commit, like the scripts that interpret them
+          if git cat-file -e "$BASE:spec-epoch-canaries.tsv" 2>/dev/null; then
+            git show "$BASE:spec-epoch-canaries.tsv" > spec-epoch-canaries.tsv
+          else
+            echo "::warning::bootstrap: spec-epoch-canaries.tsv not on base, using the PR's copy"
+          fi
+          bash "$RUNNER_TEMP/spec-epoch.sh" canary
       - name: Base spec x PR code
         id: epoch
         if: steps.scope.outputs.code == 'yes'
