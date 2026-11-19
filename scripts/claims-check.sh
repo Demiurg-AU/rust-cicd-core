@@ -23,7 +23,7 @@ printf 'gate:K1\tPASS\tfail\ngate:K2\tFAIL_GATE_DID_NOT_FIRE\tfail\ngate:K3\tPAS
 abg() { local o r; o="$(bash "$SD/claim-verdict.sh" "$c/claims.tsv" "$c/status.tsv" "$1" "$2" "$c/asm.tsv")"; r=$?
   if [ "$r" -eq "$3" ] && [[ "$o" =~ $4 ]]; then echo "ABG canary $1/$2 -> $4"; else echo "ABG canary $1/$2: got rc=$r '$o', want rc=$3 /$4/"; rc=1; fi; }
 check X any PASS; check Y any ABSTAIN; check Y bounded PASS; check Z any FAIL; check W any ABSTAIN; check M any ABSTAIN; check NOPE any ABSTAIN; check V bounded FAIL
-abg X any 0 '^PASS X .*trusting: A2'; abg W any 0 '^ABSTAIN W: evidence not run'; abg M bounded 0 '^ABSTAIN M: no assumptions declared'
+abg X any 0 '^PASS X .*trusting: A2 \(same author\)$'; abg W any 0 '^ABSTAIN W: evidence not run'; abg M bounded 0 '^ABSTAIN M: no assumptions declared'
 printf 'M\tA1\tx\tgate:K2\n' >> "$c/asm.tsv"; abg M bounded 0 '^FAIL M: breaker gate:K2'
 abg Y bounded 2 'is not a canary'
 printf 'Z2\tp\tbounded\tsmall\tkani:a\n' >> "$c/claims.tsv"; printf 'Z2\tA1\tx\tgate:K9\nZ2\tA2\tx\tgate:K2\n' >> "$c/asm.tsv"
@@ -31,7 +31,7 @@ abg Z2 bounded 0 '^FAIL Z2: breaker gate:K2'   # missing K9 first, failed K2 sec
 printf 'B\tp\tcdoe\tall\tkani:a\nD\tp\tcode\tall\tkani:a\nD\tp\tcode\tall\tkani:a\n' > "$c/bad.tsv"
 for id in B D; do bash "$SD/claim-verdict.sh" "$c/bad.tsv" "$c/status.tsv" "$id" any >/dev/null; r=$?
   [ "$r" -eq 2 ] && echo "CLAIM canary $id malformed -> evaluator error" || { echo "CLAIM canary $id malformed: exit $r, want 2"; rc=1; }; done
-printf 'claim\tany input on the Rust code\twithin stated bounds\n' > "$out/verdicts.tsv"
+printf 'claim\tany input on the Rust code\twithin stated bounds\ttrusted assumptions (not broken by any canary)\n' > "$out/verdicts.tsv"
 for id in $(awk -F'\t' '!/^#/ && NF {print $1}' "$claims"); do
   a="$(bash "$SD/claim-verdict.sh" "$claims" "$st" "$id" any "$asm")"; ra=$?
   b="$(bash "$SD/claim-verdict.sh" "$claims" "$st" "$id" bounded "$asm")"; rb=$?
@@ -40,7 +40,8 @@ for id in $(awk -F'\t' '!/^#/ && NF {print $1}' "$claims"); do
   for p in "$ra:$a" "$rb:$b"; do
     if [ "${p%%:*}" -ne 0 ] || [[ ! "${p#*:}" =~ ^(PASS|FAIL|ABSTAIN)\  ]]; then echo "CLAIMS evaluator error for $id: ${p#*:}"; rc=1; fi
   done
-  printf '%s\t%s\t%s\n' "$id" "${a%% *}" "${b%% *}" >> "$out/verdicts.tsv"
+  tr="-"; [[ "$b" == *"; trusting: "* ]] && tr="${b##*; trusting: }"
+  printf '%s\t%s\t%s\t%s\n' "$id" "${a%% *}" "${b%% *}" "$tr" >> "$out/verdicts.tsv"
   [[ "$a" == FAIL* || "$b" == FAIL* ]] && rc=1
 done
 exit "$rc"
