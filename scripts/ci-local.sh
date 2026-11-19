@@ -460,6 +460,44 @@ run S1d mutation pass - "$ROOT" mutants_gate "$ROOT" "$WORK/mutants-root"
 # suite must still pass. A test that fails on a behaviour-preserving edit reads the source, not the behaviour.
 neutral_gate() { # <crate dir> <work dir>
   local d="$1" w="$2"
+  # part 1 (syntax): spec/test code may not read the shipped source - a test counting tokens of include_str!("lib.rs")
+  # survives any neutral edit but still kills mutants. Flagged in spec files and tests/: include_str!/include_bytes!
+  # of a .rs path or of a non-literal path, and any string literal naming a .rs file (runtime fs reads).
+  "$PY" - "$d" <<'PY' || return 1
+import os, re, sys
+root = sys.argv[1]
+spec = {"tests"}
+try:
+    for line in open(os.path.join(root, "spec-paths.txt")):
+        line = line.strip()
+        if line and not line.startswith("#"): spec.add(os.path.normpath(line))
+except OSError:
+    pass
+files = set()
+for p in spec:
+    full = os.path.join(root, p)
+    if os.path.isfile(full) and full.endswith(".rs"): files.add(full)
+    elif os.path.isdir(full):
+        for d, _, names in os.walk(full):
+            files.update(os.path.join(d, n) for n in names if n.endswith(".rs"))
+INC = re.compile(r"\binclude_(str|bytes)\s*!\s*[\(\[\{]\s*(\"[^\"]*\")?")
+RSLIT = re.compile(r'"[^"\n]*\.rs"')
+# include_str!/include_bytes! of source is checked in EVERY .rs file under src/ and tests/ (an inline #[cfg(test)]
+# module in a shipped file is test code too); the .rs string-literal rule only in spec files
+everything = set(files)
+for top in ("src", "tests"):
+    for d, _, names in os.walk(os.path.join(root, top)):
+        everything.update(os.path.join(d, n) for n in names if n.endswith(".rs"))
+bad = []
+for p in sorted(everything):
+    rel = os.path.relpath(p, root)
+    for i, line in enumerate(open(p, encoding="utf-8").read().split("\n"), 1):
+        for m in INC.finditer(line):
+            if not m.group(2) or m.group(2).endswith('.rs"'): bad.append(f"{rel}:{i}: {line.strip()}")
+        if p in files and RSLIT.search(line) and not INC.search(line): bad.append(f"{rel}:{i}: {line.strip()}")
+for b in bad: print("NEUTRAL spec reads source text: " + b)
+sys.exit(1 if bad else 0)
+PY
   rm -rf "$w"; mkdir -p "$w/crate"
   ( cd "$d" && tar --exclude=./target --exclude=./.git -cf - . ) | ( cd "$w/crate" && tar -xf - ) || { echo "NEUTRAL copy failed"; return 2; }
   "$PY" - "$w/crate" <<'PY' || return 2
@@ -497,7 +535,8 @@ for d, _, names in os.walk(os.path.join(root, "src")):
             if k < 0 or k >= len(code): continue
             inserts.append(k + 1)
         for pos in sorted(inserts, reverse=True):
-            text = text[:pos] + f" let _ = {rng.randrange(1, 2**63)}u64; " + text[pos:]
+            n = rng.randrange(1, 2**31)
+            text = text[:pos] + " " + rng.choice([f"let _ = {n}u64;", f"let _n{n:x} = ();", f"if {n} == 0 {{ let _ = (); }}", f"{{ let _ = [{n}u32; 1]; }}"]) + " " + text[pos:]
         bodies += len(inserts)
         text = f"// neutral edit {rng.randrange(2**63):x}: behaviour unchanged\n" + text
         open(p, "w", encoding="utf-8").write(text); edited += 1
@@ -602,13 +641,19 @@ mk fork-inc; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/fo
 printf '#[must_use]\npub fn canary_fork() -> u32 {\n    #[cfg(test)]\n    return 1;\n    #[cfg(not(test))]\n    2\n}\n' > "$CAN/fork-inc/implementation.inc"
 printf '\ninclude!("../implementation.inc");\n' >> "$CAN/fork-inc/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/fork-inc/target" run C48 canary-fork-in-included-file fail '^JUDGE-FORK implementation.inc:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-inc" judge_forks "$CAN/fork-inc"
-# C49: a test that only hashes the shipped source catches every mutant (S1d passes) - S1h must fail it
+# C49: a test that only hashes the shipped source catches every mutant (S1d passes) - S1h must fail it. The read
+# is built so the spec scan cannot see it (no .rs literal, no include_str!): the behaviour-preserving edit catches it
 mk neutral-hash; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/neutral-hash/"
 NH="$("$PY" -c 'import sys; h=0
 for b in open(sys.argv[1],"rb").read(): h=(h*31+b)%(1<<64)
 print(h)' "$CAN/neutral-hash/src/lib.rs")"
-printf '\n#[cfg(test)]\nmod canary_source_hash {\n    #[test]\n    fn source_unchanged() {\n        let all = include_str!("lib.rs");\n        let src = &all[..all.find("\\n#[cfg(test)]\\nmod canary_source_hash").unwrap_or(all.len())];\n        let h = src.bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(u64::from(b)));\n        assert_eq!(h, %s);\n    }\n}\n' "$NH" >> "$CAN/neutral-hash/src/lib.rs"
+printf '\n#[cfg(test)]\nmod canary_source_hash {\n    #[test]\n    fn source_unchanged() {\n        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join(["lib", "rs"].join("."));\n        let owned = std::fs::read_to_string(path).unwrap_or_default();\n        let all = owned.as_str();\n        let src = &all[..all.find("\\n#[cfg(test)]\\nmod canary_source_hash").unwrap_or(all.len())];\n        let h = src.bytes().fold(0u64, |h, b| h.wrapping_mul(31).wrapping_add(u64::from(b)));\n        assert_eq!(h, %s);\n    }\n}\n' "$NH" >> "$CAN/neutral-hash/src/lib.rs"
 run C49 canary-source-hash-test fail '^NEUTRAL tests fail on a behaviour-preserving edit' "$CAN/neutral-hash" neutral_gate "$CAN/neutral-hash" "$WORK/neutral-c49"
+# C50: a test that counts tokens of the shipped source survives every neutral edit - the spec scan must flag it
+mk neutral-count; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/neutral-count/"
+printf '\n#[cfg(test)]\nmod canary_source_count {\n    #[test]\n    fn operators_unchanged() {\n        assert!(include_str!("lib.rs").matches("fn ").count() > 0);\n    }\n}\n' >> "$CAN/neutral-count/src/lib.rs"
+mkdir -p "$CAN/neutral-count/tests"; printf '#[test]\nfn counts() {\n    assert!(include_str!("../src/lib.rs").contains("fn "));\n}\n' > "$CAN/neutral-count/tests/count.rs"
+run C50 canary-test-reads-source fail '^NEUTRAL spec reads source text: src/lib.rs:[0-9]+: .*include_str' "$CAN/neutral-count" neutral_gate "$CAN/neutral-count" "$WORK/neutral-c50"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -1054,7 +1099,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..49} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..50} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..49} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..50} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
