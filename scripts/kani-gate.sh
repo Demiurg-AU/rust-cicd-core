@@ -21,7 +21,8 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$KWORK/target}"
 harnesses_in_src() { # compiler-side discovery (cargo kani list): visibility, comments, macros and
   # cfg_attr cannot hide a harness from it; standard and contract harnesses, fully qualified names.
   # Any failure (build, missing or malformed JSON) returns non-zero: no inventory, no PASS.
-  local d="$1" log rc
+  local d log rc
+  d="$(cd "$1" && pwd -P)" || return 1   # absolute: SANDBOX_RW is resolved after the cd below
   rm -f "$d/kani-list.json"; : > "$d/kani-list.json"
   log="$( cd "$d" && SANDBOX_RW="$d/kani-list.json" cargo kani list --format json 2>&1 )" || { printf '%s\n' "$log" | tail -5 >&2; return 1; }
   python3 - "$d/kani-list.json" <<'PY'
