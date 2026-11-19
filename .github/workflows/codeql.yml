@@ -10,6 +10,12 @@ on:
 
 permissions: {}
 
+# rust extraction (build-mode none) still asks rustup for a sysroot from the checkout: a rust-toolchain.toml
+# `path = ...` would run a checkout binary in this job (#45 item 8). Any fixed name from the environment wins over
+# the file; the runner's preinstalled stable is enough for extraction.
+env:
+  RUSTUP_TOOLCHAIN: stable
+
 jobs:
   analyze:
     name: codeql (${{ matrix.language }})

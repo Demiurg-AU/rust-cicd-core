@@ -28,6 +28,59 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
 HOST="$WORK/host"; mkdir "$HOST"
 export PY="${PY:-python3}"   # used by S1f/S1g before the Lean stage too
 
+# --- toolchain selection BEFORE any rustc/cargo call (#45 item 8) ---
+# rustup picks the toolchain from rust-toolchain(.toml) in the cwd and its parents: a checkout file with
+# `path = "/abs/dir"` (or a legacy rust-toolchain file naming a directory) makes the first UNJAILED rustc/cargo
+# call run a checkout-supplied binary - and it can print the pinned version. RUSTUP_TOOLCHAIN beats every
+# such file, so it is set here from the validated pin (CI sets it in the workflow; S0b checks the two agree).
+toolchain_check() { # <root> [channel]: every toolchain file under <root> (and the pin's parents) is plain;
+  # with "channel" print the pin's exact version (the first rust-toolchain.toml from <root> upwards)
+  "$PY" - "$1" "${2:-}" <<'PY'
+import os, re, sys
+root, want = os.path.realpath(sys.argv[1]), sys.argv[2]
+try:
+    import tomllib
+except ImportError:
+    sys.exit("RUST cannot validate toolchain files: python without tomllib (3.11+)")
+files, pin, bad = [], None, []
+for d, dirs, names in os.walk(root):
+    dirs[:] = [x for x in dirs if x not in (".git", "target", "evidence", ".lake")]
+    files += [os.path.join(d, n) for n in names if n in ("rust-toolchain", "rust-toolchain.toml")]
+d = root
+while True:
+    for n in ("rust-toolchain", "rust-toolchain.toml"):
+        f = os.path.join(d, n)
+        if os.path.isfile(f) and f not in files: files.append(f)
+    if pin is None and os.path.isfile(os.path.join(d, "rust-toolchain.toml")): pin = os.path.join(d, "rust-toolchain.toml")
+    if d == "/": break
+    d = os.path.dirname(d)
+for f in sorted(files):
+    if os.path.basename(f) == "rust-toolchain":
+        bad.append(f"RUST legacy toolchain file not allowed (it can name a directory): {f}"); continue
+    try:
+        t = tomllib.load(open(f, "rb"))
+    except Exception as e:
+        bad.append(f"RUST toolchain file {f}: unreadable ({e})"); continue
+    extra = set(t) - {"toolchain"}
+    keys = set(t.get("toolchain", {})) - {"channel", "components", "profile", "targets"}
+    for k in sorted(extra | keys):
+        bad.append(f"RUST toolchain file {f}: forbidden key {k}")
+if bad: sys.exit("\n".join(bad))
+if want == "channel":
+    if pin is None: sys.exit(f"RUST toolchain not pinned: no rust-toolchain.toml from {root} upwards")
+    c = tomllib.load(open(pin, "rb")).get("toolchain", {}).get("channel", "")
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", str(c)): sys.exit(f"RUST toolchain pin must be an exact x.y.z version: {pin}")
+    print(c)
+else:
+    print(f"RUST toolchain files plain ({len(files)})")
+PY
+}
+if [ -z "${RUSTUP_TOOLCHAIN:-}" ]; then
+  # an invalid pin selects no toolchain at all (every rust call fails, S0b names the reason) - never the file's
+  RUSTUP_TOOLCHAIN="$(toolchain_check "$ROOT" channel 2>/dev/null)" || RUSTUP_TOOLCHAIN=invalid-rust-pin
+fi
+export RUSTUP_TOOLCHAIN
+
 # --- environment witness ---
 # No "| head" here: under pipefail a closed pipe (SIGPIPE) would abort the whole run before any gate (found 2026-11-17).
 {
@@ -243,11 +296,12 @@ rust_pin() { # <rust-toolchain.toml> <rustc --version output>
   [[ "$have" == "rustc $want "* ]] || { echo "RUST toolchain mismatch: pinned $want, running ${have:-none}"; return 1; }
   echo "rust ok: $want"
 }
+rust_pin_strict() { toolchain_check "$ROOT" && rust_pin "$@"; }   # S0b: plain toolchain files AND the pin runs
 RUSTC_VERSION="$(rustc --version 2>&1 || true)"
 # rustup resolves rust-toolchain.toml from the project dir upwards; do the same (fixtures inherit the root pin)
 PIN_DIR="$ROOT"; while [ "$PIN_DIR" != / ] && [ ! -f "$PIN_DIR/rust-toolchain.toml" ]; do PIN_DIR="$(dirname "$PIN_DIR")"; done
-echo "rust_pin_file=$PIN_DIR/rust-toolchain.toml | $RUSTC_VERSION" >> "$EV/env.txt"
-run S0b rust-toolchain-pinned pass - "$ROOT" rust_pin "${PIN_DIR%/}/rust-toolchain.toml" "$RUSTC_VERSION"
+echo "rust_pin_file=$PIN_DIR/rust-toolchain.toml | RUSTUP_TOOLCHAIN=$RUSTUP_TOOLCHAIN | $RUSTC_VERSION" >> "$EV/env.txt"
+run S0b rust-toolchain-pinned pass - "$ROOT" rust_pin_strict "${PIN_DIR%/}/rust-toolchain.toml" "$RUSTC_VERSION"
 # S0s: the jail must actually start (no bubblewrap / no user namespaces -> every jailed gate would fail anyway)
 run S0s sandbox-active pass - "$ROOT" sandbox bash -c 'echo "SANDBOX active"'
 # S0f: dependencies are downloaded BEFORE any jailed step (the jail has no network); fetch runs no project code
@@ -718,6 +772,22 @@ run C6 canary-mutant-exclusion-unjustified fail '^MUTANTS exclusion without just
 # C7: a pin that does not match the running rustc must fail S0b
 mkdir -p "$CAN/rustpin"; printf '[toolchain]\nchannel = "1.0.0"\n' > "$CAN/rustpin/rust-toolchain.toml"
 run C7 canary-rust-pin-mismatch fail '^RUST toolchain mismatch' "$ROOT" rust_pin "$CAN/rustpin/rust-toolchain.toml" "$RUSTC_VERSION"
+# C51-C53: a checkout toolchain file must not select a checkout-supplied rustc (#45 item 8). The attack directory holds
+# a fake rustc that prints the pinned version and leaves a marker - S0b's version text alone could not tell it apart.
+TC="$CAN/toolchain"; mkdir -p "$TC/evil/bin" "$TC/legacy"
+printf '#!/bin/sh\ntouch "%s/EXECUTED"\necho "rustc %s (fake)"\n' "$TC" "$RUSTUP_TOOLCHAIN" > "$TC/evil/bin/rustc"
+cp "$TC/evil/bin/rustc" "$TC/evil/bin/cargo"; chmod +x "$TC/evil/bin/rustc" "$TC/evil/bin/cargo"
+printf '[toolchain]\npath = "%s/evil"\n' "$TC" > "$TC/rust-toolchain.toml"
+printf '%s/evil\n' "$TC" > "$TC/legacy/rust-toolchain"
+run C51 canary-toolchain-path-key fail '^RUST toolchain file .*: forbidden key path$' "$ROOT" toolchain_check "$TC"
+run C52 canary-toolchain-legacy-file fail '^RUST legacy toolchain file not allowed' "$ROOT" toolchain_check "$TC/legacy"
+toolchain_probe() { # <dir with a path= toolchain file>: an unjailed rustc from there must be the pinned one
+  rm -f "$1/EXECUTED"; local v; v="$( cd "$1" && command rustc --version 2>&1 )"
+  if [ -e "$1/EXECUTED" ]; then echo "TOOLCHAIN checkout binary executed: $v"; return 0; fi
+  echo "TOOLCHAIN checkout path= ignored (RUSTUP_TOOLCHAIN=$RUSTUP_TOOLCHAIN): $v"; return 1
+}
+run C53 canary-toolchain-path-not-executed fail '^TOOLCHAIN checkout path= ignored' "$ROOT" toolchain_probe "$TC"
+run C54 canary-toolchain-legacy-not-executed fail '^TOOLCHAIN checkout path= ignored' "$ROOT" toolchain_probe "$TC/legacy"
 # C8: an unreachable threshold must fail S1c with the threshold reason (not a test failure)
 mk cov
 CARGO_TARGET_DIR="$CAN/cov/target" run C8 canary-coverage-threshold fail '^COVERAGE below threshold' "$CAN/cov" coverage_gate 101
@@ -1102,7 +1172,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..50} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..54} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..50} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..54} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
