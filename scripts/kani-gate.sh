@@ -2,6 +2,9 @@
 # Kani gate (threat CI-5), driven by configuration only:
 #   kani-harnesses.tsv  fully qualified harness (module::fn) <TAB> extra cargo-kani flags or - <TAB> timeout s <TAB> covers that must be SATISFIED
 #   kani-canaries.tsv   id <TAB> file <TAB> exact text <TAB> replacement (\n = newline) <TAB> reason ERE
+#   spec-paths.txt      (optional) when present, every listed harness must be DEFINED in a file it covers: in the spec
+#                       epoch the base harness file is restored, and an inline `mod kani_proofs { .. }` in the PR's code
+#                       would otherwise shadow it under the same name (#45 item 3)
 # A harness passes only if Kani reports VERIFICATION:- SUCCESSFUL AND exactly the configured number
 # of covers is SATISFIED (a proof whose covers are unreachable is vacuous). Every #[kani::proof] in
 # the crate (found by `cargo kani list`, not by parsing source) must be listed (an unlisted harness is a silent skip).
@@ -25,14 +28,14 @@ harnesses_in_src() { # compiler-side discovery (cargo kani list): visibility, co
   d="$(cd "$1" && pwd -P)" || return 1   # absolute: SANDBOX_RW is resolved after the cd below
   rm -f "$d/kani-list.json"; : > "$d/kani-list.json"
   log="$( cd "$d" && SANDBOX_RW="$d/kani-list.json" cargo kani list --format json 2>&1 )" || { printf '%s\n' "$log" | tail -5 >&2; return 1; }
-  python3 - "$d/kani-list.json" <<'PY'
+  python3 - "$d/kani-list.json" <<'PY'   # prints <defining file> TAB <harness>
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert d.get("file-version") == "0.1", f"unknown kani list file-version {d.get('file-version')!r}"
 for group in ("standard-harnesses", "contract-harnesses"):
-    for names in d[group].values():
+    for f, names in d[group].items():
         for n in names:
-            print(n)
+            print(f"{f}\t{n}")
 PY
   rc=$?; rm -f "$d/kani-list.json"; return "$rc"
 }
@@ -49,9 +52,28 @@ run_gate() { # <crate-dir> <out-dir>
     echo "KANI FAIL harness inventory unavailable (cargo kani list failed, returned bad JSON or found no harness)"
     printf 'inventory\tFAIL\tunavailable\n' >> "$out/kani-results.tsv"; return 1
   fi
-  while read -r h; do
+  while IFS=$'\t' read -r _ h; do
     grep -qx "$h" <<< "$listed" || { echo "KANI FAIL unlisted harness: $h"; printf '%s\tFAIL\tunlisted\n' "$h" >> "$out/kani-results.tsv"; rc=1; }
   done <<< "$found"
+  # a listed harness must be defined in a spec file (spec-paths.txt), not in code that shadows it under the same name
+  if [ -f "$d/spec-paths.txt" ]; then
+    local bad; bad="$(FOUND="$found" python3 - "$d" "$d/spec-paths.txt" <<'PY'
+import os, sys
+root = os.path.realpath(sys.argv[1])
+spec = [l.strip().rstrip("/") for l in open(sys.argv[2]) if l.strip() and not l.lstrip().startswith("#")]
+for line in os.environ["FOUND"].splitlines():
+    f, h = line.split("\t", 1)
+    rel = os.path.relpath(os.path.realpath(f if os.path.isabs(f) else os.path.join(root, f)), root)
+    if not any(rel == p or rel.startswith(p + "/") for p in spec):
+        print(f"{h}\t{rel}")
+PY
+)" || { echo "KANI FAIL harness file check failed"; return 1; }
+    while IFS=$'\t' read -r h f; do
+      [ -n "$h" ] || continue
+      grep -qx "$h" <<< "$listed" || continue   # already reported as unlisted
+      echo "KANI FAIL $h: defined outside the spec ($f)"; printf '%s\tFAIL\toutside spec: %s\n' "$h" "$f" >> "$out/kani-results.tsv"; rc=1
+    done <<< "$bad"
+  fi
   while IFS=$'\t' read -r h flags secs covers || [ -n "$h" ]; do
     [[ -z "$h" || "$h" = \#* ]] && continue
     [[ "$secs" =~ ^[0-9]+$ && "$covers" =~ ^[0-9]+$ ]] || die "malformed row for $h in $cfg"
