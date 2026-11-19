@@ -31,6 +31,8 @@ run_gate() { # <repo-dir> <out-dir>
   [ -f "$d/fuzz/fuzz-targets.tsv" ] || die "missing $d/fuzz/fuzz-targets.tsv"
   mkdir -p "$out"; printf 'target\tverdict\treason\n' > "$out/fuzz-results.tsv"
   listed="$(listed_targets "$d")"; [ -n "$listed" ] || die "no target listed"
+  # the jail has no network: download dependencies first (fetch runs no project code)
+  cargo fetch --manifest-path "$d/fuzz/Cargo.toml" >/dev/null 2>&1 || { echo "FUZZ FAIL dependency fetch failed"; return 1; }
   if ! found="$(inventory "$d")" || [ -z "$found" ]; then
     echo "FUZZ FAIL target inventory unavailable (cargo fuzz list failed or found nothing)"
     printf 'inventory\tFAIL\tunavailable\n' >> "$out/fuzz-results.tsv"; return 1
@@ -65,6 +67,7 @@ run_canaries() { # <repo-dir> <out-dir>
   local d out="$2" cfg id t file old new want rc=0 n=0 secs="${FUZZ_CANARY_SECONDS:-120}"
   d="$(cd "$1" && pwd -P)" || die "no repo dir $1"; cfg="$d/fuzz/fuzz-canaries.tsv"
   [ -f "$cfg" ] || die "missing $cfg"
+  cargo fetch --manifest-path "$d/fuzz/Cargo.toml" >/dev/null 2>&1 || die "dependency fetch failed"
   mkdir -p "$out"; printf 'canary\tverdict\n' > "$out/fuzz-canaries.tsv"
   while IFS=$'\t' read -r id t file old new want || [ -n "$id" ]; do
     [[ -z "$id" || "$id" = \#* ]] && continue

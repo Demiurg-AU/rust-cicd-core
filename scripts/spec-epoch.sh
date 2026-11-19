@@ -38,7 +38,8 @@ epoch() { # <base-ref> <head-ref> <test|kani>
     done <<< "$list"
     echo "SPEC-EPOCH base spec $(git rev-parse --short "$base") x head code $(git rev-parse --short "$head") [$mode]"
     case "$mode" in
-      test) unset CARGO_TARGET_DIR; cargo test --locked -q 2>&1 | tail -30; exit "${PIPESTATUS[0]}" ;;
+      test) unset CARGO_TARGET_DIR; cargo fetch --locked >/dev/null 2>&1 || { echo "SPEC-EPOCH dependency fetch failed"; exit 2; }
+            cargo test --locked -q 2>&1 | tail -30; exit "${PIPESTATUS[0]}" ;;
       kani) bash "$KANI_GATE" run . "$(mktemp -d)" 2>&1 | grep '^KANI' ; exit "${PIPESTATUS[0]}" ;;
       *) echo "SPEC-EPOCH bad mode: $mode"; exit 2 ;;
     esac

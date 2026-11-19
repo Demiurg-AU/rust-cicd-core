@@ -41,6 +41,7 @@ run_gate() { # <crate-dir> <out-dir>
   local d="$1" out="$2" cfg="$1/kani-harnesses.tsv" h flags secs covers rc=0 log line
   [ -f "$cfg" ] || die "missing $cfg"
   mkdir -p "$out"; printf 'harness\tverdict\treason\n' > "$out/kani-results.tsv"
+  ( cd "$d" && cargo fetch ) >/dev/null 2>&1 || echo "KANI warning: cargo fetch failed (the jail has no network)"
   local listed; listed="$(awk -F'\t' '!/^#/ && NF {print $1}' "$cfg")"
   [ -n "$listed" ] || die "no harness listed in $cfg"
   local found
