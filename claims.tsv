@@ -3,6 +3,7 @@
 #        model, Rust link only by tests; bounded = proved on the Rust code within the stated bounds.
 # A query for "any" input on the Rust code gets PASS only from scope=code; model/bounded answer ABSTAIN.
 # evidence ids: gate:<results.tsv id> (sealed core evidence), kani:<fully qualified harness> (kani-results.tsv)
+# assumptions behind every PASS: assumptions.tsv (Assumption Breaker Gate)
 CA1	checked_add returns Some(a+b) iff a+b fits in u32	code	every (a, b) in u32 x u32; 2 covers SATISFIED	kani:kani_proofs::kani_checked_add_matches_spec
 CA2	shipped code contains no panicking construct	code	lib + bins; std calls trusted not to panic; allocation failure aborts	gate:S1e,gate:C26
 CA3	checkedAdd is none iff overflow, some is the sum	model	every Nat on the Lean model; Rust link: proof-map tests adds, detects_overflow	gate:L2,gate:X1,gate:X2
