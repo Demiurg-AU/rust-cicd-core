@@ -21,3 +21,4 @@ CA4	A2	the mutation gate fires on a surviving mutant	gate:C5
 CA4	A3	tests report their own outcome honestly (no early exit, no forged profile)	trusted:tests are code under test (#39 item 3)
 CA4	A4	the tests judge the shipped binary, not a cargo-only variant (env fork)	gate:C36
 CA4	A5	the tests judge the shipped body, not a cfg(test) variant	gate:C37
+CA4	A6	the tests check behaviour, not the source text (a source hash kills every mutant)	gate:C49
