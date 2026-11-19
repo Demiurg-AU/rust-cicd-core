@@ -99,6 +99,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
         with:
           toolchain: "1.100.0"
+          # the pin lists components; inside the jail rustup cannot install them
+          components: clippy, rustfmt, llvm-tools-preview
 
       - name: Jail for code under test (bubblewrap; threat CI-9)
         # Ubuntu 24.04 blocks unprivileged user namespaces via AppArmor; the VM is ephemeral, so lift it here.
