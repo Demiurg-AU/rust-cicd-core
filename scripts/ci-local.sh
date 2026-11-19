@@ -26,6 +26,7 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
 # HOST: trusted scratch under WORK that is never a jail work dir. Files the host writes or must not have
 # swapped (audit scripts, audit output) live here, not in a directory jailed code could write.
 HOST="$WORK/host"; mkdir "$HOST"
+export PY="${PY:-python3}"   # used by S1f/S1g before the Lean stage too
 
 # --- environment witness ---
 # No "| head" here: under pipefail a closed pipe (SIGPIPE) would abort the whole run before any gate (found 2026-11-17).
@@ -262,6 +263,74 @@ NOPANIC=(-F clippy::indexing_slicing -F clippy::string_slice -F clippy::arithmet
   -F clippy::unwrap_used -F clippy::expect_used -F clippy::panic -F clippy::unreachable
   -F clippy::todo -F clippy::unimplemented -F clippy::panic_in_result_fn)
 run S1e no-panic-lints pass - "$ROOT" cargo clippy --locked -- -D warnings "${NOPANIC[@]}"
+# S1f/S1g: judge the program that ships (threat CODE-2). Every other gate judges a variant: tests run in the
+# dev profile with cfg(test) and the env cargo sets, clippy under cfg(clippy), Kani under cfg(kani), fuzzing under
+# cfg(fuzzing). A fork on any of these lets the judged variant be correct and the shipped one wrong.
+# S1f (behaviour): the test binaries, built in RELEASE, run directly under `env -i` (no CARGO_* runtime variables).
+release_tests() { # <crate dir>
+  local exes n=0 e
+  exes="$(cd "$1" && cargo test --release --locked --no-run --message-format=json 2>/dev/null | "$PY" -c '
+import json, sys
+for line in sys.stdin:
+    try: m = json.loads(line)
+    except ValueError: continue
+    if m.get("reason") == "compiler-artifact" and (m.get("profile") or {}).get("test") and m.get("executable"):
+        print(m["executable"])')" || { echo "RELEASE-TESTS build failed"; return 1; }
+  [ -n "$exes" ] || { echo "RELEASE-TESTS no test binary built"; return 1; }
+  while IFS= read -r e; do
+    n=$((n + 1)); echo "RELEASE-TESTS run $(basename "$e")"
+    ( cd "$1" && sandbox env -i PATH=/usr/bin:/bin "$e" -q ) || { echo "RELEASE-TESTS FAILED: $(basename "$e") (release profile, clean environment)"; return 1; }
+  done <<< "$exes"
+  echo "RELEASE-TESTS $n binaries passed in release under env -i"
+}
+run S1f release-clean-env-tests pass - "$ROOT" release_tests "$ROOT"
+# S1g (syntax): shipped source (src/ minus the spec files in spec-paths.txt) may not branch on a judging context.
+# Allowed: `#[cfg(test)]` / `#[cfg(kani)]` directly on a `mod` item (the spec modules). Flagged: any other
+# cfg/cfg!/cfg_attr naming test, debug_assertions, kani, fuzzing, clippy, miri, coverage, and string literals
+# naming CARGO_* or RUST_TEST* variables (runtime "am I under cargo?" checks). Heuristic: macros or concat! can
+# hide a fork from this scan; S1f is the behavioural check behind it.
+judge_forks() { # <crate dir>
+  "$PY" - "$1" <<'PY'
+import os, re, sys
+root = sys.argv[1]
+spec = set()
+try:
+    for line in open(os.path.join(root, "spec-paths.txt")):
+        line = line.strip()
+        if line and not line.startswith("#"): spec.add(os.path.normpath(line))
+except OSError:
+    pass
+def is_spec(rel):
+    return any(rel == p or rel.startswith(p + os.sep) for p in spec)
+JUDGE = r"\b(test|debug_assertions|kani|fuzzing|clippy|miri|coverage)\b"
+CFG = re.compile(r"(#!?\[\s*cfg(_attr)?\s*\(|\bcfg!\s*\()")
+ALLOWED_ATTR = re.compile(r"^\s*#\[\s*cfg\s*\(\s*(test|kani)\s*\)\s*\]\s*$")
+MOD = re.compile(r"^\s*(pub(\([^)]*\))?\s+)?mod\s+\w+")
+ENVLIT = re.compile(r'"(CARGO_[A-Z0-9_]*|RUST_TEST[A-Z0-9_]*)"')
+bad = []; files = 0
+for d, dirs, names in os.walk(os.path.join(root, "src")):
+    for name in sorted(names):
+        if not name.endswith(".rs"): continue
+        path = os.path.join(d, name); rel = os.path.relpath(path, root)
+        if is_spec(rel): continue
+        files += 1
+        lines = open(path, encoding="utf-8").read().split("\n")
+        for i, line in enumerate(lines):
+            code = line.split("//")[0]
+            if CFG.search(code) and re.search(JUDGE, code):
+                if ALLOWED_ATTR.match(code):
+                    nxt = next((l for l in lines[i + 1:] if l.strip() and not l.strip().startswith(("#[", "//"))), "")
+                    if MOD.match(nxt): continue
+                bad.append(f"{rel}:{i + 1}: {line.strip()}")
+            if ENVLIT.search(code):
+                bad.append(f"{rel}:{i + 1}: {line.strip()}")
+if files == 0: sys.exit("JUDGE-FORK no shipped source found under src/")
+for b in bad: print("JUDGE-FORK " + b)
+if bad: sys.exit(1)
+print(f"JUDGE-FORK none in {files} shipped source files")
+PY
+}
+run S1g no-judge-forks pass - "$ROOT" judge_forks "$ROOT"
 # S1c in two steps so the log says WHY it failed (cargo-llvm-cov alone exits 1 without a reason).
 coverage_gate() { # <min line %>
   local min="$1" out rc
@@ -310,6 +379,46 @@ mk clippy; printf '\npub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }\n' 
 CARGO_TARGET_DIR="$CAN/clippy/target" run C2 canary-clippy fail 'len_zero' "$CAN/clippy" cargo clippy --all-targets -- -D warnings
 mk nopanic; printf '\npub fn first_byte(v: &[u8]) -> u8 { v[0] }\n' >> "$CAN/nopanic/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic/target" run C26 canary-panic-construct fail 'indexing may panic' "$CAN/nopanic" cargo clippy -- -D warnings "${NOPANIC[@]}"
+# C36: an env fork - correct under `cargo test`, wrong in the shipped binary - only S1f's direct run sees it
+mk fork-env; cp "$ROOT/spec-paths.txt" "$CAN/fork-env/"
+"$PY" - "$CAN/fork-env/src/lib.rs" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+old = "    a.checked_add(b)\n"
+assert s.count(old) == 1
+open(p, "w").write(s.replace(old, "    if std::env::var_os(concat!(\"CARGO_\", \"MANIFEST_DIR\")).is_some() { a.checked_add(b) } else { Some(a.wrapping_add(b)) }\n"))
+PY
+CARGO_TARGET_DIR="$CAN/fork-env/target" run C36 canary-env-fork-release fail 'RELEASE-TESTS FAILED' "$CAN/fork-env" release_tests "$CAN/fork-env"
+# C37: a cfg(test) fork - the tests see the correct body, the shipped crate the bug
+mk fork-test; cp "$ROOT/spec-paths.txt" "$CAN/fork-test/"
+"$PY" - "$CAN/fork-test/src/lib.rs" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+old = "    a.checked_add(b)\n"
+assert s.count(old) == 1
+open(p, "w").write(s.replace(old, "    #[cfg(test)]\n    return a.checked_add(b);\n    #[cfg(not(test))]\n    Some(a.wrapping_add(b))\n"))
+PY
+run C37 canary-cfg-test-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-test" judge_forks "$CAN/fork-test"
+# C38: a debug_assertions fork - S1g flags it; S1f catches it too (release turns debug_assertions off)
+mk fork-debug; cp "$ROOT/spec-paths.txt" "$CAN/fork-debug/"
+"$PY" - "$CAN/fork-debug/src/lib.rs" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+old = "    a.checked_add(b)\n"
+assert s.count(old) == 1
+open(p, "w").write(s.replace(old, "    if cfg!(debug_assertions) { a.checked_add(b) } else { Some(a.wrapping_add(b)) }\n"))
+PY
+run C38 canary-debug-assertions-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: if cfg!\(debug_assertions\)' "$CAN/fork-debug" judge_forks "$CAN/fork-debug"
+CARGO_TARGET_DIR="$CAN/fork-debug/target" run C39 canary-debug-assertions-fork-release fail 'RELEASE-TESTS FAILED' "$CAN/fork-debug" release_tests "$CAN/fork-debug"
+# C40/C41: a fork that only Kani / only clippy would see (the harness or the lint judges the other body)
+mk fork-kani; cp "$ROOT/spec-paths.txt" "$CAN/fork-kani/"
+"$PY" - "$CAN/fork-kani/src/lib.rs" <<'PY'
+import sys; p = sys.argv[1]; s = open(p).read()
+old = "    a.checked_add(b)\n"
+assert s.count(old) == 1
+open(p, "w").write(s.replace(old, "    #[cfg(kani)]\n    return a.checked_add(b);\n    #[cfg(not(kani))]\n    Some(a.wrapping_add(b))\n"))
+PY
+run C40 canary-cfg-kani-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(kani\)\]' "$CAN/fork-kani" judge_forks "$CAN/fork-kani"
+mk fork-clippy; cp "$ROOT/spec-paths.txt" "$CAN/fork-clippy/"
+printf '\n#[cfg(not(clippy))]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/fork-clippy/src/lib.rs"
+run C41 canary-cfg-clippy-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(not\(clippy\)\)\]' "$CAN/fork-clippy" judge_forks "$CAN/fork-clippy"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -755,7 +864,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..35} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..41} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1c S1d S2a S2b C{1..35} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..41} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
