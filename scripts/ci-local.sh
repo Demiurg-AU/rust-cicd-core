@@ -290,9 +290,31 @@ run S1f release-clean-env-tests pass - "$ROOT" release_tests "$ROOT"
 # naming CARGO_* or RUST_TEST* variables (runtime "am I under cargo?" checks). Heuristic: macros or concat! can
 # hide a fork from this scan; S1f is the behavioural check behind it.
 judge_forks() { # <crate dir>
-  "$PY" - "$1" <<'PY'
+  # the files to scan are the files the SHIPPED build compiles (rustc dep-info of a release lib+bins build):
+  # #[path = "../x.rs"] modules and include!() files outside src/ are in it; src/ is walked as well
+  local t; t="$(mktemp -d "${SANDBOX_WORK:-${TMPDIR:-/tmp}}/s1g.XXXXXX")"
+  ( cd "$1" && CARGO_TARGET_DIR="$t" cargo build --release --locked --lib --bins -q ) >/dev/null 2>&1 \
+    || { echo "JUDGE-FORK shipped build failed (cannot list the compiled sources)"; return 1; }
+  "$PY" - "$1" "$t" "${CARGO_HOME:-$HOME/.cargo}" <<'PY'
 import os, re, sys
 root = sys.argv[1]
+def compiled_sources(target, crate_root, cargo_home):
+    found = set()
+    for d, _, names in os.walk(target):
+        for nm in names:
+            if not nm.endswith(".d"): continue
+            try: text = open(os.path.join(d, nm)).read()
+            except OSError: continue
+            for line in text.splitlines():
+                if ":" not in line: continue
+                for p in line.split(":", 1)[1].replace("\\ ", "\0").split():
+                    p = p.replace("\0", " ")
+                    p = os.path.realpath(p if os.path.isabs(p) else os.path.join(crate_root, p))
+                    if p.endswith(".rs") and not p.startswith(os.path.realpath(cargo_home) + os.sep):
+                        found.add(p)
+    return found
+compiled = compiled_sources(sys.argv[2], root, sys.argv[3])
+if not compiled: sys.exit("JUDGE-FORK no compiled source found in the shipped build's dep-info")
 spec = set()
 try:
     for line in open(os.path.join(root, "spec-paths.txt")):
@@ -350,10 +372,9 @@ def rust_blank(text):
     return "".join(out), None
 START = re.compile(r"(#!?\[\s*)?\bcfg(_attr)?\s*(!\s*)?\(")
 bad = []; files = 0
-for d, dirs, names in os.walk(os.path.join(root, "src")):
-    for name in sorted(names):
-        if not name.endswith(".rs"): continue
-        path = os.path.join(d, name); rel = os.path.relpath(path, root)
+walked = {os.path.realpath(os.path.join(d, nm)) for d, _, names in os.walk(os.path.join(root, "src")) for nm in names if nm.endswith(".rs")}
+for path in sorted(compiled | walked):
+        name = os.path.basename(path); rel = os.path.relpath(path, os.path.realpath(root))
         if is_spec(rel): continue
         files += 1
         raw = open(path, encoding="utf-8").read(); lits = raw
@@ -497,6 +518,11 @@ fork_canary fork-backslash "    const _B: char = '\\\\';
     #[cfg(not(test))]
     2"
 run C45 canary-fork-after-backslash-char fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-backslash" judge_forks "$CAN/fork-backslash"
+# C46: the fork lives in a #[path = "../..."] module outside src/ - the scan follows what the build compiles
+mk fork-path; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/fork-path/"
+printf '#[must_use]\npub fn value() -> u32 {\n    #[cfg(test)]\n    return 1;\n    #[cfg(not(test))]\n    2\n}\n' > "$CAN/fork-path/impl_outside_src.rs"
+printf '\n#[path = "../impl_outside_src.rs"]\nmod imp;\n#[must_use]\npub fn canary_fork() -> u32 {\n    imp::value()\n}\n' >> "$CAN/fork-path/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/fork-path/target" run C46 canary-fork-in-path-module fail '^JUDGE-FORK impl_outside_src.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-path" judge_forks "$CAN/fork-path"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -942,7 +968,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..45} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..46} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..45} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..46} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
