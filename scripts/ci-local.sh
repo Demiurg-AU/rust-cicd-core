@@ -310,7 +310,8 @@ def compiled_sources(target, crate_root, cargo_home):
                 for p in line.split(":", 1)[1].replace("\\ ", "\0").split():
                     p = p.replace("\0", " ")
                     p = os.path.realpath(p if os.path.isabs(p) else os.path.join(crate_root, p))
-                    if p.endswith(".rs") and not p.startswith(os.path.realpath(cargo_home) + os.sep):
+                    # every compiled input, whatever its extension: include!("x.inc") and #[path = "x.txt"] are Rust too
+                    if os.path.isfile(p) and not p.startswith(os.path.realpath(cargo_home) + os.sep):
                         found.add(p)
     return found
 compiled = compiled_sources(sys.argv[2], root, sys.argv[3])
@@ -379,9 +380,16 @@ for path in sorted(compiled | walked):
         name = os.path.basename(path); rel = os.path.relpath(path, os.path.realpath(root))
         if is_spec(rel): continue
         files += 1
-        raw = open(path, encoding="utf-8").read(); lits = raw
+        try: raw = open(path, encoding="utf-8").read()
+        except UnicodeDecodeError:
+            files -= 1; continue          # not UTF-8: rustc cannot compile it as source (include_bytes! data)
+        lits = raw
         text, problem = rust_blank(raw)
-        if problem: bad.append(f"{rel}: cannot read safely ({problem})"); continue
+        if problem:
+            if path.endswith(".rs"): bad.append(f"{rel}: cannot read safely ({problem})"); continue
+            # a non-.rs input that does not lex as Rust is data (include_str!: README, ...): scan its raw text for
+            # cfg forks anyway (over-approximation), skip the literal check
+            text, lits = raw, ""
         # whole cfg expressions, balanced parentheses, across lines (a multi-line #[cfg(any(test, kani))] too)
         for m in START.finditer(text):
             k, stack = m.end(), [PAIR[m.group(4)]]
@@ -533,6 +541,11 @@ CARGO_TARGET_DIR="$CAN/fork-path/target" run C46 canary-fork-in-path-module fail
 fork_canary fork-delims '    if cfg![test] { return 1; }
     if cfg!{test} { 1 } else { 2 }'
 run C47 canary-cfg-bang-other-delimiters fail '^JUDGE-FORK src/lib.rs:[0-9]+: if cfg!\[test\]' "$CAN/fork-delims" judge_forks "$CAN/fork-delims"
+# C48: the fork lives in an include!()d file without the .rs extension
+mk fork-inc; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/fork-inc/"
+printf '#[must_use]\npub fn canary_fork() -> u32 {\n    #[cfg(test)]\n    return 1;\n    #[cfg(not(test))]\n    2\n}\n' > "$CAN/fork-inc/implementation.inc"
+printf '\ninclude!("../implementation.inc");\n' >> "$CAN/fork-inc/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/fork-inc/target" run C48 canary-fork-in-included-file fail '^JUDGE-FORK implementation.inc:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-inc" judge_forks "$CAN/fork-inc"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -978,7 +991,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..47} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..48} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..47} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..48} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
