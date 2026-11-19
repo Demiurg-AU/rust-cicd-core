@@ -19,6 +19,13 @@ export CARGO_TERM_COLOR=never
 # and the run does not depend on being allowed to delete files in the project folder.
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/rust-cicd-core.XXXXXX")"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
+# Code under test (build.rs, proc macros, tests, Lean elaboration) runs jailed: it cannot write the
+# evidence, the scripts, .git, cargo config or the runner's command files (threat CI-9, gates S0s/C28/C29).
+# shellcheck source=sandbox.sh
+. "$SD/sandbox.sh"; export SANDBOX_WORK="$WORK"; sandbox_enable
+# HOST: trusted scratch under WORK that is never a jail work dir. Files the host writes or must not have
+# swapped (audit scripts, audit output) live here, not in a directory jailed code could write.
+HOST="$WORK/host"; mkdir "$HOST"
 
 # --- environment witness ---
 # No "| head" here: under pipefail a closed pipe (SIGPIPE) would abort the whole run before any gate (found 2026-11-17).
@@ -40,7 +47,9 @@ export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$WORK/target}"
 run() {
   local id="$1" name="$2" expect="$3" rx="$4" wd="$5"; shift 5
   local log="$EV/$id-$name.log" output="$WORK/$id.output" code
-  if ( cd "$wd" && "$@" ) > "$output" 2>&1; then code=0; else code=$?; fi
+  if [ -z "${JAIL_MOCK:-}" ] && declare -F jail_armed >/dev/null && ! jail_armed; then
+    echo "JAIL disarmed before $id: cargo/elan are not the sandbox wrappers" > "$output"; code=126
+  elif ( cd "$wd" && "$@" ) > "$output" 2>&1; then code=0; else code=$?; fi
   { printf '$'; printf ' %q' "$@"; printf '\n'; cat "$output"; } > "$log"
   local rc="n/a" verdict
   if [ "$expect" = pass ]; then
@@ -238,6 +247,8 @@ RUSTC_VERSION="$(rustc --version 2>&1 || true)"
 PIN_DIR="$ROOT"; while [ "$PIN_DIR" != / ] && [ ! -f "$PIN_DIR/rust-toolchain.toml" ]; do PIN_DIR="$(dirname "$PIN_DIR")"; done
 echo "rust_pin_file=$PIN_DIR/rust-toolchain.toml | $RUSTC_VERSION" >> "$EV/env.txt"
 run S0b rust-toolchain-pinned pass - "$ROOT" rust_pin "${PIN_DIR%/}/rust-toolchain.toml" "$RUSTC_VERSION"
+# S0s: the jail must actually start (no bubblewrap / no user namespaces -> every jailed gate would fail anyway)
+run S0s sandbox-active pass - "$ROOT" sandbox bash -c 'echo "SANDBOX active"'
 # --- S0: skeleton builds with the locked graph ---
 run S0a build pass - "$ROOT" cargo build --locked --all-targets
 # --- S1: quality ---
@@ -272,7 +283,7 @@ mutants_gate() {
     done < "$d/mutants-exclusions.tsv"
   fi
   rm -rf "$out" 2>/dev/null; mkdir -p "$out"
-  ( cd "$d" && env -u CARGO_TARGET_DIR cargo mutants --test-tool nextest --no-shuffle -o "$out" "${args[@]}" "$@" ); rc=$?
+  ( cd "$d" && unset CARGO_TARGET_DIR && SANDBOX_RW="$out" cargo mutants --test-tool nextest --no-shuffle -o "$out" "${args[@]}" "$@" ); rc=$?
   local o="$out/mutants.out"
   [ -f "$o/outcomes.json" ] || { echo "MUTANTS no outcomes (exit $rc)"; return 1; }
   if [ -s "$o/missed.txt" ]; then sed 's/^/MISSED /' "$o/missed.txt"; return 1; fi
@@ -297,6 +308,17 @@ mk clippy; printf '\npub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }\n' 
 CARGO_TARGET_DIR="$CAN/clippy/target" run C2 canary-clippy fail 'len_zero' "$CAN/clippy" cargo clippy --all-targets -- -D warnings
 mk nopanic; printf '\npub fn first_byte(v: &[u8]) -> u8 { v[0] }\n' >> "$CAN/nopanic/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic/target" run C26 canary-panic-construct fail 'indexing may panic' "$CAN/nopanic" cargo clippy -- -D warnings "${NOPANIC[@]}"
+# C28: from inside the jail, every protected path must refuse a write (zero-byte append / temp file).
+PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN")
+[ -n "${GITHUB_ENV:-}" ] && PROTECT+=("$GITHUB_ENV" "$GITHUB_OUTPUT")
+run C28 canary-sandbox-blocks-writes fail '^SANDBOX all writes blocked' "$ROOT" sandbox_probe "${PROTECT[@]}"
+# C29: the real attack path - a planted #[test] run by `cargo test` tries to open results.tsv for append.
+mk tamper; printf '\n#[test]\nfn canary_tamper() {\n    let p = std::env::var("TAMPER_PATH").unwrap_or_default();\n    if let Err(e) = std::fs::OpenOptions::new().append(true).open(&p) { panic!("TAMPER blocked: {e}"); }\n}\n' >> "$CAN/tamper/src/lib.rs"
+TAMPER_PATH="$RES" CARGO_TARGET_DIR="$CAN/tamper/target" run C29 canary-test-cannot-touch-evidence fail 'TAMPER blocked: Read-only file system' "$CAN/tamper" cargo test --lib canary_tamper
+# C30: a leftover mock / `unset -f` that leaves an unjailed cargo must stop the next gate, not run it unjailed.
+cargo() { command cargo "$@"; }
+run C30 canary-jail-disarmed fail '^JAIL disarmed before C30' "$ROOT" true
+sandbox_enable
 mk test;   printf '\n#[test]\nfn canary_fails() { assert_eq!(1 + 1, 3); }\n' >> "$CAN/test/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/test/target" run C3 canary-test fail 'canary_fails' "$CAN/test" cargo nextest run
 mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.toml"
@@ -356,10 +378,13 @@ run CL31 canary-python-too-old fail '^PYTHON too old' "$ROOT" env PY_MIN=99.0 ba
   run L1 lake-build pass - "$LW" lean_build "$LW"
   # L2: axiom audit computed by Lean itself over every user theorem of the project's
   # lean_lib modules (attributes, namespaces included); Lean errors propagate; sorryAx = FAIL.
-  lean_audit() { local d="$1" mods m audit
+  lean_audit() { local d="$1" mods m audit out
     mods="$(lean_modules "$d")" || return 2
     [ -n "$mods" ] || { echo "audit: no lean_lib in lakefile.toml"; return 2; }
-    audit="$(mktemp "$d/ZzAuditXXXXXX.lean")" || return 2
+    # the audit script and its output live in $HOST: jailed lake/lean (which may run project code at
+    # elaboration) can read the script but neither replace it nor plant a symlink where the host writes
+    audit="$(mktemp "$HOST/ZzAuditXXXXXX.lean")" || return 2
+    out="$(mktemp "$HOST/axioms.XXXXXX")" || return 2
     { echo "import Lean"; for m in $mods; do echo "import $m"; done
       echo 'open Lean Elab Command'
       echo 'elab "#audit_axioms" : command => do'
@@ -404,12 +429,15 @@ run CL31 canary-python-too-old fail '^PYTHON too old' "$ROOT" env PY_MIN=99.0 ba
   unless bad.isEmpty do throwError m!"AUDIT sorryAx in {bad}"
 #audit_axioms
 LEAN
-    } > "$audit" || return 2
-    ( cd "$d" && { lean_build "$d" || { echo "AUDIT build failed"; exit 3; }; } && "${LX[@]}" lake env lean "$audit" ) > "$d/axioms.out" 2>&1
+    } >| "$audit" || return 2
+    ( cd "$d" && { lean_build "$d" || { echo "AUDIT build failed"; exit 3; }; } && "${LX[@]}" lake env lean "$audit" ) >| "$out" 2>&1
     local rc=$?
     rm "$audit" || return 2
-    cat "$d/axioms.out"; return "$rc"; }
-  AUDIT="$(declare -f lean_audit lean_modules lean_build); $(declare -p LX)"
+    # copy for the readers in $d only now that no jailed process is left; rm first (a planted symlink is replaced, not followed)
+    rm -rf "$d/axioms.out" && cp "$out" "$d/axioms.out" || return 2
+    cat "$out"; return "$rc"; }
+  # set -C: the canary scripts' own `> file` writes in a jail-writable dir refuse to follow a planted file/symlink
+  AUDIT="set -C; $(declare -f lean_audit lean_modules lean_build); $(declare -p LX HOST)"
   run L2 lean-axiom-audit pass - "$LW" bash -c "$AUDIT; lean_audit \"\$1\"" _ "$LW"
   grep -oE '^AUDIT theorem [^ ]+' "$LW/axioms.out" | awk '{print $3}' | sort -u > "$EV/lean-theorems.txt"
   run L3 lean-no-sorry-text pass - "$LW" bash -c "$(declare -f lean_text); lean_text '$LW'"
@@ -482,12 +510,12 @@ LEAN
   run CL15 canary-empty-proof-map fail '^proof-map has no test rows' "$ROOT" bash -c "$(declare -f pm_tests); pm_tests '$CAN/maps/comments.tsv'"
   # Shell functions stand in for Cargo only in these status/output regression fixtures.
   cargo() { printf 'fixture text: 1 passed\n\ntest result: ok. 0 passed; 0 failed;\n'; }
-  run CL16 canary-test-output-is-not-summary fail '^rust test missing/failed: tests::adds' "$ROOT" pm_tests "$CAN/maps/valid.tsv"
+  JAIL_MOCK=1 run CL16 canary-test-output-is-not-summary fail '^rust test missing/failed: tests::adds' "$ROOT" pm_tests "$CAN/maps/valid.tsv"
   cargo() { printf 'test result: ok. 1 passed; 0 failed; 0 ignored;\n'; return 1; }
-  run CL17 canary-cargo-status fail '^rust test missing/failed: tests::adds' "$ROOT" pm_tests "$CAN/maps/valid.tsv"
+  JAIL_MOCK=1 run CL17 canary-cargo-status fail '^rust test missing/failed: tests::adds' "$ROOT" pm_tests "$CAN/maps/valid.tsv"
   cargo() { printf 'test result: ok. 11 passed; 0 failed; 0 ignored;\n'; }
-  run CL18 canary-exact-test-count fail '^rust test missing/failed: tests::adds' "$ROOT" pm_tests "$CAN/maps/valid.tsv"
-  unset -f cargo
+  JAIL_MOCK=1 run CL18 canary-exact-test-count fail '^rust test missing/failed: tests::adds' "$ROOT" pm_tests "$CAN/maps/valid.tsv"
+  sandbox_enable   # restore the jailed cargo (unset -f would leave the real, unjailed one)
   run CL19 canary-command-is-not-output fail '^reason absent from tool output' "$ROOT" bash -c "
     $(declare -f run)
     EV='$CAN/witness'; RES='$CAN/witness/inner.tsv'; WORK='$CAN/witness'
@@ -512,8 +540,11 @@ LEAN
   printf 'theorem canary_extra_library : True := trivial\n' > "$CAN/ltoml/$(dirname "$ROOTFILE")/Extra.lean"
   run CL24 canary-toml-library-discovery fail '^unmapped theorem: canary_extra_library' "$CAN/ltoml" bash -euo pipefail -c "$AUDIT; $(declare -f pm_check); lean_audit \"\$1\" >/dev/null; grep -oE '^AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt \"\$2\"" _ "$CAN/ltoml" "$ROOT/proof-map.tsv"
   elan() { printf 'Lean (version 4.35.0, fixture)\n'; return 1; }
-  run CL25 canary-version-command-status fail '^LEAN version command failed' "$ROOT" lean_version 'leanprover/lean4:v4.35.0'
-  unset -f elan
+  JAIL_MOCK=1 run CL25 canary-version-command-status fail '^LEAN version command failed' "$ROOT" lean_version 'leanprover/lean4:v4.35.0'
+  sandbox_enable   # restore the jailed elan
+  # CL37: elaboration may plant axioms.out as a symlink; the host must replace it, never write through it.
+  mkL lsymlink; printf 'intact\n' > "$HOST/victim.txt"; ln -s "$HOST/victim.txt" "$CAN/lsymlink/axioms.out"
+  run CL37 canary-audit-output-symlink-not-followed pass - "$CAN/lsymlink" bash -c "$AUDIT; lean_audit \"\$1\" >/dev/null; grep -qx intact \"\$2\" || { echo 'AUDIT output followed a planted symlink'; exit 1; }" _ "$CAN/lsymlink" "$HOST/victim.txt"
   mkL lprivate
   printf '\nprivate theorem canary_private : False := by sorry\n' >> "$CAN/lprivate/$ROOTFILE"
   run CL26 canary-private-theorem fail 'AUDIT sorryAx in .*canary_private' "$CAN/lprivate" bash -c "$AUDIT; lean_audit \"\$1\"" _ "$CAN/lprivate"
@@ -558,7 +589,7 @@ end
 
 theorem CanaryTree.brecOn.user_property : True := trivial
 LEAN
-  run CL35 canary-mutual-recursion-auxiliaries pass - "$CAN/lmutual" bash -euo pipefail -c "$AUDIT; $(declare -f pm_check); lean_audit \"\$1\" >/dev/null; for n in CanaryTree CanaryForest; do grep -q \"^AUDIT checked \$n.brecOn.eq \" axioms.out || { echo \"mutual recursor auxiliary not axiom-checked: \$n\"; exit 1; }; if grep -q \"^AUDIT theorem \$n.brecOn.eq \" axioms.out; then echo \"mutual recursor auxiliary incorrectly requires proof-map row: \$n\"; exit 1; fi; done; grep -q '^AUDIT theorem CanaryTree.brecOn.user_property ' axioms.out || { echo 'user theorem in recursor namespace not inventoried'; exit 1; }; grep -oE '^AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; if pm_check th.txt \"\$2\" > missing.out 2>&1; then echo 'user theorem incorrectly exempted from proof-map'; exit 1; fi; grep -qx 'unmapped theorem: CanaryTree.brecOn.user_property' missing.out || { cat missing.out; exit 1; }; cp \"\$2\" proof-map.tsv; printf 'CanaryTree.brecOn.user_property\\ttests::adds\\n' >> proof-map.tsv; pm_check th.txt proof-map.tsv" _ "$CAN/lmutual" "$ROOT/proof-map.tsv"
+  run CL35 canary-mutual-recursion-auxiliaries pass - "$CAN/lmutual" bash -euo pipefail -c "$AUDIT; $(declare -f pm_check); lean_audit \"\$1\" >/dev/null; for n in CanaryTree CanaryForest; do grep -q \"^AUDIT checked \$n.brecOn.eq \" axioms.out || { echo \"mutual recursor auxiliary not axiom-checked: \$n\"; exit 1; }; if grep -q \"^AUDIT theorem \$n.brecOn.eq \" axioms.out; then echo \"mutual recursor auxiliary incorrectly requires proof-map row: \$n\"; exit 1; fi; done; grep -q '^AUDIT theorem CanaryTree.brecOn.user_property ' axioms.out || { echo 'user theorem in recursor namespace not inventoried'; exit 1; }; grep -oE '^AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; if pm_check th.txt \"\$2\" > missing.out 2>&1; then echo 'user theorem incorrectly exempted from proof-map'; exit 1; fi; grep -qx 'unmapped theorem: CanaryTree.brecOn.user_property' missing.out || { cat missing.out; exit 1; }; cp --remove-destination \"\$2\" proof-map.tsv; printf 'CanaryTree.brecOn.user_property\\ttests::adds\\n' >> proof-map.tsv; pm_check th.txt proof-map.tsv" _ "$CAN/lmutual" "$ROOT/proof-map.tsv"
 }
 fi
 
@@ -674,7 +705,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..27} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S1a S1b S1e S1c S1d S2a S2b C{1..30} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S1a S1b S1e S1c S1d S2a S2b C{1..27} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..36}
+  seal_evidence "$EV" S0a S0b S0s S1a S1b S1e S1c S1d S2a S2b C{1..30} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 X1 X2 CL{1..28} CL{33..37}
 fi

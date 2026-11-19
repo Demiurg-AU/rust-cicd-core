@@ -34,10 +34,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
         with:
           toolchain: "1.100.0"
+      - name: Jail for code under test (bubblewrap; threat CI-9)
+        # Ubuntu 24.04 blocks unprivileged user namespaces via AppArmor; the VM is ephemeral, so lift it here.
+        run: |
+          set -euo pipefail
+          command -v bwrap >/dev/null || { sudo apt-get update -q; sudo apt-get install -y -q bubblewrap; }
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --version
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid --die-with-parent true
+
       - name: Take the check scripts from the base commit
         run: |
           set -euo pipefail
-          for f in spec-epoch.sh spec-approval.sh kani-gate.sh; do
+          for f in spec-epoch.sh spec-approval.sh kani-gate.sh sandbox.sh; do
             if git cat-file -e "$BASE:scripts/$f" 2>/dev/null; then
               git show "$BASE:scripts/$f" > "$RUNNER_TEMP/$f"
             else
@@ -45,6 +54,12 @@ jobs:
             fi
           done
           git config user.name ci; git config user.email ci@invalid
+      - name: Jail probe - PR code cannot write runner files, workspace or results (C28 for this job)
+        run: |
+          set -uo pipefail
+          . "$RUNNER_TEMP/sandbox.sh"; export SANDBOX_WORK="$(mktemp -d)"
+          if sandbox_probe "$GITHUB_ENV" "$GITHUB_OUTPUT" "$GITHUB_WORKSPACE" "$RUNNER_TEMP"; then exit 1; fi
+
       - name: Canaries - owner approval decisions (relabel by non-owner, stale, fork, bot)
         run: bash "$RUNNER_TEMP/spec-approval.sh" canary
       - name: Did the PR change code (not only spec)?

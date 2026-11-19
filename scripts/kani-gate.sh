@@ -9,13 +9,21 @@
 #   kani-gate.sh canary <crate-dir> <out-dir>   every planted defect must make `run` fail for its reason
 set -uo pipefail
 die() { echo "KANI $*"; exit 2; }
+# Harness code is PR code: every cargo kani call is jailed (threat CI-9) so it cannot rewrite
+# kani-results.tsv, the logs, this script or the runner's command files. sandbox.sh sits next to this file.
+SANDBOX_SH="$(dirname "${BASH_SOURCE[0]}")/sandbox.sh"
+# shellcheck source=sandbox.sh
+[ -f "$SANDBOX_SH" ] && . "$SANDBOX_SH" || die "missing $SANDBOX_SH (no unjailed mode)"
+sandbox_enable
+KWORK="$(mktemp -d "${TMPDIR:-/tmp}/kani-gate.XXXXXX")"; export SANDBOX_WORK="$KWORK"
+export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$KWORK/target}"
 
 harnesses_in_src() { # compiler-side discovery (cargo kani list): visibility, comments, macros and
   # cfg_attr cannot hide a harness from it; standard and contract harnesses, fully qualified names.
   # Any failure (build, missing or malformed JSON) returns non-zero: no inventory, no PASS.
   local d="$1" log rc
-  rm -f "$d/kani-list.json"
-  log="$( cd "$d" && cargo kani list --format json 2>&1 )" || { printf '%s\n' "$log" | tail -5 >&2; return 1; }
+  rm -f "$d/kani-list.json"; : > "$d/kani-list.json"
+  log="$( cd "$d" && SANDBOX_RW="$d/kani-list.json" cargo kani list --format json 2>&1 )" || { printf '%s\n' "$log" | tail -5 >&2; return 1; }
   python3 - "$d/kani-list.json" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -46,7 +54,7 @@ run_gate() { # <crate-dir> <out-dir>
     [[ -z "$h" || "$h" = \#* ]] && continue
     [[ "$secs" =~ ^[0-9]+$ && "$covers" =~ ^[0-9]+$ ]] || die "malformed row for $h in $cfg"
     log="$out/${h//::/__}.log"; local -a extra=(); [ "$flags" = "-" ] || read -ra extra <<< "$flags"
-    ( cd "$d" && timeout "$secs" cargo kani "${extra[@]}" --harness "$h" --exact --output-format regular ) > "$log" 2>&1
+    ( cd "$d" && sandbox timeout "$secs" cargo kani "${extra[@]}" --harness "$h" --exact --output-format regular ) > "$log" 2>&1
     local krc=$? reason="" ok=1
     line="$(grep -oE '\*\* [0-9]+ of [0-9]+ cover properties satisfied' "$log" | tail -1)"
     local sat=0 tot=0; [ -n "$line" ] && { sat="$(awk '{print $2}' <<< "$line")"; tot="$(awk '{print $4}' <<< "$line")"; }
@@ -67,7 +75,7 @@ run_canaries() { # <crate-dir> <out-dir>
   mkdir -p "$out"; printf 'canary\tverdict\n' > "$out/kani-canaries.tsv"
   while IFS=$'\t' read -r id file old new want || [ -n "$id" ]; do
     [[ -z "$id" || "$id" = \#* ]] && continue
-    n=$((n + 1)); local tmp; tmp="$(mktemp -d)"
+    n=$((n + 1)); local tmp; tmp="$(mktemp -d "$KWORK/canary.XXXXXX")"
     ( cd "$d" && git ls-files -z --cached --others --exclude-standard | xargs -0 -I{} cp --parents {} "$tmp/" ) 2>/dev/null \
       || cp -r "$d/." "$tmp/"
     rm -rf "$tmp/target"
