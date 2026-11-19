@@ -307,6 +307,28 @@ CFG = re.compile(r"(#!?\[\s*cfg(_attr)?\s*\(|\bcfg!\s*\()")
 ALLOWED_ATTR = re.compile(r"^\s*#\[\s*cfg\s*\(\s*(test|kani)\s*\)\s*\]\s*$")
 MOD = re.compile(r"^\s*(pub(\([^)]*\))?\s+)?mod\s+\w+")
 ENVLIT = re.compile(r'"(CARGO_[A-Z0-9_]*|RUST_TEST[A-Z0-9_]*)"')
+def strip_comments(text, blank_strings=False):
+    # blank out // and /* */ comments (keep newlines, so line numbers stay) - not inside string literals
+    out, k, n, in_str = [], 0, len(text), False
+    while k < n:
+        c = text[k]
+        if in_str:
+            keep = c if (not blank_strings or c in '"\n') else " "
+            if c == "\\" and k + 1 < n:
+                out.append(keep); out.append(text[k + 1] if not blank_strings else " "); k += 2; continue
+            out.append(keep)
+            if c == '"': in_str = False
+            k += 1; continue
+        if c == '"': in_str = True; out.append(c); k += 1; continue
+        if text.startswith("//", k):
+            e = text.find("\n", k); e = n if e < 0 else e
+            out.append(" " * (e - k)); k = e; continue
+        if text.startswith("/*", k):
+            e = text.find("*/", k + 2); e = n if e < 0 else e + 2
+            out.append("".join(ch if ch == "\n" else " " for ch in text[k:e])); k = e; continue
+        out.append(c); k += 1
+    return "".join(out)
+START = re.compile(r"(#!?\[\s*)?\bcfg(_attr)?\s*(!\s*)?\(")
 bad = []; files = 0
 for d, dirs, names in os.walk(os.path.join(root, "src")):
     for name in sorted(names):
@@ -314,16 +336,26 @@ for d, dirs, names in os.walk(os.path.join(root, "src")):
         path = os.path.join(d, name); rel = os.path.relpath(path, root)
         if is_spec(rel): continue
         files += 1
-        lines = open(path, encoding="utf-8").read().split("\n")
-        for i, line in enumerate(lines):
-            code = line.split("//")[0]
-            if CFG.search(code) and re.search(JUDGE, code):
-                if ALLOWED_ATTR.match(code):
-                    nxt = next((l for l in lines[i + 1:] if l.strip() and not l.strip().startswith(("#[", "//"))), "")
-                    if MOD.match(nxt): continue
-                bad.append(f"{rel}:{i + 1}: {line.strip()}")
-            if ENVLIT.search(code):
-                bad.append(f"{rel}:{i + 1}: {line.strip()}")
+        raw = open(path, encoding="utf-8").read(); lits = strip_comments(raw); text = strip_comments(raw, blank_strings=True)
+        # whole cfg expressions, balanced parentheses, across lines (a multi-line #[cfg(any(test, kani))] too)
+        for m in START.finditer(text):
+            k, depth = m.end(), 1
+            while k < len(text) and depth:
+                depth += {"(": 1, ")": -1}.get(text[k], 0); k += 1
+            expr = text[m.start():k]
+            if not re.search(JUDGE, expr): continue
+            line = text.count("\n", 0, m.start()) + 1
+            first = raw.split("\n")[line - 1].strip()
+            if m.group(1) and not m.group(2) and re.fullmatch(r"cfg\s*\(\s*(test|kani)\s*\)", text[m.end(1) if m.group(1) else m.start():k].strip()):
+                rest = text[k:].lstrip()
+                if rest.startswith("]"):
+                    after = rest[1:].lstrip()
+                    while after.startswith("#["):
+                        after = after[after.find("]") + 1:].lstrip()
+                    if MOD.match(after): continue
+            bad.append(f"{rel}:{line}: {first}")
+        for i, l in enumerate(lits.split("\n")):
+            if ENVLIT.search(l): bad.append(f"{rel}:{i + 1}: {raw.split(chr(10))[i].strip()}")
 if files == 0: sys.exit("JUDGE-FORK no shipped source found under src/")
 for b in bad: print("JUDGE-FORK " + b)
 if bad: sys.exit(1)
@@ -412,6 +444,15 @@ fork_canary fork-clippy '    #[cfg(not(clippy))]
     #[cfg(clippy)]
     1'
 run C41 canary-cfg-clippy-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(not\(clippy\)\)\]' "$CAN/fork-clippy" judge_forks "$CAN/fork-clippy"
+# C42: the same fork with the cfg expression spread over several lines (the scan reads whole expressions)
+fork_canary fork-multiline '    #[cfg(any(
+        test,
+        kani
+    ))]
+    return 1;
+    #[cfg(not(any(test, kani)))]
+    2'
+run C42 canary-multiline-cfg-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(any\($' "$CAN/fork-multiline" judge_forks "$CAN/fork-multiline"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -857,7 +898,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..41} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..42} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..41} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..42} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
