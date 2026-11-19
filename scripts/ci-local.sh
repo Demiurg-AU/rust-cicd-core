@@ -663,8 +663,11 @@ PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/claims.
 [ -n "${GITHUB_ENV:-}" ] && PROTECT+=("$GITHUB_ENV" "$GITHUB_OUTPUT")
 run C28 canary-sandbox-blocks-writes fail '^SANDBOX all writes blocked' "$ROOT" sandbox_probe "${PROTECT[@]}"
 # C29: the real attack path - a planted #[test] run by `cargo test` tries to open results.tsv for append.
-mk tamper; printf '\n#[test]\nfn canary_tamper() {\n    let p = std::env::var("TAMPER_PATH").unwrap_or_default();\n    if let Err(e) = std::fs::OpenOptions::new().append(true).open(&p) { panic!("TAMPER blocked: {e}"); }\n}\n' >> "$CAN/tamper/src/lib.rs"
-SANDBOX_ENV_KEEP=TAMPER_PATH TAMPER_PATH="$RES" CARGO_TARGET_DIR="$CAN/tamper/target" run C29 canary-test-cannot-touch-evidence fail 'TAMPER blocked: Read-only file system' "$CAN/tamper" cargo test --lib canary_tamper
+# Blocked means read-only (EROFS: evidence visible, as under GITHUB_WORKSPACE in CI) or absent (ENOENT: evidence under the
+# hidden $HOME, as in a local clone). An empty TAMPER_PATH would also give ENOENT, so the test refuses it with its own message.
+[ -f "$RES" ] || { echo "C29 setup: $RES missing" >&2; exit 1; }
+mk tamper; printf '\n#[test]\nfn canary_tamper() {\n    let p = std::env::var("TAMPER_PATH").unwrap_or_default();\n    assert!(!p.is_empty(), "TAMPER no path");\n    if let Err(e) = std::fs::OpenOptions::new().append(true).open(&p) { panic!("TAMPER blocked: {e}"); }\n}\n' >> "$CAN/tamper/src/lib.rs"
+SANDBOX_ENV_KEEP=TAMPER_PATH TAMPER_PATH="$RES" CARGO_TARGET_DIR="$CAN/tamper/target" run C29 canary-test-cannot-touch-evidence fail 'TAMPER blocked: (Read-only file system \(os error 30\)|No such file or directory \(os error 2\))' "$CAN/tamper" cargo test --lib canary_tamper
 # C30: a leftover mock / `unset -f` that leaves an unjailed cargo must stop the next gate, not run it unjailed.
 cargo() { command cargo "$@"; }
 run C30 canary-jail-disarmed fail '^JAIL disarmed before C30' "$ROOT" true
