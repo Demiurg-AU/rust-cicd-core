@@ -95,7 +95,7 @@ PY
     elif [ "$grc" -eq 0 ]; then
       echo "KANI CANARY $id NOT caught"; printf '%s\tFAIL\n' "$id" >> "$out/kani-canaries.tsv"; rc=1
     else
-      echo "KANI CANARY $id failed for the wrong reason:"; printf '%s\n' "$got" | grep '^KANI' | head -5
+      echo "KANI CANARY $id failed for the wrong reason:"; printf '%s\n' "$got" | tail -12
       printf '%s\tFAIL\n' "$id" >> "$out/kani-canaries.tsv"; rc=1
     fi
     rm -rf "$tmp"
