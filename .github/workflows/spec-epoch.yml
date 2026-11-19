@@ -60,7 +60,7 @@ jobs:
           . "$RUNNER_TEMP/sandbox.sh"; export SANDBOX_WORK="$(mktemp -d)"
           if sandbox_probe "$GITHUB_ENV" "$GITHUB_OUTPUT" "$GITHUB_WORKSPACE" "$RUNNER_TEMP"; then exit 1; fi
           sandbox_enable
-          sandbox_probe_sockets "$(mktemp -d)"; [ $? -eq 1 ] || exit 1
+          rc=0; sandbox_probe_sockets "$(mktemp -d)" || rc=$?; [ "$rc" -eq 1 ] || exit 1
 
       - name: Canaries - owner approval decisions (relabel by non-owner, stale, fork, bot)
         run: bash "$RUNNER_TEMP/spec-approval.sh" canary

@@ -74,7 +74,7 @@ jail_armed() { # are bare cargo/elan still the jail wrappers? (a test mock or `u
 sandbox_sockets() { # every unix socket outside /proc /sys /dev /run /tmp (those are hidden by tmpfs anyway);
   # /usr /opt /snap skipped for speed - the C31 probe searches everything and fails if one is reachable
   find / \( -path /proc -o -path /sys -o -path /dev -o -path /run -o -path /tmp -o -path /usr -o -path /opt -o -path /snap \) -prune \
-       -o -type s -print 2>/dev/null
+       -o -type s -print 2>/dev/null || true   # unreadable dirs make find exit 1; callers may run under set -e
 }
 
 sandbox_enable() { # turn bare `cargo` and `elan` into jailed calls, also inside `bash -c` children
@@ -109,7 +109,7 @@ sandbox_probe_sockets() { # <dir for the decoy socket: outside SANDBOX_WORK, e.g
   decoy="$dir/decoy.sock"; rm -f "$decoy"
   python3 -c 'import socket,sys,time; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); s.listen(8); time.sleep(120)' "$decoy" &
   local spid=$!; local i; for i in 1 2 3 4 5 6 7 8 9 10; do [ -S "$decoy" ] && break; sleep 0.2; done
-  socks="$( { echo "$decoy"; find / \( -path /proc -o -path /sys -o -path /dev \) -prune -o -type s -print 2>/dev/null; } | sort -u )"
+  socks="$( { echo "$decoy"; find / \( -path /proc -o -path /sys -o -path /dev \) -prune -o -type s -print 2>/dev/null || true; } | sort -u )"
   out="$(printf '%s\n' "$socks" | sandbox python3 -c '
 import socket, sys
 reached = []

@@ -49,7 +49,7 @@ jobs:
           set -uo pipefail
           . scripts/sandbox.sh; export SANDBOX_WORK="$(mktemp -d)"; sandbox_enable
           if sandbox_probe "$GITHUB_ENV" "$GITHUB_OUTPUT" "$GITHUB_WORKSPACE" "$RUNNER_TEMP"; then exit 1; fi
-          sandbox_probe_sockets "$(mktemp -d)"; [ $? -eq 1 ] || exit 1
+          rc=0; sandbox_probe_sockets "$(mktemp -d)" || rc=$?; [ "$rc" -eq 1 ] || exit 1
       - name: Audit fuzz-only dependencies (separate lockfile)
         run: cargo audit -f fuzz/Cargo.lock
       - name: Canaries - a bug planted in the real code must crash the real target
