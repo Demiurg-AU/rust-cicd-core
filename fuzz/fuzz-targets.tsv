@@ -1,0 +1,2 @@
+# target	oracle: the independent reference this target compares the real code with
+checked_add	exact u64 arithmetic: u32::try_from(u64(a) + u64(b)).ok()
