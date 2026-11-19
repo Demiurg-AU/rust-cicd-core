@@ -781,13 +781,13 @@ printf '[toolchain]\npath = "%s/evil"\n' "$TC" > "$TC/rust-toolchain.toml"
 printf '%s/evil\n' "$TC" > "$TC/legacy/rust-toolchain"
 run C51 canary-toolchain-path-key fail '^RUST toolchain file .*: forbidden key path$' "$ROOT" toolchain_check "$TC"
 run C52 canary-toolchain-legacy-file fail '^RUST legacy toolchain file not allowed' "$ROOT" toolchain_check "$TC/legacy"
-toolchain_probe() { # <dir with a path= toolchain file>: an unjailed rustc from there must be the pinned one
-  rm -f "$1/EXECUTED"; local v; v="$( cd "$1" && command rustc --version 2>&1 )"
-  if [ -e "$1/EXECUTED" ]; then echo "TOOLCHAIN checkout binary executed: $v"; return 0; fi
+toolchain_probe() { # <dir with a toolchain file> <marker the fake rustc writes>: an unjailed rustc from there must be the pinned one
+  rm -f "$2"; local v; v="$( cd "$1" && command rustc --version 2>&1 )"
+  if [ -e "$2" ]; then echo "TOOLCHAIN checkout binary executed: $v"; return 0; fi
   echo "TOOLCHAIN checkout path= ignored (RUSTUP_TOOLCHAIN=$RUSTUP_TOOLCHAIN): $v"; return 1
 }
-run C53 canary-toolchain-path-not-executed fail '^TOOLCHAIN checkout path= ignored' "$ROOT" toolchain_probe "$TC"
-run C54 canary-toolchain-legacy-not-executed fail '^TOOLCHAIN checkout path= ignored' "$ROOT" toolchain_probe "$TC/legacy"
+run C53 canary-toolchain-path-not-executed fail '^TOOLCHAIN checkout path= ignored' "$ROOT" toolchain_probe "$TC" "$TC/EXECUTED"
+run C54 canary-toolchain-legacy-not-executed fail '^TOOLCHAIN checkout path= ignored' "$ROOT" toolchain_probe "$TC/legacy" "$TC/EXECUTED"
 # C8: an unreachable threshold must fail S1c with the threshold reason (not a test failure)
 mk cov
 CARGO_TARGET_DIR="$CAN/cov/target" run C8 canary-coverage-threshold fail '^COVERAGE below threshold' "$CAN/cov" coverage_gate 101
