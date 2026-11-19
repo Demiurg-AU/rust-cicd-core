@@ -54,6 +54,10 @@ sandbox() {
   fi
   [ -d /run ] && args+=(--tmpfs /run)
   args+=(--tmpfs /tmp)
+  # linked toolchains (elan/rustup `toolchain link` to e.g. $RUNNER_TEMP/lean-tc) point outside the hidden $HOME
+  for p in "${HOME:-/nonexistent}"/.elan/toolchains/* "${HOME:-/nonexistent}"/.rustup/toolchains/*; do
+    [ -L "$p" ] && [ -e "$p" ] && args+=(--ro-bind "$(realpath -- "$p")" "$(realpath -- "$p")")
+  done
   if [ -n "${SANDBOX_WORK:-}" ]; then args+=(--ro-bind "$SANDBOX_WORK" "$SANDBOX_WORK"); fi
   [ -n "${CARGO_TARGET_DIR:-}" ] && [ -e "$CARGO_TARGET_DIR" ] && args+=(--ro-bind "$CARGO_TARGET_DIR" "$CARGO_TARGET_DIR")
   # the directory the command runs in must stay visible (read-only unless granted below), also under /tmp
