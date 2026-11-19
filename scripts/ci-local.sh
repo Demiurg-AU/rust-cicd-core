@@ -379,45 +379,38 @@ mk clippy; printf '\npub fn is_empty_vec(v: &[u32]) -> bool { v.len() == 0 }\n' 
 CARGO_TARGET_DIR="$CAN/clippy/target" run C2 canary-clippy fail 'len_zero' "$CAN/clippy" cargo clippy --all-targets -- -D warnings
 mk nopanic; printf '\npub fn first_byte(v: &[u8]) -> u8 { v[0] }\n' >> "$CAN/nopanic/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic/target" run C26 canary-panic-construct fail 'indexing may panic' "$CAN/nopanic" cargo clippy -- -D warnings "${NOPANIC[@]}"
-# C36: an env fork - correct under `cargo test`, wrong in the shipped binary - only S1f's direct run sees it
-mk fork-env; cp "$ROOT/spec-paths.txt" "$CAN/fork-env/"
-"$PY" - "$CAN/fork-env/src/lib.rs" <<'PY'
-import sys; p = sys.argv[1]; s = open(p).read()
-old = "    a.checked_add(b)\n"
-assert s.count(old) == 1
-open(p, "w").write(s.replace(old, "    if std::env::var_os(concat!(\"CARGO_\", \"MANIFEST_DIR\")).is_some() { a.checked_add(b) } else { Some(a.wrapping_add(b)) }\n"))
-PY
+# C36-C41: fork canaries. Generic for any crate: each appends a forked function (plus, for S1f, a unit test
+# that holds only in the judged variant) to the crate's src/lib.rs.
+fork_canary() { # <dir> <function body> [with-test]
+  mk "$1"; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/$1/"
+  printf '\n#[must_use]\npub fn canary_fork() -> u32 {\n%s\n}\n' "$2" >> "$CAN/$1/src/lib.rs"
+  if [ "${3:-}" = with-test ]; then
+    printf '\n#[cfg(test)]\nmod canary_fork_spec {\n    #[test]\n    fn canary_fork_is_one() {\n        assert_eq!(super::canary_fork(), 1);\n    }\n}\n' >> "$CAN/$1/src/lib.rs"
+  fi
+}
+# C36: env fork - correct under `cargo test`, wrong in the shipped binary: only S1f's direct run sees it
+fork_canary fork-env '    if std::env::var_os(concat!("CARGO_", "MANIFEST_DIR")).is_some() { 1 } else { 2 }' with-test
 CARGO_TARGET_DIR="$CAN/fork-env/target" run C36 canary-env-fork-release fail 'RELEASE-TESTS FAILED' "$CAN/fork-env" release_tests "$CAN/fork-env"
-# C37: a cfg(test) fork - the tests see the correct body, the shipped crate the bug
-mk fork-test; cp "$ROOT/spec-paths.txt" "$CAN/fork-test/"
-"$PY" - "$CAN/fork-test/src/lib.rs" <<'PY'
-import sys; p = sys.argv[1]; s = open(p).read()
-old = "    a.checked_add(b)\n"
-assert s.count(old) == 1
-open(p, "w").write(s.replace(old, "    #[cfg(test)]\n    return a.checked_add(b);\n    #[cfg(not(test))]\n    Some(a.wrapping_add(b))\n"))
-PY
+# C37: cfg(test) fork - the tests see one body, the shipped crate the other
+fork_canary fork-test '    #[cfg(test)]
+    return 1;
+    #[cfg(not(test))]
+    2'
 run C37 canary-cfg-test-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-test" judge_forks "$CAN/fork-test"
-# C38: a debug_assertions fork - S1g flags it; S1f catches it too (release turns debug_assertions off)
-mk fork-debug; cp "$ROOT/spec-paths.txt" "$CAN/fork-debug/"
-"$PY" - "$CAN/fork-debug/src/lib.rs" <<'PY'
-import sys; p = sys.argv[1]; s = open(p).read()
-old = "    a.checked_add(b)\n"
-assert s.count(old) == 1
-open(p, "w").write(s.replace(old, "    if cfg!(debug_assertions) { a.checked_add(b) } else { Some(a.wrapping_add(b)) }\n"))
-PY
+# C38/C39: debug_assertions fork - S1g flags it; S1f catches it too (release turns debug_assertions off)
+fork_canary fork-debug '    if cfg!(debug_assertions) { 1 } else { 2 }' with-test
 run C38 canary-debug-assertions-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: if cfg!\(debug_assertions\)' "$CAN/fork-debug" judge_forks "$CAN/fork-debug"
 CARGO_TARGET_DIR="$CAN/fork-debug/target" run C39 canary-debug-assertions-fork-release fail 'RELEASE-TESTS FAILED' "$CAN/fork-debug" release_tests "$CAN/fork-debug"
-# C40/C41: a fork that only Kani / only clippy would see (the harness or the lint judges the other body)
-mk fork-kani; cp "$ROOT/spec-paths.txt" "$CAN/fork-kani/"
-"$PY" - "$CAN/fork-kani/src/lib.rs" <<'PY'
-import sys; p = sys.argv[1]; s = open(p).read()
-old = "    a.checked_add(b)\n"
-assert s.count(old) == 1
-open(p, "w").write(s.replace(old, "    #[cfg(kani)]\n    return a.checked_add(b);\n    #[cfg(not(kani))]\n    Some(a.wrapping_add(b))\n"))
-PY
+# C40/C41: a fork only Kani / only clippy would see
+fork_canary fork-kani '    #[cfg(kani)]
+    return 1;
+    #[cfg(not(kani))]
+    2'
 run C40 canary-cfg-kani-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(kani\)\]' "$CAN/fork-kani" judge_forks "$CAN/fork-kani"
-mk fork-clippy; cp "$ROOT/spec-paths.txt" "$CAN/fork-clippy/"
-printf '\n#[cfg(not(clippy))]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/fork-clippy/src/lib.rs"
+fork_canary fork-clippy '    #[cfg(not(clippy))]
+    return 2;
+    #[cfg(clippy)]
+    1'
 run C41 canary-cfg-clippy-fork fail '^JUDGE-FORK src/lib.rs:[0-9]+: #\[cfg\(not\(clippy\)\)\]' "$CAN/fork-clippy" judge_forks "$CAN/fork-clippy"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
