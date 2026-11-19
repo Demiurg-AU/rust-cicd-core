@@ -370,7 +370,9 @@ def rust_blank(text):
             out.append(c); k += 1; continue   # a lifetime
         out.append(c); k += 1
     return "".join(out), None
-START = re.compile(r"(#!?\[\s*)?\bcfg(_attr)?\s*(!\s*)?\(")
+# cfg, cfg_attr, cfg! and the cfg_select!/cfg_match! macros, with ANY invocation delimiter: cfg!(..), cfg![..], cfg!{..}
+START = re.compile(r"(#!?\[\s*)?\bcfg(_attr|_select|_match)?\s*(!\s*)?([\(\[\{])")
+PAIR = {"(": ")", "[": "]", "{": "}"}
 bad = []; files = 0
 walked = {os.path.realpath(os.path.join(d, nm)) for d, _, names in os.walk(os.path.join(root, "src")) for nm in names if nm.endswith(".rs")}
 for path in sorted(compiled | walked):
@@ -382,14 +384,18 @@ for path in sorted(compiled | walked):
         if problem: bad.append(f"{rel}: cannot read safely ({problem})"); continue
         # whole cfg expressions, balanced parentheses, across lines (a multi-line #[cfg(any(test, kani))] too)
         for m in START.finditer(text):
-            k, depth = m.end(), 1
-            while k < len(text) and depth:
-                depth += {"(": 1, ")": -1}.get(text[k], 0); k += 1
+            k, stack = m.end(), [PAIR[m.group(4)]]
+            while k < len(text) and stack:
+                ch = text[k]
+                if ch in PAIR: stack.append(PAIR[ch])
+                elif ch in ")]}":
+                    if ch != stack.pop(): stack = []; k = len(text); break   # mismatched: take the rest (fail closed)
+                k += 1
             expr = text[m.start():k]
             if not re.search(JUDGE, expr): continue
             line = text.count("\n", 0, m.start()) + 1
             first = raw.split("\n")[line - 1].strip()
-            if m.group(1) and not m.group(2) and re.fullmatch(r"cfg\s*\(\s*(test|kani)\s*\)", text[m.end(1) if m.group(1) else m.start():k].strip()):
+            if m.group(1) and not m.group(2) and m.group(4) == "(" and re.fullmatch(r"cfg\s*\(\s*(test|kani)\s*\)", text[m.end(1) if m.group(1) else m.start():k].strip()):
                 rest = text[k:].lstrip()
                 if rest.startswith("]"):
                     after = rest[1:].lstrip()
@@ -523,6 +529,10 @@ mk fork-path; [ -f "$ROOT/spec-paths.txt" ] && cp "$ROOT/spec-paths.txt" "$CAN/f
 printf '#[must_use]\npub fn value() -> u32 {\n    #[cfg(test)]\n    return 1;\n    #[cfg(not(test))]\n    2\n}\n' > "$CAN/fork-path/impl_outside_src.rs"
 printf '\n#[path = "../impl_outside_src.rs"]\nmod imp;\n#[must_use]\npub fn canary_fork() -> u32 {\n    imp::value()\n}\n' >> "$CAN/fork-path/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/fork-path/target" run C46 canary-fork-in-path-module fail '^JUDGE-FORK impl_outside_src.rs:[0-9]+: #\[cfg\(test\)\]' "$CAN/fork-path" judge_forks "$CAN/fork-path"
+# C47: cfg! invoked with brackets and braces - every delimiter of the built-in macro is scanned
+fork_canary fork-delims '    if cfg![test] { return 1; }
+    if cfg!{test} { 1 } else { 2 }'
+run C47 canary-cfg-bang-other-delimiters fail '^JUDGE-FORK src/lib.rs:[0-9]+: if cfg!\[test\]' "$CAN/fork-delims" judge_forks "$CAN/fork-delims"
 # C33: the code under test switches the lint off with #[allow]; with -F (forbid) that is itself an error
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
@@ -968,7 +978,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..46} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..47} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..46} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S2a S2b C{1..47} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
