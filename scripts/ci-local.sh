@@ -14,6 +14,7 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then echo "evidence-dir=$EV" >> "$GITHUB_OUTPUT"
 mkdir "$EV" || { echo "witness directory unavailable: $EV" >&2; exit 1; }
 RES="$EV/results.tsv"
 printf 'id\tstep\texpect\texit\treason_check\tverdict\n' > "$RES"
+: > "$EV/signatures.tsv"
 export CARGO_TERM_COLOR=never
 # Build outputs live OUTSIDE the repo/evidence folder: evidence holds only logs,
 # and the run does not depend on being allowed to delete files in the project folder.
@@ -98,8 +99,24 @@ export RUSTUP_TOOLCHAIN
 } > "$EV/env.txt" 2>&1
 
 # run <id> <name> <expect:pass|fail> <reason-regex-or-dash> <workdir> <cmd...>
+# Check signature of a step (#45 item 4): its command with run-specific paths (under ROOT/WORK/EV), bare numbers and
+# --locked normalised, one short hash per word. A canary named as the breaker of an assumption must start with the
+# signature of its guard gate - it exercises the same check, not just any check (claim-verdict.sh).
+sig_of() {
+  local a out=() r
+  for a in "$@"; do
+    [ "$a" = --locked ] && continue
+    for r in "$EV" "$WORK" "$ROOT"; do [ -n "$r" ] && a="${a//$r/<path>}"; done
+    # the rest of such a path names the run's own copy (canaries/fork-env, mutants-c5, ...): one token for all
+    a="$(sed -E "s#<path>[^[:space:]'\";)]*#<path>#g" <<< "$a")"
+    [[ "$a" =~ ^[0-9]+$ ]] && a="<n>"
+    out+=("$(printf '%s' "$a" | sha256sum | cut -c1-12)")
+  done
+  printf '%s' "${out[*]}"
+}
 run() {
   local id="$1" name="$2" expect="$3" rx="$4" wd="$5"; shift 5
+  printf '%s\t%s\n' "$id" "$(sig_of "$@")" >> "$EV/signatures.tsv"
   local log="$EV/$id-$name.log" output="$WORK/$id.output" code
   if [ -z "${JAIL_MOCK:-}" ] && declare -F jail_armed >/dev/null && ! jail_armed; then
     echo "JAIL disarmed before $id: cargo/elan are not the sandbox wrappers" > "$output"; code=126
@@ -283,7 +300,7 @@ seal_evidence() {
   printf '%s\n' "$@" > "$dir/expected-gates.txt" ||
     { echo "witness gate inventory failed"; return 1; }
   witness_check "$dir/results.tsv" "$@" || return 1
-  ( cd "$dir" && sha256sum ./*.log env.txt expected-gates.txt results.tsv summary.txt lean-theorems.txt > SHA256SUMS ) ||
+  ( cd "$dir" && sha256sum ./*.log env.txt expected-gates.txt results.tsv signatures.tsv summary.txt lean-theorems.txt > SHA256SUMS ) ||
     { echo "witness checksum failed"; return 1; }
 }
 
@@ -718,10 +735,11 @@ PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/ext-con
 run C28 canary-sandbox-blocks-writes fail '^SANDBOX all writes blocked' "$ROOT" sandbox_probe "${PROTECT[@]}"
 # C29: the real attack path - a planted #[test] run by `cargo test` tries to open results.tsv for append.
 # Blocked means read-only (EROFS: evidence visible, as under GITHUB_WORKSPACE in CI) or absent (ENOENT: evidence under the
-# hidden $HOME, as in a local clone). An empty TAMPER_PATH would also give ENOENT, so the test refuses it with its own message.
+# hidden $HOME, as in a local clone). The planted test runs through S1f's own check (release_tests: release build, jail,
+# env -i), so C29 breaks the guard S1f relies on (#45 item 4); the path is compiled in, env -i keeps no variables.
 [ -f "$RES" ] || { echo "C29 setup: $RES missing" >&2; exit 1; }
-mk tamper; printf '\n#[test]\nfn canary_tamper() {\n    let p = std::env::var("TAMPER_PATH").unwrap_or_default();\n    assert!(!p.is_empty(), "TAMPER no path");\n    if let Err(e) = std::fs::OpenOptions::new().append(true).open(&p) { panic!("TAMPER blocked: {e}"); }\n}\n' >> "$CAN/tamper/src/lib.rs"
-SANDBOX_ENV_KEEP=TAMPER_PATH TAMPER_PATH="$RES" CARGO_TARGET_DIR="$CAN/tamper/target" run C29 canary-test-cannot-touch-evidence fail 'TAMPER blocked: (Read-only file system \(os error 30\)|No such file or directory \(os error 2\))' "$CAN/tamper" cargo test --lib canary_tamper
+mk tamper; printf '\n#[test]\nfn canary_tamper() {\n    let p = "%s";\n    assert!(!p.is_empty(), "TAMPER no path");\n    if let Err(e) = std::fs::OpenOptions::new().append(true).open(p) { panic!("TAMPER blocked: {e}"); }\n}\n' "$RES" >> "$CAN/tamper/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/tamper/target" run C29 canary-test-cannot-touch-evidence fail 'TAMPER blocked: (Read-only file system \(os error 30\)|No such file or directory \(os error 2\))' "$CAN/tamper" release_tests "$CAN/tamper"
 # C30: a leftover mock / `unset -f` that leaves an unjailed cargo must stop the next gate, not run it unjailed.
 cargo() { command cargo "$@"; }
 run C30 canary-jail-disarmed fail '^JAIL disarmed before C30' "$ROOT" true
@@ -932,10 +950,12 @@ LEAN
   mkL lrewrite; printf '\n#eval IO.FS.writeFile "%s" "-- rewritten during elaboration\\n"\n' "$ROOTFILE" >> "$CAN/lrewrite/$ROOTFILE"
   run CL39 canary-lean-rewrites-itself fail '^Files .* differ' "$ROOT" bash -c "$AUDIT; $(declare -f lean_same); ( lean_build \"\$1\" ) >/dev/null 2>&1; lean_same \"\$2\" \"\$1\"" _ "$CAN/lrewrite" "$LSRC"
   mkL lwrong; printf '\ntheorem canary_wrong : (1 : Nat) = 2 := by rfl\n' >> "$CAN/lwrong/$ROOTFILE"
-  run CL2 canary-lean-false-proof fail 'canary_wrong|rfl. failed' "$CAN/lwrong" "${LX[@]}" lake build
+  run CL2 canary-lean-false-proof fail 'canary_wrong|rfl. failed' "$CAN/lwrong" lean_build "$CAN/lwrong"   # L1's check
   # CL3: an annotated theorem missing from proof-map.tsv must be reported (discovery covers @[attr])
   mkL lunmap; printf '\n@[simp] theorem canary_unmapped : (2 : Nat) + 2 = 4 := rfl\n' >> "$CAN/lunmap/$ROOTFILE"
-  run CL3 canary-unmapped-annotated-theorem fail '^unmapped theorem: canary_unmapped' "$CAN/lunmap" bash -euo pipefail -c "$AUDIT; $(declare -f pm_check); lean_audit \"\$1\" >/dev/null; grep -oE '^AUDIT theorem [^ ]+' axioms.out | awk '{print \$3}' > th.txt; pm_check th.txt \"\$2\"" _ "$CAN/lunmap" "$ROOT/proof-map.tsv"
+  # discovery as for X1 (lean_audit -> theorem list), then X1's own check on the canary's list
+  ( cd "$CAN/lunmap" && bash -c "$AUDIT; lean_audit \"\$1\"" _ "$CAN/lunmap" >/dev/null 2>&1; grep -oE '^AUDIT theorem [^ ]+' axioms.out | awk '{print $3}' | sort -u > "$CAN/lunmap-theorems.txt" ) || true
+  run CL3 canary-unmapped-annotated-theorem fail '^unmapped theorem: canary_unmapped' "$ROOT" bash -c "$(declare -f pm_check); pm_check '$CAN/lunmap-theorems.txt' proof-map.tsv"
   # CL5: a theorem in an imported project submodule must be discovered (X1 must report it)
   mkL lsub
   mkdir -p "$CAN/lsub/${ROOTFILE%.lean}"; printf 'theorem canary_submodule : True := trivial\n' > "$CAN/lsub/${ROOTFILE%.lean}/CanarySub.lean"
