@@ -493,12 +493,55 @@ PY
 run S1g no-judge-forks pass - "$ROOT" judge_forks "$ROOT"
 # S1c in two steps so the log says WHY it failed (cargo-llvm-cov alone exits 1 without a reason).
 coverage_gate() { # <min line %>
-  local min="$1" out rc
-  cargo llvm-cov nextest --locked --no-report || { echo "COVERAGE tests failed"; return 1; }
-  out="$(cargo llvm-cov report --summary-only --fail-under-lines "$min" 2>&1)"; rc=$?
-  printf '%s\n' "$out" | grep '^TOTAL' || { echo "COVERAGE report missing"; return 1; }
-  [ "$rc" -eq 0 ] || { echo "COVERAGE below threshold: lines < $min%"; return 1; }
+  # The profile is written by the process under test, so the measurement is only as good as what that process
+  # cannot do (#45 item 7): S1i forbids unsafe code in every target (no direct write to the counter section),
+  # the test binaries run jailed WITHOUT procfs (no /proc/self/mem), each binary gets its own profile path that
+  # the runtime rewrites at exit (run-<pid>.profraw; in the jail's pid namespace the test binary is pid 2, child
+  # processes such as the CLI binary under test get their own), any other file fails the gate, and a binary that
+  # does not exit 0 fails the gate. Residual: a crafted run-<n>.profraw posing as a child's profile. Instrumentation, merge and report use the pinned toolchain's llvm-tools directly.
+  local min="$1"
+  (
+    set -o pipefail
+    ct="$CARGO_TARGET_DIR/coverage"; rm -rf "$ct"; mkdir -p "$ct/prof"
+    export CARGO_TARGET_DIR="$ct/target" RUSTFLAGS="${RUSTFLAGS:-} -C instrument-coverage --cfg=coverage"
+    sysroot="$(rustc --print sysroot)" && host="$(rustc -vV | sed -n 's/^host: //p')" && tools="$sysroot/lib/rustlib/$host/bin" &&
+      [ -x "$tools/llvm-profdata" ] && [ -x "$tools/llvm-cov" ] || { echo "COVERAGE llvm-tools missing (rustup component add llvm-tools)"; exit 1; }
+    exes="$(cargo test --locked --no-run --message-format=json 2>/dev/null | "$PY" -c '
+import json, sys
+for line in sys.stdin:
+    try: m = json.loads(line)
+    except ValueError: continue
+    if m.get("reason") == "compiler-artifact" and m.get("executable"):
+        print(("T " if (m.get("profile") or {}).get("test") else "B ") + m["executable"])')" || { echo "COVERAGE build failed"; exit 1; }
+    grep -q '^T ' <<< "$exes" || { echo "COVERAGE no test binary built"; exit 1; }
+    n=0; objs=()
+    while read -r k e; do objs+=(-object "$e"); done <<< "$exes"
+    while read -r k e; do
+      [ "$k" = T ] || continue
+      n=$((n + 1)); pd="$ct/run/$n"; mkdir -p "$pd"
+      ( SANDBOX_NOPROC=1 SANDBOX_RW="$pd" sandbox env -i PATH=/usr/bin:/bin LLVM_PROFILE_FILE="$pd/run-%p.profraw" "$e" -q ) ||
+        { echo "COVERAGE tests failed: $(basename "$e")"; exit 1; }
+      bad="$(find "$pd" -mindepth 1 ! -regex '.*/run-[0-9]+\.profraw' -printf '%f ')"
+      [ -z "$bad" ] || { echo "COVERAGE profile tampered: $(basename "$e") left unexpected files: $bad"; exit 1; }
+      [ -s "$pd/run-2.profraw" ] || { echo "COVERAGE profile tampered: $(basename "$e") wrote no profile of its own (run-2.profraw)"; exit 1; }
+      for f in "$pd"/run-*.profraw; do mv "$f" "$ct/prof/$n-$(basename "$f")"; done
+    done <<< "$exes"
+    SANDBOX_RW="$ct" sandbox "$tools/llvm-profdata" merge -sparse "$ct"/prof/*.profraw -o "$ct/merged.profdata" || { echo "COVERAGE profile merge failed"; exit 1; }
+    SANDBOX_RW="$ct" sandbox "$tools/llvm-cov" export -summary-only -instr-profile="$ct/merged.profdata" "${objs[@]}" \
+      -ignore-filename-regex='(/\.cargo/(registry|git)/|/rustc/[0-9a-f]+/|/\.rustup/|(^|/)(tests|examples|benches)/|(^|/)tests\.rs$|/target/)' > "$ct/summary.json" ||
+      { echo "COVERAGE report missing"; exit 1; }
+    "$PY" - "$ct/summary.json" "$min" "$n" <<'PY'
+import json, sys
+t = json.load(open(sys.argv[1]))["data"][0]["totals"]["lines"]
+print(f"TOTAL lines {t['covered']}/{t['count']} = {t['percent']:.2f}% ({sys.argv[3]} test binaries, run without procfs)")
+sys.exit(0 if t["count"] and t["percent"] >= float(sys.argv[2]) else 3)
+PY
+    rc=$?; [ "$rc" -eq 0 ] || { [ "$rc" -eq 3 ] && echo "COVERAGE below threshold: lines < $min%" || echo "COVERAGE report unreadable"; exit 1; }
+  )
 }
+# S1i: no unsafe code in any target (lib, bins, tests): a test could otherwise write the coverage counter section
+# (__start___llvm_prf_cnts) directly and fake S1c (#45 item 7, C65)
+run S1i no-unsafe-code pass - "$ROOT" cargo clippy --locked --all-targets -- -F unsafe_code
 run S1c test-coverage pass - "$ROOT" coverage_gate 80
 # S1d: mutation testing. Coverage says code RAN; mutants say tests CATCH changes.
 # PASS only if no mutant is missed or timed out and at least one was caught (no vacuous pass).
@@ -809,6 +852,13 @@ run C54 canary-toolchain-legacy-not-executed fail '^TOOLCHAIN checkout path= ign
 # C8: an unreachable threshold must fail S1c with the threshold reason (not a test failure)
 mk cov
 CARGO_TARGET_DIR="$CAN/cov/target" run C8 canary-coverage-threshold fail '^COVERAGE below threshold' "$CAN/cov" coverage_gate 101
+# C65-C67: the code under test must not be able to fake its own coverage (#45 item 7)
+mk covunsafe; printf '\n#[cfg(test)]\nmod canary_forge {\n    unsafe extern "C" { static __start___llvm_prf_cnts: u8; static __stop___llvm_prf_cnts: u8; }\n    #[test]\n    fn forge() {\n        unsafe {\n            let s = &raw const __start___llvm_prf_cnts as *mut u64;\n            let e = &raw const __stop___llvm_prf_cnts as usize;\n            for i in 0..(e - s as usize) / 8 { std::ptr::write_volatile(s.add(i), 1); }\n        }\n    }\n}\n' >> "$CAN/covunsafe/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/covunsafe/target" run C65 canary-coverage-counter-forge-unsafe fail 'usage of an `unsafe` (block|extern block)|unsafe_code' "$CAN/covunsafe" cargo clippy --all-targets -- -F unsafe_code
+mk covproc; printf '\n#[test]\nfn canary_procmem() {\n    if let Err(e) = std::fs::OpenOptions::new().write(true).open("/proc/self/mem") { panic!("PROCMEM blocked: {e}"); }\n}\n' >> "$CAN/covproc/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/covproc/target" run C66 canary-coverage-procmem fail 'PROCMEM blocked: No such file or directory' "$CAN/covproc" coverage_gate 0
+mk covextra; printf '\n#[test]\nfn canary_extra_profile() {\n    let p = std::env::var("LLVM_PROFILE_FILE").unwrap_or_default();\n    let _ = std::fs::write(std::path::Path::new(&p).with_file_name("forged.profraw"), b"x");\n}\n' >> "$CAN/covextra/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/covextra/target" run C67 canary-coverage-extra-profile fail '^COVERAGE profile tampered: .* left unexpected files: forged\.profraw' "$CAN/covextra" coverage_gate 0
 # C9: a lockfile with a known-vulnerable crate (smallvec 1.6.0, RUSTSEC-2021-0003) must fail cargo-audit
 mkdir -p "$CAN/audit"; printf 'version = 3\n\n[[package]]\nname = "canary"\nversion = "0.1.0"\ndependencies = ["smallvec"]\n\n[[package]]\nname = "smallvec"\nversion = "1.6.0"\nsource = "registry+https://github.com/rust-lang/crates.io-index"\n' > "$CAN/audit/Cargo.lock"
 run C9 canary-audit-known-vulnerability fail 'RUSTSEC-2021-0003' "$CAN/audit" cargo audit -f "$CAN/audit/Cargo.lock"
@@ -1328,7 +1378,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..64} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b C{1..67} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..64} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b C{1..67} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

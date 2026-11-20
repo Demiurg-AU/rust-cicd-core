@@ -25,7 +25,10 @@ SANDBOX_BWRAP="${SANDBOX_BWRAP:-bwrap}"
 
 sandbox() {
   local p a cwd tmp rc s; cwd="$(pwd -P)"
-  local args=(--ro-bind / / --dev /dev --proc /proc
+  # SANDBOX_NOPROC=1: no procfs at all - /proc/self/mem would let safe code rewrite its own memory (coverage
+  # counters, #45 item 7); used for running test binaries, not for cargo/rustc (rustup needs /proc)
+  local procfs=(--proc /proc); [ "${SANDBOX_NOPROC:-0}" = 1 ] && procfs=(--tmpfs /proc)
+  local args=(--ro-bind / / --dev /dev "${procfs[@]}"
               --unshare-pid --unshare-net --unshare-ipc --die-with-parent --new-session
               --setenv CARGO_NET_OFFLINE true)
   # unix sockets: an empty /run and /tmp hide docker.sock, dbus, systemd and stray /tmp sockets; any other socket
