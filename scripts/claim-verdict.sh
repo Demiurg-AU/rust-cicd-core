@@ -28,7 +28,8 @@ for e in "${items[@]}"; do
 done
 [ -z "$missing" ] || { echo "ABSTAIN $id: evidence not run:$missing"; exit 0; }
 # Assumption Breaker Gate (ROADMAP O4a): a claim states its assumptions; each is either broken on purpose by a
-# CANARY (breaker:gate:<id> with expect=fail, or breaker:kcanary:<id>) that must have fired for its reason, or
+# CANARY (breaker:gate:<id>@<guard> with expect=fail, run by the guard gate's own check, or breaker:kcanary:<id>)
+# that must have fired for its reason, or
 # declared trusted:<reason> and then printed with every PASS. No assumption listed -> ABSTAIN.
 trusting="" bmissing=""
 if [ -n "$assumptions" ]; then
@@ -37,13 +38,30 @@ if [ -n "$assumptions" ]; then
   while IFS=$'\t' read -r _ aid _ breaker; do
     case "$breaker" in
       trusted:?*) trusting="$trusting $aid (${breaker#trusted:});" ;;
-      gate:?*|kcanary:?*)
+      gate:?*@?*|kcanary:?*)
+        # gate:<canary>@<guard>: the canary must run the SAME check as the guard gate (its recorded command
+        # signature starts with the guard's), and the guard must have PASSED on the real code in this run - a
+        # breaker caught by some unrelated check says nothing about this claim (#45 item 4)
+        guard=""; if [[ "$breaker" == gate:* ]]; then guard="gate:${breaker##*@}"; breaker="${breaker%@*}"; fi
+        [[ "$breaker" == kcanary:* ]] && ! [[ ",$evidence," == *",kani:"* ]] &&
+          { echo "VERDICT kcanary breaker $breaker for $aid on claim $id without kani: evidence"; exit 2; }
         line="$(awk -F'\t' -v e="$breaker" '$1==e' "$status" | tail -1)"
         v="$(cut -f2 <<< "$line")"; ex="$(cut -f3 <<< "$line")"
         [ -n "$line" ] || { bmissing="$bmissing $breaker($aid)"; continue; }
         [[ "$breaker" == gate:* && "$ex" != fail ]] && { echo "VERDICT breaker $breaker for $aid is not a canary (expect=$ex)"; exit 2; }
-        [ "$v" = PASS ] || { echo "FAIL $id: breaker $breaker for $aid did not fire for its reason ($v)"; exit 0; } ;;
-      *) echo "VERDICT bad breaker for $id/$aid: '$breaker' (gate:<canary> | kcanary:<id> | trusted:<reason>)"; exit 2 ;;
+        [ "$v" = PASS ] || { echo "FAIL $id: breaker $breaker for $aid did not fire for its reason ($v)"; exit 0; }
+        if [ -n "$guard" ]; then
+          gline="$(awk -F'\t' -v e="$guard" '$1==e' "$status" | tail -1)"
+          [ -n "$gline" ] || { bmissing="$bmissing $guard($aid)"; continue; }
+          [ "$(cut -f3 <<< "$gline")" = pass ] || { echo "VERDICT guard $guard of $breaker for $aid is not a gate (expect=$(cut -f3 <<< "$gline"))"; exit 2; }
+          [ "$(cut -f2 <<< "$gline")" = PASS ] || { echo "FAIL $id: guard $guard of $breaker for $aid did not pass ($(cut -f2 <<< "$gline"))"; exit 0; }
+          sc="$(awk -F'\t' -v e="sig:${breaker#gate:}" '$1==e {print $2}' "$status" | tail -1)"
+          sg="$(awk -F'\t' -v e="sig:${guard#gate:}" '$1==e {print $2}' "$status" | tail -1)"
+          [ -n "$sc" ] && [ -n "$sg" ] || { bmissing="$bmissing sig:$breaker/$guard($aid)"; continue; }
+          [[ "$sc " == "$sg "* ]] || { echo "VERDICT breaker $breaker for $aid does not run the check of its guard $guard"; exit 2; }
+        fi ;;
+      gate:?*) echo "VERDICT breaker $breaker for $id/$aid names no guard (gate:<canary>@<guard gate>)"; exit 2 ;;
+      *) echo "VERDICT bad breaker for $id/$aid: '$breaker' (gate:<canary>@<guard> | kcanary:<id> | trusted:<reason>)"; exit 2 ;;
     esac
   done <<< "$arows"
   # missing breakers are reported only after every present one was checked: a known failure must not hide behind ABSTAIN
