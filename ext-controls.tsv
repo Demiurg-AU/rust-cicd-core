@@ -1,0 +1,40 @@
+ext	kind	target	pattern	note
+# T1 checks every ext: control of threat-model.tsv here (#45 item 5). required-check: the context is a required status
+# check of an active ruleset on the default branch AND named in a workflow; rule: that ruleset rule is active;
+# file: the file exists and a line matches the ERE (wired, not proof it ran); pinned-actions: every uses: is SHA-pinned.
+ext:agent-pr-policy	required-check	agent-pr-policy		status published by agent-pr-policy.yml
+ext:workflow-approval	required-check	agent-pr-policy		the policy requires the owner label for pipeline edits
+ext:workflow-approval	file	scripts/agent-pr-policy.sh	owner-approved-pipeline	
+ext:codex-review	required-check	agent-pr-policy		the policy requires a clean Codex review of the head
+ext:codex-review	file	scripts/agent-pr-policy.sh	chatgpt-codex-connector	
+ext:assumption-breaker-gate	required-check	claims (PASS / FAIL / ABSTAIN)		
+ext:assumption-breaker-gate	file	.github/workflows/ci.yml	claims-check\.sh .* assumptions\.tsv	
+ext:claims-check	required-check	claims (PASS / FAIL / ABSTAIN)		
+ext:fixture-evidence-checker	required-check	fixture evidence coverage		
+ext:kani-gate	required-check	kani (proofs + canaries)		
+ext:kani-gate	file	.github/workflows/ci.yml	kani-gate\.sh run	
+ext:kani-canaries	required-check	kani (proofs + canaries)		
+ext:kani-canaries	file	.github/workflows/ci.yml	kani-gate\.sh canary	
+ext:spec-epoch	required-check	spec epoch (base spec x PR code)		
+ext:spec-epoch-canaries	required-check	spec epoch (base spec x PR code)		
+ext:spec-epoch-canaries	file	.github/workflows/spec-epoch.yml	spec-epoch\.sh"? canary	
+ext:zizmor	required-check	zizmor (workflow security)		
+ext:ruleset-deletion	rule	deletion		
+ext:ruleset-non-fast-forward	rule	non_fast_forward		
+ext:ruleset-required-checks	rule	required_status_checks		
+ext:sha-pinned-actions	pinned-actions	.github/workflows		every uses: is a 40-hex SHA or this repository
+ext:codeql-actions	file	.github/workflows/codeql.yml	language: \[.*actions	wired, not a required check
+ext:dependabot	file	.github/dependabot.yml	package-ecosystem: cargo	wired
+ext:dependabot-cooldown	file	.github/dependabot.yml	default-days: [1-9]	wired
+ext:locked-lockfile	file	scripts/ci-local.sh	cargo fetch --locked	
+ext:evidence-attestation	file	.github/workflows/ci.yml	uses: actions/attest@[0-9a-f]{40}	main only
+ext:fuzz-gate	file	.github/workflows/fuzz.yml	fuzz-gate\.sh run	wired, not a required check
+ext:fuzz-canaries	file	.github/workflows/fuzz.yml	fuzz-gate\.sh canary	wired, not a required check
+ext:fuzz-canary-FC2	file	fuzz/fuzz-canaries.tsv	^FC2\s	wired, not a required check
+ext:release-approved-source	file	.github/workflows/release.yml	release-source-check\.sh	release only
+ext:release-provenance	file	.github/workflows/release.yml	gh attestation verify dist/	release only
+ext:release-reproducible-rebuild	file	.github/workflows/release.yml	name: independent rebuild	release only
+ext:release-sigstore-bundles	file	.github/workflows/release.yml	Sigstore bundles	release only
+ext:release-verify-before-publish	file	.github/workflows/release.yml	name: verify before publish	release only
+ext:release-verify-evidence	file	.github/workflows/release.yml	gh attestation verify signed/evidence\.tar	release only
+ext:reusable-build-workflow	file	.github/workflows/release.yml	uses: \$/\.github/workflows/build-reusable\.yml	release only

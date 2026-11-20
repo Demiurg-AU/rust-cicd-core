@@ -712,7 +712,7 @@ run C50 canary-test-reads-source fail '^NEUTRAL spec reads source text: src/lib.
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
 # C28: from inside the jail, every protected path must refuse a write (zero-byte append / temp file).
-PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN"
+PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/ext-controls.tsv" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN"
          "${CARGO_HOME:-$HOME/.cargo}/registry")
 [ -n "${GITHUB_ENV:-}" ] && PROTECT+=("$GITHUB_ENV" "$GITHUB_OUTPUT")
 run C28 canary-sandbox-blocks-writes fail '^SANDBOX all writes blocked' "$ROOT" sandbox_probe "${PROTECT[@]}"
@@ -1067,7 +1067,8 @@ threat_check() { # <threat-model.tsv> <results.tsv> <lean mode: run|skip>
   local tm="$1" res="$2" mode="${3:-run}"
   [[ "$mode" == run || "$mode" == skip ]] || { echo "THREAT invalid lean mode: $mode"; return 1; }
   [ -f "$tm" ] || { echo "THREAT model missing: $tm"; return 1; }
-  awk -F'\t' -v res="$res" -v mode="$mode" '
+  local extlist; extlist="$(mktemp)"
+  awk -F'\t' -v res="$res" -v mode="$mode" -v extlist="$extlist" '
     BEGIN { while ((getline l < res) > 0) { split(l, f, "\t"); if (f[6]=="PASS") pass[f[1]]=1 } }
     NR==1 { if ($0 != "id\tthreat\tcontrols\tstatus\tnote") { print "THREAT model header invalid"; bad=1 } next }
     /^#/ || !NF { next }
@@ -1083,7 +1084,7 @@ threat_check() { # <threat-model.tsv> <results.tsv> <lean mode: run|skip>
       m = split($3, c, " "); live=0
       for (i = 1; i <= m; i++) {
         g = c[i]; if (g == "-") continue
-        if (g ~ /^ext:/) { live++; continue }
+        if (g ~ /^ext:/) { live++; print g > extlist; continue }   # witnessed below by ext_check, never on its word
         if (g ~ /^lean:/) { g = substr(g, 6); if (mode == "skip") continue }
         live++
         if (!pass[g]) { print "THREAT unknown or failed gate " g " in " $1; bad=1 }
@@ -1094,9 +1095,88 @@ threat_check() { # <threat-model.tsv> <results.tsv> <lean mode: run|skip>
       if (!n) { print "THREAT model empty"; bad=1 }
       printf "THREATS total=%d covered=%d partial=%d open=%d out_of_scope=%d\n", n, count["COVERED"], count["PARTIAL"], count["OPEN"], count["OUT_OF_SCOPE"]
       exit bad
-    }' "$tm"
+    }' "$tm"; local rc=$?
+  ext_check "$extlist" || rc=1
+  rm -f "$extlist"; return $rc
+}
+# ext: controls live outside this run (GitHub settings, other workflows). Each one must be witnessed (#45 item 5):
+# ext-controls.tsv says how; the ruleset rules come from the GitHub API (EXT_RULES: a JSON file of
+# GET /repos/{repo}/rules/branches/{default}, fetched once before T1). Without them EXT_OFFLINE=1 records the
+# ruleset-backed controls as unchecked (visible in T1's output and env.txt) instead of failing.
+ext_check() { # <file with one ext:name per line>
+  "$PY" - "$1" "${EXT_CONTROLS:-}" "${EXT_ROOT:-}" "${EXT_RULES:-}" "${EXT_OFFLINE:-0}" <<'PY'
+import json, os, re, sys
+names, cfg, root, rules_f, offline = sys.argv[1:6]
+want = sorted({l.strip() for l in open(names) if l.strip()})
+if not want: sys.exit(0)
+bad, rows = [], {}
+if not os.path.isfile(cfg): sys.exit(f"THREAT ext controls file missing: {cfg}")
+for n, line in enumerate(open(cfg), 1):
+    if n == 1 or line.startswith("#") or not line.strip(): continue
+    f = line.rstrip("\n").split("\t")
+    if len(f) != 5: bad.append(f"THREAT ext controls row needs 5 columns: line {n}"); continue
+    rows.setdefault(f[0], []).append(f[1:4])
+rules = None
+if rules_f and os.path.isfile(rules_f):
+    try: rules = json.load(open(rules_f))
+    except Exception as e: bad.append(f"THREAT ext ruleset rules unreadable: {e}")
+def wf_text():
+    d = os.path.join(root, ".github/workflows")
+    return "\n".join(open(os.path.join(d, x), errors="replace").read() for x in sorted(os.listdir(d)) if x.endswith((".yml", ".yaml")))
+unchecked, ok = [], 0
+for g in want:
+    if g not in rows: bad.append(f"THREAT unknown ext control {g} (not in ext-controls.tsv)"); continue
+    for kind, target, pat in rows[g]:
+        why = None
+        if kind in ("required-check", "rule"):
+            if rules is None:
+                if offline == "1": unchecked.append(g); continue
+                why = "ruleset rules unavailable (EXT_RULES unset or fetch failed; EXT_OFFLINE=1 to record as unchecked)"
+            elif kind == "rule":
+                if not any(r.get("type") == target for r in rules): why = f"no active rule {target} on the default branch"
+            else:
+                ctx = {c.get("context") for r in rules if r.get("type") == "required_status_checks"
+                       for c in (r.get("parameters") or {}).get("required_status_checks", [])}
+                if target not in ctx: why = f"'{target}' is not a required status check on the default branch"
+                elif target not in wf_text(): why = f"no workflow produces '{target}'"
+        elif kind == "file":
+            p = os.path.join(root, target)
+            if not os.path.isfile(p): why = f"{target} missing"
+            elif not any(re.search(pat, l) for l in open(p, errors="replace")): why = f"{target} has no line matching {pat}"
+        elif kind == "pinned-actions":
+            d = os.path.join(root, target); loose = []
+            for x in sorted(os.listdir(d)):
+                for n, l in enumerate(open(os.path.join(d, x), errors="replace"), 1):
+                    m = re.match(r"\s*-?\s*uses:\s*([^\s#]+)", l)
+                    if m and not (m.group(1).startswith(("./", "$/")) or re.search(r"@[0-9a-f]{40}$", m.group(1))):
+                        loose.append(f"{x}:{n} {m.group(1)}")
+            if loose: why = "not SHA-pinned: " + ", ".join(loose[:3])
+        else:
+            why = f"unknown kind {kind}"
+        if why: bad.append(f"THREAT ext control not in force: {g}: {why}")
+        else: ok += 1
+for g in sorted(set(unchecked)): print(f"THREAT ext unchecked (offline): {g}")
+print(f"THREAT ext controls witnessed={ok} unchecked={len(set(unchecked))} failed={len(bad)}")
+for b in bad: print(b)
+sys.exit(1 if bad else 0)
+PY
 }
 TM_DIR="$ROOT"; while [ "$TM_DIR" != / ] && [ ! -f "$TM_DIR/threat-model.tsv" ]; do TM_DIR="$(dirname "$TM_DIR")"; done
+export EXT_CONTROLS="${EXT_CONTROLS:-${TM_DIR%/}/ext-controls.tsv}" EXT_ROOT="${EXT_ROOT:-${TM_DIR%/}}"
+if [ -z "${EXT_RULES:-}" ] && [ "${EXT_OFFLINE:-0}" != 1 ]; then
+  # the repository: GITHUB_REPOSITORY in CI, else the origin remote; anonymous read works for public repositories
+  EXT_REPO="${GITHUB_REPOSITORY:-$(git -C "$EXT_ROOT" remote get-url origin 2>/dev/null | sed -nE 's#^(https://github\.com/|git@github\.com:)([^/]+/[^/]+)$#\2#p' | sed 's/\.git$//')}"
+  if [ -n "$EXT_REPO" ] && "$PY" - "$EXT_REPO" "$WORK/ext-rules.json" <<'PY' 2>"$WORK/ext-rules.err"; then export EXT_RULES="$WORK/ext-rules.json"; fi
+import json, os, sys, urllib.request
+repo, out = sys.argv[1], sys.argv[2]
+tok = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+def get(u):
+    r = urllib.request.Request("https://api.github.com/" + u, headers={"Accept": "application/vnd.github+json", **({"Authorization": "Bearer " + tok} if tok else {})})
+    return json.load(urllib.request.urlopen(r, timeout=20))
+branch = get(f"repos/{repo}")["default_branch"]
+json.dump(get(f"repos/{repo}/rules/branches/{branch}"), open(out, "w"))
+PY
+fi
 # canaries run on copies, never on the real model; T1 must not name itself as a control
 mkdir -p "$CAN/threat"
 { head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-1\tcanary\tS9z\tCOVERED\tgate does not exist\n'; } > "$CAN/threat/unknown.tsv"
@@ -1106,6 +1186,19 @@ run C12 canary-threat-open-untracked fail '^THREAT open without tracking issue: 
 # C13: a Lean gate WITHOUT the lean: prefix is still required in Rust-only mode (the prefix is the only way out)
 { head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-3\tcanary\tS0a L2x\tCOVERED\tunprefixed Lean-style gate\n'; } > "$CAN/threat/unprefixed.tsv"
 run C13 canary-threat-unprefixed-lean-gate fail '^THREAT unknown or failed gate L2x' "$ROOT" threat_check "$CAN/threat/unprefixed.tsv" "$RES" skip
+# C55-C60: ext: controls are witnessed, not counted on their word (#45 item 5). Self-contained fixtures: a rules file,
+# an ext-controls file and a repository root of their own, so the canaries need no network.
+TX="$CAN/threat/ext"; mkdir -p "$TX/root/.github/workflows"
+printf '[{"type":"deletion"},{"type":"required_status_checks","parameters":{"required_status_checks":[{"context":"core (S0-S2 + canaries)"}]}}]\n' > "$TX/rules.json"
+printf 'name: x\njobs:\n  core:\n    name: core (S0-S2 + canaries)\n    steps:\n      - uses: actions/checkout@v4\n' > "$TX/root/.github/workflows/x.yml"
+printf 'ext\tkind\ttarget\tpattern\tnote\next:req\trequired-check\tnot a required check\t\t\next:nff\trule\tnon_fast_forward\t\t\next:file\tfile\t.github/workflows/x.yml\tno-such-line\t\next:pin\tpinned-actions\t.github/workflows\t\t\next:del\trule\tdeletion\t\t\n' > "$TX/ext.tsv"
+for c in no-such-control req nff file pin del; do { head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-%s\tcanary\text:%s\tCOVERED\tfixture\n' "$c" "$c"; } > "$TX/$c.tsv"; done
+EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C55 canary-threat-unknown-ext fail '^THREAT unknown ext control ext:no-such-control' "$ROOT" threat_check "$TX/no-such-control.tsv" "$RES" run
+EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C56 canary-threat-ext-not-required fail "^THREAT ext control not in force: ext:req: 'not a required check' is not a required status check" "$ROOT" threat_check "$TX/req.tsv" "$RES" run
+EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C57 canary-threat-ext-rule-missing fail '^THREAT ext control not in force: ext:nff: no active rule non_fast_forward' "$ROOT" threat_check "$TX/nff.tsv" "$RES" run
+EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C58 canary-threat-ext-file-unwired fail '^THREAT ext control not in force: ext:file: .* has no line matching no-such-line' "$ROOT" threat_check "$TX/file.tsv" "$RES" run
+EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C59 canary-threat-ext-unpinned-action fail '^THREAT ext control not in force: ext:pin: not SHA-pinned: x.yml:6 actions/checkout@v4' "$ROOT" threat_check "$TX/pin.tsv" "$RES" run
+EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES= EXT_OFFLINE=0 run C60 canary-threat-ext-rules-unavailable fail '^THREAT ext control not in force: ext:del: ruleset rules unavailable' "$ROOT" threat_check "$TX/del.tsv" "$RES" run
 # --- R1/C14-C16: approved release source (SLSA-D). The same script release.yml runs before publishing. ---
 RSC="$SD/release-source-check.sh"
 [ -f "$RSC" ] || echo "RELEASE helper missing next to ci-local.sh: $RSC (gates R1/C14-C16 will FAIL)" >&2
@@ -1165,6 +1258,7 @@ run C24 canary-agent-label-before-push fail '^AGENT PR touches pipeline without 
 run C25 canary-agent-spoofed-codex fail '^AGENT PR has unresolved Codex findings' "$ROOT" bash "$APP" "$CAN/pr-agent-spoofed-codex"
 run C27 canary-agent-config-only-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-config-only"
 run T1 threat-model pass - "$ROOT" threat_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$LMODE"
+echo "ext_rules=${EXT_RULES:-none} | ext_offline=${EXT_OFFLINE:-0}" >> "$EV/env.txt"
 
 # --- summary ---
 TOTAL=$(($(wc -l < "$RES") - 1)); OK=$(grep -c $'\tPASS$' "$RES" || true)
@@ -1172,7 +1266,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..54} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..60} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..54} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..60} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

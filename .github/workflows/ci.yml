@@ -72,6 +72,16 @@ jobs:
           bwrap --version
           bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid --die-with-parent true
 
+      - name: Ruleset rules of the default branch (T1 witnesses ext:ruleset-* and required checks, #45 item 5)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          branch="$(gh api "repos/$REPO" --jq .default_branch)"
+          gh api "repos/$REPO/rules/branches/$branch" > "$RUNNER_TEMP/ext-rules.json"
+          echo "EXT_RULES=$RUNNER_TEMP/ext-rules.json" >> "$GITHUB_ENV"
+
       - name: Run CI core (same script as local)
         id: ci
         env:
@@ -290,6 +300,16 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           bwrap --version
           bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid --die-with-parent true
+
+      - name: Ruleset rules of the default branch (T1 witnesses ext:ruleset-* and required checks, #45 item 5)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          branch="$(gh api "repos/$REPO" --jq .default_branch)"
+          gh api "repos/$REPO/rules/branches/$branch" > "$RUNNER_TEMP/ext-rules.json"
+          echo "EXT_RULES=$RUNNER_TEMP/ext-rules.json" >> "$GITHUB_ENV"
 
       - name: Run CI on fixture (same script)
         env:
