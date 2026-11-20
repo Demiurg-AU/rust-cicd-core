@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # agent-pr-policy.sh <facts-dir>   (threat CI-7)
 # Decides from PR facts collected by agent-pr-facts.sh (or canary fixtures), no network:
-#   author_kind = agent  (branch copilot/|codex/|claude/, an AI login, or an AI Co-Authored-By trailer)
-#               | bot    (any other [bot] author/committer, e.g. dependabot)
-#               | human
-#   agent|bot touching the pipeline -> label OWNER_LABEL whose LAST application is by a human repo owner
-#                                      AND later than the latest push to the PR branch
-#   agent                           -> review state from the exact Codex integration (login + Bot type)
-#                                      completed on the HEAD commit, no unresolved findings
+#   author_kind = agent | bot | human is REPORTED ONLY (#45 item 6, owner decision 2026-11-20, option C): agents push
+#   with the owner's own token and their markers (branch prefix, Co-Authored-By trailer) are self-declared, so no
+#   decision may depend on them. Every PR, whoever claims to have written it, needs:
+#   touching the pipeline -> label OWNER_LABEL whose LAST application is by a human repo owner
+#                            AND later than the latest push to the PR branch
+#   always                -> review state from the exact Codex integration (login + Bot type)
+#                            completed on the HEAD commit, no unresolved findings
 set -euo pipefail
 F="${1:?facts dir}"
 LABEL="${OWNER_LABEL:-owner-approved-pipeline}"
@@ -33,7 +33,7 @@ fi
 echo "author_kind=$kind"
 
 fail=0
-if [ "$kind" != human ]; then
+{
   touched=$(grep -E "$PIPE" "$F/files.txt" || true)
   if [ -n "$touched" ]; then
     why=""
@@ -47,14 +47,14 @@ if [ "$kind" != human ]; then
     fi
     [ -z "$why" ] || { echo "AGENT PR touches pipeline without owner label ($why): $(tr '\n' ' ' <<< "$touched")"; fail=1; }
   fi
-fi
-if [ "$kind" = agent ]; then
+}
+{
   row=$(awk -F'\t' -v h="$head" -v l="$CODEX_LOGIN" '$1 == h && $4 == l && $5 == "Bot"' "$F/codex.tsv" | tail -n 1)
   if [ -z "$row" ] || [ "$(cut -f2 <<< "$row")" != completed ]; then
     echo "AGENT PR head not reviewed by Codex: $head"; fail=1
   elif [ "$(cut -f3 <<< "$row")" != false ]; then
     echo "AGENT PR has unresolved Codex findings: $head"; fail=1
   fi
-fi
+}
 [ "$fail" = 0 ] && echo "AGENT policy ok"
 exit "$fail"
