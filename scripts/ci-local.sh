@@ -1120,9 +1120,32 @@ rules = None
 if rules_f and os.path.isfile(rules_f):
     try: rules = json.load(open(rules_f))
     except Exception as e: bad.append(f"THREAT ext ruleset rules unreadable: {e}")
-def wf_text():
-    d = os.path.join(root, ".github/workflows")
-    return "\n".join(open(os.path.join(d, x), errors="replace").read() for x in sorted(os.listdir(d)) if x.endswith((".yml", ".yaml")))
+def wf_files(d):
+    return [os.path.join(d, x) for x in sorted(os.listdir(d)) if x.endswith((".yml", ".yaml"))]
+def scalar(v):  # a plain or quoted YAML scalar on one line, trailing comment removed
+    v = v.strip()
+    if v[:1] in "'\"":
+        q = v[0]; e = v.find(q, 1); return v[1:e] if e > 0 else None
+    return re.sub(r"\s+#.*$", "", v).strip()
+def producers():
+    # contexts a workflow can produce: a job's name (or its id when it has none) and explicit status publishers
+    # (context=<x>). Only block-style job mappings are read; anything else produces nothing (fails safe).
+    out = set()
+    for f in wf_files(os.path.join(root, ".github/workflows")):
+        lines = open(f, errors="replace").read().splitlines(); jobs = None; job = None; named = False
+        for l in lines + ["end:"]:
+            if re.match(r"^jobs:\s*(#.*)?$", l): jobs = 0; continue
+            if jobs is None: continue
+            m = re.match(r"^  ([A-Za-z0-9_-]+):\s*(#.*)?$", l)
+            if (m or re.match(r"^\S", l)) and job is not None and not named: out.add(job)
+            if re.match(r"^\S", l): jobs = None; job = None; continue
+            if m: job, named = m.group(1), False; continue
+            n = re.match(r"^    name:\s*(.+)$", l)
+            if n and job is not None:
+                v = scalar(n.group(1))
+                if v: out.add(v); named = True
+        for m in re.finditer(r"\bcontext=([A-Za-z0-9_.-]+)", "\n".join(lines)): out.add(m.group(1))
+    return out
 unchecked, ok = [], 0
 for g in want:
     if g not in rows: bad.append(f"THREAT unknown ext control {g} (not in ext-controls.tsv)"); continue
@@ -1138,18 +1161,24 @@ for g in want:
                 ctx = {c.get("context") for r in rules if r.get("type") == "required_status_checks"
                        for c in (r.get("parameters") or {}).get("required_status_checks", [])}
                 if target not in ctx: why = f"'{target}' is not a required status check on the default branch"
-                elif target not in wf_text(): why = f"no workflow produces '{target}'"
+                elif target not in producers(): why = f"no workflow job or status publisher produces '{target}'"
         elif kind == "file":
             p = os.path.join(root, target)
             if not os.path.isfile(p): why = f"{target} missing"
             elif not any(re.search(pat, l) for l in open(p, errors="replace")): why = f"{target} has no line matching {pat}"
         elif kind == "pinned-actions":
             d = os.path.join(root, target); loose = []
-            for x in sorted(os.listdir(d)):
-                for n, l in enumerate(open(os.path.join(d, x), errors="replace"), 1):
-                    m = re.match(r"\s*-?\s*uses:\s*([^\s#]+)", l)
-                    if m and not (m.group(1).startswith(("./", "$/")) or re.search(r"@[0-9a-f]{40}$", m.group(1))):
-                        loose.append(f"{x}:{n} {m.group(1)}")
+            for f in wf_files(d):
+                for n, l in enumerate(open(f, errors="replace"), 1):
+                    # block, flow ({ uses: x }) and quoted forms; a block scalar or escaped key is refused (fails safe)
+                    if re.search(r"[\"'][^\"']*\\[xuU][^\"']*[\"']\s*:", l):
+                        loose.append(f"{os.path.basename(f)}:{n} escaped key"); continue
+                    for m in re.finditer(r"(?:^|[\s{,\-])[\"']?uses[\"']?\s*:\s*(.*)", l):
+                        raw = re.split(r"[,}]", m.group(1))[0]; v = scalar(raw) if raw.strip() else ""
+                        if not v or v in ("|", ">", "|-", ">-", "|+", ">+"):
+                            loose.append(f"{os.path.basename(f)}:{n} unreadable uses value"); continue
+                        if not (v.startswith(("./", "$/")) or re.search(r"@[0-9a-f]{40}$", v)):
+                            loose.append(f"{os.path.basename(f)}:{n} {v}")
             if loose: why = "not SHA-pinned: " + ", ".join(loose[:3])
         else:
             why = f"unknown kind {kind}"
@@ -1199,6 +1228,14 @@ EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES="$TX/rules.json" EXT_OF
 EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C58 canary-threat-ext-file-unwired fail '^THREAT ext control not in force: ext:file: .* has no line matching no-such-line' "$ROOT" threat_check "$TX/file.tsv" "$RES" run
 EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C59 canary-threat-ext-unpinned-action fail '^THREAT ext control not in force: ext:pin: not SHA-pinned: x.yml:6 actions/checkout@v4' "$ROOT" threat_check "$TX/pin.tsv" "$RES" run
 EXT_CONTROLS="$TX/ext.tsv" EXT_ROOT="$TX/root" EXT_RULES= EXT_OFFLINE=0 run C60 canary-threat-ext-rules-unavailable fail '^THREAT ext control not in force: ext:del: ruleset rules unavailable' "$ROOT" threat_check "$TX/del.tsv" "$RES" run
+# C61/C62 (Codex on #51): the required context only in a comment of a renamed job produces nothing; a flow-style step
+# ({ uses: x@v4 }) is still an unpinned action
+mkdir -p "$TX/root2/.github/workflows"
+printf 'name: y\njobs:\n  a:\n    name: renamed # core (S0-S2 + canaries)\n    steps:\n      - { uses: actions/checkout@v4 }\n' > "$TX/root2/.github/workflows/y.yml"
+printf 'ext\tkind\ttarget\tpattern\tnote\next:core\trequired-check\tcore (S0-S2 + canaries)\t\t\next:flow\tpinned-actions\t.github/workflows\t\t\n' > "$TX/ext2.tsv"
+for c in core flow; do { head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-%s\tcanary\text:%s\tCOVERED\tfixture\n' "$c" "$c"; } > "$TX/$c.tsv"; done
+EXT_CONTROLS="$TX/ext2.tsv" EXT_ROOT="$TX/root2" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C61 canary-threat-ext-context-only-in-comment fail "^THREAT ext control not in force: ext:core: no workflow job or status publisher produces 'core \(S0-S2 \+ canaries\)'" "$ROOT" threat_check "$TX/core.tsv" "$RES" run
+EXT_CONTROLS="$TX/ext2.tsv" EXT_ROOT="$TX/root2" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C62 canary-threat-ext-flow-style-unpinned fail '^THREAT ext control not in force: ext:flow: not SHA-pinned: y.yml:6 actions/checkout@v4' "$ROOT" threat_check "$TX/flow.tsv" "$RES" run
 # --- R1/C14-C16: approved release source (SLSA-D). The same script release.yml runs before publishing. ---
 RSC="$SD/release-source-check.sh"
 [ -f "$RSC" ] || echo "RELEASE helper missing next to ci-local.sh: $RSC (gates R1/C14-C16 will FAIL)" >&2
@@ -1266,7 +1303,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..60} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..62} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..60} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1c S1d S1h S2a S2b C{1..62} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
