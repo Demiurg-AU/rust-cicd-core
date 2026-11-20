@@ -15,6 +15,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# rustup must never pick a toolchain from a checkout file (rust-toolchain.toml `path = ...` runs a checkout binary on
+# the first rustc/cargo call, #45 item 8): the environment wins over every such file. S0b checks it equals the pin.
+env:
+  RUSTUP_TOOLCHAIN: "1.100.0"
+
 jobs:
   core:
     name: core (S0-S2 + canaries)
