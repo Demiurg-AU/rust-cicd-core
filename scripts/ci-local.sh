@@ -503,7 +503,9 @@ coverage_gate() { # <min line %>
   (
     set -o pipefail
     ct="$CARGO_TARGET_DIR/coverage"; rm -rf "$ct"; mkdir -p "$ct/prof"
-    export CARGO_TARGET_DIR="$ct/target" RUSTFLAGS="${RUSTFLAGS:-} -C instrument-coverage --cfg=coverage"
+    # -F unsafe_code on the instrumented build itself: S1i (clippy) does not see code under #[cfg(not(clippy))]
+    # (Codex P1 on #54, C68); cargo caps lints for registry dependencies, so only workspace code is held to it
+    export CARGO_TARGET_DIR="$ct/target" RUSTFLAGS="${RUSTFLAGS:-} -C instrument-coverage --cfg=coverage -F unsafe_code"
     sysroot="$(rustc --print sysroot)" && host="$(rustc -vV | sed -n 's/^host: //p')" && tools="$sysroot/lib/rustlib/$host/bin" &&
       [ -x "$tools/llvm-profdata" ] && [ -x "$tools/llvm-cov" ] || { echo "COVERAGE llvm-tools missing (rustup component add llvm-tools)"; exit 1; }
     exes="$(cargo test --locked --no-run --message-format=json 2>/dev/null | "$PY" -c '
@@ -511,6 +513,8 @@ import json, sys
 for line in sys.stdin:
     try: m = json.loads(line)
     except ValueError: continue
+    if m.get("reason") == "compiler-message" and (m.get("message") or {}).get("level") == "error":
+        print("COVERAGE build error: " + (m["message"].get("message") or ""), file=sys.stderr)
     if m.get("reason") == "compiler-artifact" and m.get("executable"):
         print(("T " if (m.get("profile") or {}).get("test") else "B ") + m["executable"])')" || { echo "COVERAGE build failed"; exit 1; }
     grep -q '^T ' <<< "$exes" || { echo "COVERAGE no test binary built"; exit 1; }
@@ -855,6 +859,9 @@ CARGO_TARGET_DIR="$CAN/cov/target" run C8 canary-coverage-threshold fail '^COVER
 # C65-C67: the code under test must not be able to fake its own coverage (#45 item 7)
 mk covunsafe; printf '\n#[cfg(test)]\nmod canary_forge {\n    unsafe extern "C" { static __start___llvm_prf_cnts: u8; static __stop___llvm_prf_cnts: u8; }\n    #[test]\n    fn forge() {\n        unsafe {\n            let s = &raw const __start___llvm_prf_cnts as *mut u64;\n            let e = &raw const __stop___llvm_prf_cnts as usize;\n            for i in 0..(e - s as usize) / 8 { std::ptr::write_volatile(s.add(i), 1); }\n        }\n    }\n}\n' >> "$CAN/covunsafe/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/covunsafe/target" run C65 canary-coverage-counter-forge-unsafe fail 'usage of an `unsafe` (block|extern block)|unsafe_code' "$CAN/covunsafe" cargo clippy --all-targets -- -F unsafe_code
+# C68 (Codex on #54): the same forger hidden from clippy by #[cfg(not(clippy))] must fail S1c's own build
+mk covhide; printf '\n#[cfg(all(test, not(clippy)))]\nmod canary_forge {\n    unsafe extern "C" { static __start___llvm_prf_cnts: u8; static __stop___llvm_prf_cnts: u8; }\n    #[test]\n    fn forge() {\n        unsafe {\n            let s = &raw const __start___llvm_prf_cnts as *mut u64;\n            let e = &raw const __stop___llvm_prf_cnts as usize;\n            for i in 0..(e - s as usize) / 8 { std::ptr::write_volatile(s.add(i), 1); }\n        }\n    }\n}\n' >> "$CAN/covhide/src/lib.rs"
+CARGO_TARGET_DIR="$CAN/covhide/target" run C68 canary-coverage-forge-hidden-from-clippy fail '^COVERAGE build error: (usage|declaration) of an .unsafe' "$CAN/covhide" coverage_gate 0
 mk covproc; printf '\n#[test]\nfn canary_procmem() {\n    if let Err(e) = std::fs::OpenOptions::new().write(true).open("/proc/self/mem") { panic!("PROCMEM blocked: {e}"); }\n}\n' >> "$CAN/covproc/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/covproc/target" run C66 canary-coverage-procmem fail 'PROCMEM blocked: No such file or directory' "$CAN/covproc" coverage_gate 0
 mk covextra; printf '\n#[test]\nfn canary_extra_profile() {\n    let p = std::env::var("LLVM_PROFILE_FILE").unwrap_or_default();\n    let _ = std::fs::write(std::path::Path::new(&p).with_file_name("forged.profraw"), b"x");\n}\n' >> "$CAN/covextra/src/lib.rs"
@@ -1378,7 +1385,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b C{1..67} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b C{1..68} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b C{1..67} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b C{1..68} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
