@@ -1468,6 +1468,8 @@ run E5 base-judge-assembles-from-base pass - "$ROOT" judge_from_base e5
 run C88 canary-base-judge-unknown-base fail '^JUDGE base ref not found: no-such-base' "$ROOT" bash "$ROOT/scripts/base-judge.sh" assemble "$BJ/repo" no-such-base HEAD "$BJ/out-c88"
 # T3: the live policy of the default branch (EXT_RULES + EXT_RULESETS from scripts/fetch-policy.sh) is the snapshot
 if [ -n "${EXT_RULES:-}" ] && [ -n "${EXT_RULESETS:-}" ]; then
+  # where fetch-policy.sh put the live policy differs per machine; what was fetched is in the T3 log
+  sig_volatile '<policy-rules>' "$EXT_RULES"; sig_volatile '<policy-rulesets>' "$EXT_RULESETS"
   run T3 ruleset-matches-snapshot pass - "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$EXT_RULES" "$EXT_RULESETS"
 elif [ "${EXT_OFFLINE:-0}" = 1 ]; then
   run T3 ruleset-matches-snapshot pass - "$ROOT" bash -c 'echo "RULESET unchecked: offline (EXT_OFFLINE=1), no live policy fetched"'
