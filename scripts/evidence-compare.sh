@@ -16,7 +16,9 @@ sealed() { # <dir>: SHA256SUMS present, valid, and covering every file this scri
   [ -f "$1/SHA256SUMS" ] || die "not sealed: $1 has no SHA256SUMS"
   local f; for f in env.txt results.tsv signatures.tsv; do
     [ -f "$1/$f" ] || die "not sealed: $1 has no $f"
-    grep -Eq "^[0-9a-f]{64}  (\./)?$f\$" "$1/SHA256SUMS" || die "not sealed: $1/SHA256SUMS does not cover $f"
+    # names compared literally, not as a regex: a "." must not match envXtxt (Codex P2 on #55)
+    awk -v f="$f" 'length($1) == 64 && $1 ~ /^[0-9a-f]+$/ { n = substr($0, 67); sub(/^\.\//, "", n); if (n == f) ok = 1 }
+                   END { exit !ok }' "$1/SHA256SUMS" || die "not sealed: $1/SHA256SUMS does not cover $f"
   done
   ( cd "$1" && sha256sum --quiet -c SHA256SUMS ) >/dev/null 2>&1 || die "seal broken: $1 (SHA256SUMS does not match)"
 }
