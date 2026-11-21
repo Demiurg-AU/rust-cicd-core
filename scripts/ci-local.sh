@@ -692,7 +692,11 @@ run S2c vet pass - "$ROOT" vet_gate "$ROOT"
 
 # --- A8: gate self-test. Each gate must FAIL on a known-bad input, for the RIGHT reason ---
 CAN="$WORK/canaries"; mkdir -p "$CAN"
-mk() { mkdir -p "$CAN/$1"; cp -r "$ROOT/Cargo.toml" "$ROOT/Cargo.lock" "$ROOT/src" "$ROOT/deny.toml" "$CAN/$1/"
+# a canary copy is the whole crate (benches/, examples/, tests/, build.rs, ... a manifest may name them), minus what
+# belongs to the run or to the template: target, evidence, the judge's scripts, VCS and Lean build state (pilot, T6)
+mk() { mkdir -p "$CAN/$1"
+  tar -C "$ROOT" --exclude=target --exclude=.git --exclude=.lake --exclude=./evidence --exclude=./scripts --exclude=./docs \
+      --exclude=./pilots --exclude=./fixtures -cf - . | tar -C "$CAN/$1" -xf -
   # canary copies live outside the project tree: carry the pinned toolchain so they use the same rustc as the real gates
   if [ -f "${PIN_DIR%/}/rust-toolchain.toml" ]; then cp "${PIN_DIR%/}/rust-toolchain.toml" "$CAN/$1/"; fi; }
 mk fmt;    printf 'pub fn   ugly( ) {}\n' >> "$CAN/fmt/src/lib.rs"
@@ -854,6 +858,8 @@ mk test;   printf '\n#[test]\nfn canary_fails() { assert_eq!(1 + 1, 3); }\n' >> 
 CARGO_TARGET_DIR="$CAN/test/target" run C3 canary-test fail 'canary_fails' "$CAN/test" cargo nextest run
 # C74: a crates.io dependency nobody audited must fail S2c (fetched here, outside the jail, like S0f)
 mk vetdep; cp -r "$ROOT/supply-chain" "$CAN/vetdep/"
+# a crate without a [dependencies] table gets one (humantime has only dev-dependencies: pilot, T6)
+grep -q '^\[dependencies\]' "$CAN/vetdep/Cargo.toml" || printf '\n[dependencies]\n' >> "$CAN/vetdep/Cargo.toml"
 sed -i '/^\[dependencies\]/a itoa = "=1.0.15"' "$CAN/vetdep/Cargo.toml"
 ( cd "$CAN/vetdep" && cargo fetch ) > "$CAN/vetdep.fetch.log" 2>&1 || true
 CARGO_TARGET_DIR="$CAN/vetdep/target" run C74 canary-vet-unaudited-dependency fail 'Vetting Failed|unvetted dependenc' "$CAN/vetdep" vet_gate "$CAN/vetdep"
