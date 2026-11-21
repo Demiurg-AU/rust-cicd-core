@@ -71,7 +71,10 @@ if [ "$STAGE" = 3b ]; then
     if [ -f "$W/fuzz/fuzz-coverage.tsv" ]; then
       lc="$(find "$(rustc --print sysroot)" -name llvm-cov -type f | head -1)"
       cov_of() { # <target> <corpus dir> <file> -> line coverage % of that file
-        ( cd "$W" && cargo fuzz coverage "$1" "$2" ) > "$P/work/k5-$1.log" 2>&1 || { echo "ERR"; return; }
+        # a fresh profile directory each time: cargo fuzz coverage merges every raw profile it finds there, so a
+        # second measurement would include the first (the K5 canary showed it: 68.8% from one empty input)
+        rm -rf "$W/fuzz/coverage/$1"
+        ( cd "$W" && cargo fuzz coverage "$1" "$2" ) > "$P/work/k5-$1-$(basename "$2").log" 2>&1 || { echo "ERR"; return; }
         "$lc" report "$W/target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/$1" \
           -instr-profile="$W/fuzz/coverage/$1/coverage.profdata" 2>/dev/null | awk -v f="$3" '$1 ~ ("(^|/)" f "$") {gsub("%","",$10); print $10; exit}'; }
       echo "  K5 corpus coverage, measured outside the fuzzer (cargo fuzz coverage + llvm-cov):"
@@ -85,7 +88,7 @@ if [ "$STAGE" = 3b ]; then
       read -r t f min <<< "$first"; rm -rf "$P/work/k5-one"; mkdir -p "$P/work/k5-one"; : > "$P/work/k5-one/empty"
       c="$(cov_of "$t" "$P/work/k5-one" "$f")"
       if [ "$c" != ERR ] && [ -n "$c" ] && awk -v c="$c" -v m="$min" 'BEGIN {exit !(c < m)}'; then echo "    K5 canary PASS: a one-empty-input corpus gives $c% < $min% for $t"
-      else echo "    K5 canary FAIL: a one-empty-input corpus gave ${c:-?}% for $t (log: $P/work/k5-$t.log)"; s3b=1; fi
+      else echo "    K5 canary FAIL: a one-empty-input corpus gave ${c:-?}% for $t (log: $P/work/k5-$t-k5-one.log)"; s3b=1; fi
     fi
     # K4: weaken one oracle at a time; the code canary it named must then escape, or that clause caught nothing
     if [ -f "$W/fuzz/spec-mutants.tsv" ]; then
