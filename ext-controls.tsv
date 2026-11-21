@@ -40,3 +40,4 @@ ext:release-verify-evidence	file	.github/workflows/release.yml	gh attestation ve
 ext:reusable-build-workflow	file	.github/workflows/release.yml	uses: \$/\.github/workflows/build-reusable\.yml	release only
 ext:strict-up-to-date	rule-param	required_status_checks	strict_required_status_checks_policy=true	K8: a PR must be up to date with main before merge
 ext:fuzz-cache-main-only	file	.github/workflows/fuzz.yml	if: success\(\) && github\.ref == 'refs/heads/main' && github\.event_name != 'pull_request'	the corpus cache is saved only by runs on main
+ext:base-judge	file	.github/workflows/ci.yml	base-judge\.sh run	K3 job; becomes a required check only by the owner

@@ -95,6 +95,87 @@ jobs:
           retention-days: 90
           if-no-files-found: error
 
+  base-judge:
+    # K3: the PR's code judged by the BASE commit's judge (scripts, threat model, policy files), so a PR that edits its
+    # own judge is still measured by the judge it did not write. Not a required check until the owner adds it.
+    name: core (base judge x PR code)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      # evaluated in the attempt that ran core; preserved when only later jobs are re-run
+      evidence-artifact: evidence-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
+        with:
+          toolchain: "1.100.0"
+          components: clippy, rustfmt, llvm-tools-preview
+
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+        with:
+          tool: cargo-nextest@0.9.152,cargo-llvm-cov@0.9.1,cargo-deny@0.20.2,cargo-audit@0.23.0,cargo-mutants@27.1.0,cargo-vet@0.10.3
+
+      - name: Install Lean (pinned versions, sha256-verified, no curl|sh)
+        env:
+          ELAN_VERSION: v4.2.4
+          ELAN_SHA256: 42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63
+          LEAN_VERSION: 4.35.0
+          LEAN_SHA256: 7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -sSfLO "https://github.com/leanprover/elan/releases/download/${ELAN_VERSION}/elan-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${ELAN_SHA256}  elan-x86_64-unknown-linux-gnu.tar.gz" | sha256sum -c -
+          tar xzf elan-x86_64-unknown-linux-gnu.tar.gz
+          ./elan-init -y --default-toolchain none --no-modify-path
+          curl -sSfL -o lean.tar.zst "https://github.com/leanprover/lean4/releases/download/v${LEAN_VERSION}/lean-${LEAN_VERSION}-linux.tar.zst"
+          echo "${LEAN_SHA256}  lean.tar.zst" | sha256sum -c -
+          mkdir lean-tc && tar --zstd -xf lean.tar.zst -C lean-tc --strip-components=1
+          "$HOME/.elan/bin/elan" toolchain link "lean-${LEAN_VERSION}" "$RUNNER_TEMP/lean-tc"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Jail for code under test (bubblewrap; threat CI-9)
+        # Ubuntu 24.04 blocks unprivileged user namespaces via AppArmor; the VM is ephemeral, so lift it here.
+        run: |
+          set -euo pipefail
+          command -v bwrap >/dev/null || { sudo apt-get update -q; sudo apt-get install -y -q bubblewrap; }
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --version
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid --die-with-parent true
+
+      - name: Ruleset rules of the default branch (T1 witnesses ext:ruleset-* and required checks, #45 item 5)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          bash scripts/fetch-policy.sh "$REPO" "$RUNNER_TEMP/policy" >> "$GITHUB_ENV"
+
+      - name: Run the base judge on the PR code
+        id: ci
+        env:
+          LEAN_TOOLCHAIN: lean-4.35.0
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          bash scripts/base-judge.sh run "$GITHUB_WORKSPACE" "$BASE" HEAD "$RUNNER_TEMP/judge"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: base-judge-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/judge/evidence/
+          retention-days: 90
+          if-no-files-found: error
+
   kani:
     name: kani (proofs + canaries)
     runs-on: ubuntu-24.04

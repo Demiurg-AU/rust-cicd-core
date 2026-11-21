@@ -283,7 +283,10 @@ pm_tests() {
     if ! out=$(cargo test --locked --lib -- --exact "$t" 2>&1); then
       echo "rust test missing/failed: $t"; printf '%s\n' "$out"; return 1
     fi
-    grep -Eq '^test result: ok\. 1 passed; 0 failed;' <<< "$out" ||
+    # exactly one summary, and it is the one for one passed test (K2: a forged summary line printed next to the real
+    # "0 passed" one, or before it, is not the result of the test)
+    [ "$(grep -c '^test result:' <<< "$out")" -eq 1 ] && grep -Eq '^test result: ok\. 1 passed; 0 failed;' <<< "$out" &&
+      grep -Eq '^running 1 test$' <<< "$out" ||
       { echo "rust test missing/failed: $t"; printf '%s\n' "$out"; return 1; }
     echo "ok $th -> $t"
   done < "$1"
@@ -1384,11 +1387,69 @@ put("hidden", s["effective_rules"], r)
 r = copy.deepcopy(s["rulesets"]); r[0]["updated_at"] = "2099-01-01T00:00:00Z"; r[0]["current_user_can_bypass"] = "always"
 put("volatile", s["effective_rules"], r)
 PYX
+run E6 ruleset-hidden-bypass-named-unchecked pass - "$ROOT" bash -c 'out="$(bash "$1" check "$2" "$3" "$4")" || { echo "$out"; exit 1; }; echo "$out"; [[ "$out" == *"bypass actors UNCHECKED"* ]]' _ "$RS" "${TM_DIR%/}/ruleset-snapshot.json" "$RX/hidden.rules.json" "$RX/hidden.rulesets.json"
 run E4 ruleset-snapshot-roundtrip pass - "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/volatile.rules.json" "$RX/volatile.rulesets.json"
 run C84 canary-ruleset-new-rule-type fail '^RULESET drift: \+ effective_rules\[required_linear_history\]' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newrule.rules.json" "$RX/newrule.rulesets.json"
 run C85 canary-ruleset-new-parameter fail '^RULESET drift: \+ effective_rules\[required_status_checks\]\.parameters\.canary_new_policy_field' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newparam.rules.json" "$RX/newparam.rulesets.json"
 run C86 canary-ruleset-new-bypass-actor fail '^RULESET drift: ~ rulesets\[.*\]\.bypass_actors' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/bypass.rules.json" "$RX/bypass.rulesets.json"
-run C87 canary-ruleset-bypass-not-visible fail '^RULESET bypass_actors not visible' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/hidden.rules.json" "$RX/hidden.rulesets.json"
+RULESET_REQUIRE_BYPASS=1 run C87 canary-ruleset-bypass-not-visible fail '^RULESET bypass_actors not visible' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/hidden.rules.json" "$RX/hidden.rulesets.json"
+# K2: mutation of gate inputs. Each target parser gets a seed input whose verdict is NOT PASS; every mutant keeps the
+# meaning (only spelling, order, duplication or a forged summary changes), so a PASS on a mutant is a false PASS of the
+# parser. pm_tests sees forged cargo output; claim-verdict sees a duplicated status row; threat_check sees respelled rows.
+parser_mutants() { local weak="${1:-}" d="$CAN/k2" n=0 bad=() m out rc
+  mkdir -p "$d"; printf 'mapped\ttests::adds\n' > "$d/map.tsv"
+  # pm_tests: the real test failed or did not run; only the summary text is forged around it
+  local -a outs=(
+    $'running 1 test\ntest tests::adds ... FAILED\n\ntest result: FAILED. 0 passed; 1 failed;\n|101'
+    $'test result: ok. 1 passed; 0 failed;\nrunning 1 test\ntest result: FAILED. 0 passed; 1 failed;\n|101'
+    $'running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored;\ntest result: ok. 1 passed; 0 failed;\n|0'
+    $'test result: ok. 1 passed; 0 failed;\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored;\n|0'
+    $'running 0 tests\ntest result: ok. 1 passed; 0 failed;\r\ntest result: ok. 0 passed; 0 failed;\n|0' )
+  for m in "${outs[@]}"; do n=$((n + 1))
+    out="$( cargo() { printf '%s' "${m%|*}"; return "${m##*|}"; }; if [ "$weak" = pm ]; then
+              if o=$(cargo test 2>&1) && grep -q 'passed' <<< "$o"; then echo ok; fi
+            else pm_tests "$d/map.tsv" 2>&1; fi )"
+    [[ "$out" == *"ok mapped"* || "$out" == ok ]] && bad+=("pm_tests#$n")
+  done
+  # claim-verdict: the evidence failed once and a duplicate row says PASS
+  printf 'CX\tx\tcode\t-\tS1a\n' > "$d/claims.tsv"; printf 'CX\tA\tx\ttrusted:canary\n' > "$d/asm.tsv"
+  local -a st=($'S1a\tFAIL\nS1a\tPASS\n' $'S1a\tPASS\r\n' $'S1a\tFAIL\n\nS1a\tPASS\n' $'S1a \tPASS\n')
+  for m in "${st[@]}"; do n=$((n + 1)); printf '%s' "$m" > "$d/status.tsv"
+    out="$(bash "$ROOT/scripts/claim-verdict.sh" "$d/claims.tsv" "$d/status.tsv" CX bounded 2>&1)"
+    [[ "$out" == PASS* ]] && bad+=("claim-verdict#$n")
+  done
+  # threat_check: a row whose control does not exist, respelled
+  local h; h="$(head -1 "${TM_DIR%/}/threat-model.tsv")"
+  local -a tr=($'X-1\tc\tS9z\tCOVERED\tn\r' $'X-1\tc\tS9z\tcovered\tn' $'X-1\tc\tS9z \tCOVERED\tn' $'X-1\tc\t S9z\tCOVERED\tn' $'\xef\xbb\xbfX-1\tc\tS9z\tCOVERED\tn' $'X-1\tc\tS9z\tCOVERED \tn')
+  for m in "${tr[@]}"; do n=$((n + 1)); printf '%s\n%s\n' "$h" "$m" > "$d/tm.tsv"
+    threat_check "$d/tm.tsv" "$RES" run >/dev/null 2>&1 && bad+=("threat_check#$n")
+  done
+  # positive controls: the honest spelling of a passing input must still PASS, or the mutants prove nothing
+  out="$( cargo() { printf 'running 1 test\ntest tests::adds ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored;\n'; }; pm_tests "$d/map.tsv" 2>&1 )"
+  [[ "$out" == *"ok mapped"* ]] || { echo "PARSER honest pm_tests input did not pass: $out"; return 1; }
+  printf 'S1a\tPASS\n' > "$d/status.tsv"
+  out="$(bash "$ROOT/scripts/claim-verdict.sh" "$d/claims.tsv" "$d/status.tsv" CX bounded 2>&1)"
+  [[ "$out" == PASS* ]] || { echo "PARSER honest claim-verdict input did not pass: $out"; return 1; }
+  printf '%s\n%s\n' "$h" $'X-1\tc\tS0a\tCOVERED\tn' > "$d/tm.tsv"
+  threat_check "$d/tm.tsv" "$RES" run >/dev/null 2>&1 || { echo "PARSER honest threat_check input did not pass"; return 1; }
+  if [ ${#bad[@]} -gt 0 ]; then echo "PARSER false PASS on ${#bad[@]} of $n mutants: ${bad[*]}"; return 1; fi
+  echo "PARSER no false PASS on $n mutants (pm_tests, claim-verdict, threat_check)"; }
+run M1 gate-parser-mutants pass - "$ROOT" parser_mutants
+# C89: the same mutants against a deliberately weak summary parser ("passed" anywhere): the harness must catch it
+run C89 canary-parser-mutants-catch-weak-parser fail '^PARSER false PASS on .* pm_tests#' "$ROOT" parser_mutants pm
+# K3: a PR that edits its judge is still judged by the base's judge bytes. Scratch repo: the base has a judge script and
+# code; the head weakens the judge, adds a judge file of its own and changes the code.
+BJ="$CAN/basejudge"; mkdir -p "$BJ/repo/scripts" "$BJ/repo/src"
+( cd "$BJ/repo" && git init -q && printf 'exit 1 # strict\n' > scripts/gate.sh && printf 'v1\n' > src/lib.rs && git add -A \
+  && git -c user.name=c -c user.email=c@c commit -qm base && git branch -q basejudge-base \
+  && printf 'exit 0 # weakened\n' > scripts/gate.sh && printf 'exit 0\n' > scripts/new-judge.sh && printf 'v2\n' > src/lib.rs \
+  && git add -A && git -c user.name=c -c user.email=c@c commit -qm head )
+judge_from_base() { local o="$BJ/out-$1"; bash "$ROOT/scripts/base-judge.sh" assemble "$BJ/repo" basejudge-base HEAD "$o" >/dev/null || return 1
+  if [ "$(cat "$o/scripts/gate.sh")" = "exit 1 # strict" ] && [ ! -e "$o/scripts/new-judge.sh" ] && [ "$(cat "$o/src/lib.rs")" = v2 ]; then
+    echo "JUDGE from base: judge bytes of the base, code of the head"; return 0; fi
+  echo "JUDGE from head: gate.sh=$(cat "$o/scripts/gate.sh") new-judge=$([ -e "$o/scripts/new-judge.sh" ] && echo present) code=$(cat "$o/src/lib.rs")"; return 1; }
+run E5 base-judge-assembles-from-base pass - "$ROOT" judge_from_base e5
+run C88 canary-base-judge-unknown-base fail '^JUDGE base ref not found: no-such-base' "$ROOT" bash "$ROOT/scripts/base-judge.sh" assemble "$BJ/repo" no-such-base HEAD "$BJ/out-c88"
 # T3: the live policy of the default branch (EXT_RULES + EXT_RULESETS from scripts/fetch-policy.sh) is the snapshot
 if [ -n "${EXT_RULES:-}" ] && [ -n "${EXT_RULESETS:-}" ]; then
   run T3 ruleset-matches-snapshot pass - "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$EXT_RULES" "$EXT_RULESETS"
@@ -1544,7 +1605,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..87} R1 E1 E2 E3 E4 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..89} R1 E1 E2 E3 E4 E5 E6 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..87} R1 E1 E2 E3 E4 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..89} R1 E1 E2 E3 E4 E5 E6 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

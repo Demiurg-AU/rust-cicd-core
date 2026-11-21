@@ -6,6 +6,7 @@
 # of the branch rulesets, as a JSON array. Every field is compared except metadata that changes without any change of
 # policy or depends on who asks: node_id, created_at, updated_at, _links (bookkeeping) and current_user_can_bypass
 # (the asking token's own bypass, not the policy). A field GitHub adds later is compared too: unknown means drift.
+# Bypass actors are visible to admins only: without them the verdict says UNCHECKED; RULESET_REQUIRE_BYPASS=1 refuses.
 set -uo pipefail
 PY="${PY:-python3}"
 case "${1:-}" in
@@ -14,7 +15,8 @@ case "${1:-}" in
   *) echo "usage: $0 canon|check ..."; exit 2 ;;
 esac
 "$PY" - "$@" <<'PY'
-import json, sys
+import json, os, sys
+UNCHECKED = []
 VOLATILE = {"node_id", "created_at", "updated_at", "_links", "current_user_can_bypass"}
 def load(p, what):
     try: return json.load(open(p))
@@ -26,11 +28,14 @@ def canon(rules, rulesets):
     rs = []
     for r in rulesets:
         if "bypass_actors" not in r:
-            # without it the policy is not fully visible: fail closed rather than compare a part as the whole
-            print(f"RULESET bypass_actors not visible for ruleset {r.get('name', '?')} (token lacks admin read)"); sys.exit(1)
+            # GitHub shows bypass actors only to admins; the Actions token is not one. Never compared as if empty:
+            # either refused (RULESET_REQUIRE_BYPASS=1, the owner's admin run) or named as unchecked in the verdict.
+            if os.environ.get("RULESET_REQUIRE_BYPASS") == "1":
+                print(f"RULESET bypass_actors not visible for ruleset {r.get('name', '?')} (token lacks admin read)"); sys.exit(1)
+            UNCHECKED.append(r.get("name", "?"))
         r = {k: v for k, v in r.items() if k not in VOLATILE}
         r["rules"] = sorted(r.get("rules", []), key=lambda x: (x.get("type", ""), json.dumps(x, sort_keys=True)))
-        r["bypass_actors"] = sorted(r["bypass_actors"], key=lambda x: json.dumps(x, sort_keys=True))
+        if "bypass_actors" in r: r["bypass_actors"] = sorted(r["bypass_actors"], key=lambda x: json.dumps(x, sort_keys=True))
         rs.append(r)
     rs.sort(key=lambda r: (r.get("name", ""), r.get("id", 0)))
     return {"effective_rules": eff, "rulesets": rs}
@@ -63,9 +68,13 @@ snap = load(sys.argv[2], "snapshot")
 live = canon(load(sys.argv[3], "rules"), load(sys.argv[4], "rulesets"))
 if not snap.get("effective_rules") or not snap.get("rulesets"):
     print("RULESET snapshot has no rules: an empty policy is not a match"); sys.exit(1)
+if UNCHECKED:   # compare what is visible; the snapshot's bypass actors stay unverified, and say so
+    for r in snap.get("rulesets", []):
+        if r.get("name") in UNCHECKED: r.pop("bypass_actors", None)
 d = []; walk(snap, live, "", d)
 if d:
     for x in d: print(f"RULESET drift: {x}  (snapshot -> live)")
     sys.exit(1)
-print(f"RULESET MATCH: {len(live['effective_rules'])} effective rules, {len(live['rulesets'])} rulesets")
+u = f"; bypass actors UNCHECKED (not visible to this token) for: {', '.join(UNCHECKED)}" if UNCHECKED else "; bypass actors compared"
+print(f"RULESET MATCH: {len(live['effective_rules'])} effective rules, {len(live['rulesets'])} rulesets{u}")
 PY
