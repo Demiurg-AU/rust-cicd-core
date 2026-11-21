@@ -102,21 +102,23 @@ export RUSTUP_TOOLCHAIN
 # Check signature of a step (#45 item 4): its command with run-specific paths (under ROOT/WORK/EV), bare numbers and
 # --locked normalised, one short hash per word. A canary named as the breaker of an assumption must start with the
 # signature of its guard gate - it exercises the same check, not just any check (claim-verdict.sh).
+# Run-specific values a check is invoked with but that do not select what it checks (a scratch repo's fresh commit ids,
+# a fresh probe dir): registered by the code that creates them, mapped to a fixed token. Nothing else is normalized
+# by pattern, so a meaningful argument - another file, another revision - still changes the signature (E3, C77).
+declare -A SIG_VOLATILE=()
+sig_volatile() { SIG_VOLATILE["$2"]="$1"; }   # <token> <value>
 sig_of() {
-  local a out=() r
+  local a out=() r v
   for a in "$@"; do
     [ "$a" = --locked ] && continue
-    for r in "$EV" "$WORK" "$ROOT"; do [ -n "$r" ] && a="${a//$r/<path>}"; done
+    for v in "${!SIG_VOLATILE[@]}"; do a="${a//"$v"/${SIG_VOLATILE[$v]}}"; done
+    # where this run lives (evidence dir, work dir, checkout): the same places under other names on another machine
+    [ -n "${EV:-}" ] && a="${a//"$EV"/<ev>}"; [ -n "${WORK:-}" ] && a="${a//"$WORK"/<work>}"; [ -n "${ROOT:-}" ] && a="${a//"$ROOT"/<root>}"
     # machine-specific spellings of the same thing (Codex P2 on #55): the Lean toolchain name (CI links lean-X, a
     # local elan uses the channel; L0b checks the version either way), the cargo home and the home directory
     [ -n "${LTC_RUN:-}" ] && a="${a//"$LTC_RUN"/<lean-toolchain>}"
     [ -n "${LTC:-}" ] && a="${a//"$LTC"/<lean-toolchain>}"
     a="${a//"${CARGO_HOME:-$HOME/.cargo}"/<cargo-home>}"; a="${a//"$HOME"/<home>}"
-    # the rest of such a path names the run's own copy (canaries/fork-env, mutants-c5, ...): one token for all
-    a="$(sed -E "s#<path>[^[:space:]'\";)]*#<path>#g" <<< "$a")"
-    # run-specific values (Codex P2 on #55): mktemp dirs and fresh commit ids of scratch repos
-    a="$(sed -E "s#${TMPDIR:-/tmp}/tmp\.[A-Za-z0-9]+[^[:space:]'\";)]*#<tmp>#g; s#\b[0-9a-f]{40}\b#<sha>#g" <<< "$a")"
-    [[ "$a" =~ ^[0-9]+$ ]] && a="<n>"
     out+=("$(printf '%s' "$a" | sha256sum | cut -c1-12)")
   done
   printf '%s' "${out[*]}"
@@ -791,7 +793,7 @@ run C50 canary-test-reads-source fail '^NEUTRAL spec reads source text: src/lib.
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
 # C28: from inside the jail, every protected path must refuse a write (zero-byte append / temp file).
-PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/ext-controls.tsv" "$ROOT/supply-chain" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN"
+PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/ext-controls.tsv" "$ROOT/ruleset-snapshot.json" "$ROOT/supply-chain" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN"
          "${CARGO_HOME:-$HOME/.cargo}/registry")
 # The runner's command files exist only in Actions: protect_probe adds them there, so C28 has one signature in CI and
 # locally (Codex P2 on #55) and still probes them in CI; C80 shows they are probed whenever they exist.
@@ -815,7 +817,8 @@ run C30 canary-jail-disarmed fail '^JAIL disarmed before C30' "$ROOT" true
 sandbox_enable
 # C31: jailed code reaches no unix socket (docker.sock = full escape; read-only binds do not stop connect())
 # and no network. The host opens its own decoy socket in /tmp so the probe is meaningful on any machine.
-run C31 canary-sandbox-no-sockets-no-network fail '^SANDBOX no socket or network reachable' "$ROOT" sandbox_probe_sockets "$(mktemp -d)"
+SOCKD="$(mktemp -d)"; sig_volatile '<socket-probe-dir>' "$SOCKD"
+run C31 canary-sandbox-no-sockets-no-network fail '^SANDBOX no socket or network reachable' "$ROOT" sandbox_probe_sockets "$SOCKD"
 # C34: a writable path that is (or passes through) a symlink - e.g. a committed fuzz/artifacts/<t> -> $RUNNER_TEMP -
 # would re-mount the link's target writable; the jail must refuse to start.
 mkdir "$HOST/c34-target"; mkdir "$CAN/c34"; ln -s "$HOST/c34-target" "$CAN/c34/artifacts"
@@ -1270,6 +1273,19 @@ for g in want:
             p = os.path.join(root, target)
             if not os.path.isfile(p): why = f"{target} missing"
             elif not any(re.search(pat, l) for l in open(p, errors="replace")): why = f"{target} has no line matching {pat}"
+        elif kind == "rule-param":
+            # K8: a parameter of an active rule has the value the threat model relies on (pattern: key=<JSON value>)
+            if rules is None:
+                if offline == "1": unchecked.append(g); continue
+                why = "ruleset rules unavailable (EXT_RULES unset or fetch failed; EXT_OFFLINE=1 to record as unchecked)"
+            else:
+                key, _, val = pat.partition("=")
+                try: want_v = json.loads(val)
+                except Exception: want_v = None; why = f"bad rule-param pattern {pat}"
+                if why is None:
+                    got = [(r.get("parameters") or {}).get(key, "<absent>") for r in rules if r.get("type") == target]
+                    if not got: why = f"no active rule {target} on the default branch"
+                    elif want_v not in got: why = f"rule {target} has {key}={json.dumps(got[0])}, the threat model needs {val}"
         elif kind == "pinned-actions":
             d = os.path.join(root, target); loose = []
             for f in wf_files(d):
@@ -1340,6 +1356,47 @@ printf 'ext\tkind\ttarget\tpattern\tnote\next:core\trequired-check\tcore (S0-S2 
 for c in core flow; do { head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-%s\tcanary\text:%s\tCOVERED\tfixture\n' "$c" "$c"; } > "$TX/$c.tsv"; done
 EXT_CONTROLS="$TX/ext2.tsv" EXT_ROOT="$TX/root2" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C61 canary-threat-ext-context-only-in-comment fail "^THREAT ext control not in force: ext:core: no workflow job or status publisher produces 'core \(S0-S2 \+ canaries\)'" "$ROOT" threat_check "$TX/core.tsv" "$RES" run
 EXT_CONTROLS="$TX/ext2.tsv" EXT_ROOT="$TX/root2" EXT_RULES="$TX/rules.json" EXT_OFFLINE=0 run C62 canary-threat-ext-flow-style-unpinned fail '^THREAT ext control not in force: ext:flow: not SHA-pinned: y.yml:6 actions/checkout@v4' "$ROOT" threat_check "$TX/flow.tsv" "$RES" run
+# C83 (K8): the strict up-to-date setting is read from the live rules; switched off in a fixture it must be reported
+printf '[{"type":"required_status_checks","parameters":{"strict_required_status_checks_policy":false,"required_status_checks":[]}}]\n' > "$TX/rules-nostrict.json"
+printf 'ext\tkind\ttarget\tpattern\tnote\next:strict\trule-param\trequired_status_checks\tstrict_required_status_checks_policy=true\t\n' > "$TX/ext3.tsv"
+{ head -1 "${TM_DIR%/}/threat-model.tsv"; printf 'X-strict\tcanary\text:strict\tCOVERED\tfixture\n'; } > "$TX/strict.tsv"
+EXT_CONTROLS="$TX/ext3.tsv" EXT_ROOT="$TX/root" EXT_RULES="$TX/rules-nostrict.json" EXT_OFFLINE=0 run C83 canary-threat-ext-strict-off fail '^THREAT ext control not in force: ext:strict: rule required_status_checks has strict_required_status_checks_policy=false' "$ROOT" threat_check "$TX/strict.tsv" "$RES"
+# K10: the whole policy against ruleset-snapshot.json. Fixtures are the snapshot itself turned back into API answers,
+# then changed where T1's ext: list never looks: a new rule type, a new parameter, a new bypass actor, hidden bypass.
+RS="$ROOT/scripts/ruleset-snapshot.sh"; RX="$CAN/ruleset"; mkdir -p "$RX"
+"$PY" - "${TM_DIR%/}/ruleset-snapshot.json" "$RX" <<'PYX'
+import json, sys, copy
+s = json.load(open(sys.argv[1])); d = sys.argv[2]
+def put(name, eff, rs):
+    json.dump(eff, open(f"{d}/{name}.rules.json", "w")); json.dump(rs, open(f"{d}/{name}.rulesets.json", "w"))
+put("same", s["effective_rules"], s["rulesets"])
+e, r = copy.deepcopy(s["effective_rules"]), copy.deepcopy(s["rulesets"])
+e.append({"type": "required_linear_history", "ruleset_id": 1, "ruleset_source": "x", "ruleset_source_type": "Repository"})
+put("newrule", e, s["rulesets"])
+e = copy.deepcopy(s["effective_rules"])
+for x in e:
+    if x["type"] == "required_status_checks": x["parameters"]["canary_new_policy_field"] = True
+put("newparam", e, s["rulesets"])
+r = copy.deepcopy(s["rulesets"]); r[0]["bypass_actors"].append({"actor_id": 1, "actor_type": "Integration", "bypass_mode": "always"})
+put("bypass", s["effective_rules"], r)
+r = copy.deepcopy(s["rulesets"]); del r[0]["bypass_actors"]
+put("hidden", s["effective_rules"], r)
+r = copy.deepcopy(s["rulesets"]); r[0]["updated_at"] = "2099-01-01T00:00:00Z"; r[0]["current_user_can_bypass"] = "always"
+put("volatile", s["effective_rules"], r)
+PYX
+run E4 ruleset-snapshot-roundtrip pass - "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/volatile.rules.json" "$RX/volatile.rulesets.json"
+run C84 canary-ruleset-new-rule-type fail '^RULESET drift: \+ effective_rules\[required_linear_history\]' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newrule.rules.json" "$RX/newrule.rulesets.json"
+run C85 canary-ruleset-new-parameter fail '^RULESET drift: \+ effective_rules\[required_status_checks\]\.parameters\.canary_new_policy_field' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newparam.rules.json" "$RX/newparam.rulesets.json"
+run C86 canary-ruleset-new-bypass-actor fail '^RULESET drift: ~ rulesets\[.*\]\.bypass_actors' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/bypass.rules.json" "$RX/bypass.rulesets.json"
+run C87 canary-ruleset-bypass-not-visible fail '^RULESET bypass_actors not visible' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/hidden.rules.json" "$RX/hidden.rulesets.json"
+# T3: the live policy of the default branch (EXT_RULES + EXT_RULESETS from scripts/fetch-policy.sh) is the snapshot
+if [ -n "${EXT_RULES:-}" ] && [ -n "${EXT_RULESETS:-}" ]; then
+  run T3 ruleset-matches-snapshot pass - "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$EXT_RULES" "$EXT_RULESETS"
+elif [ "${EXT_OFFLINE:-0}" = 1 ]; then
+  run T3 ruleset-matches-snapshot pass - "$ROOT" bash -c 'echo "RULESET unchecked: offline (EXT_OFFLINE=1), no live policy fetched"'
+else
+  run T3 ruleset-matches-snapshot pass - "$ROOT" bash -c 'echo "RULESET live policy unavailable: run scripts/fetch-policy.sh (or EXT_OFFLINE=1)"; exit 1'
+fi
 # --- R1/C14-C16: approved release source (SLSA-D). The same script release.yml runs before publishing. ---
 RSC="$SD/release-source-check.sh"
 [ -f "$RSC" ] || echo "RELEASE helper missing next to ci-local.sh: $RSC (gates R1/C14-C16 will FAIL)" >&2
@@ -1348,6 +1405,7 @@ G="$CAN/relsrc"; rm -rf "$G"; mkdir -p "$G"
 ( cd "$G" && gitc init -q -b main && gitc commit -q --allow-empty -m base && gitc tag v1.2.3 && gitc tag vbad \
   && gitc checkout -q -b side && gitc commit -q --allow-empty -m side && gitc tag v9.9.9 && gitc checkout -q main ) > /dev/null 2>&1
 MAIN_SHA=$(git -C "$G" rev-parse main); SIDE_SHA=$(git -C "$G" rev-parse side)
+sig_volatile '<scratch-main>' "$MAIN_SHA"; sig_volatile '<scratch-side>' "$SIDE_SHA"
 run R1 release-source-approved pass - "$G" bash "$RSC" refs/tags/v1.2.3 "$MAIN_SHA" main
 run C14 canary-release-off-main fail '^RELEASE source not approved' "$G" bash "$RSC" refs/tags/v9.9.9 "$SIDE_SHA" main
 run C15 canary-release-bad-ref fail '^RELEASE ref not approved' "$G" bash "$RSC" refs/tags/vbad "$MAIN_SHA" main
@@ -1380,12 +1438,22 @@ mkdir -p "$EX/f" && cp "$EX/a/"* "$EX/f/" && : > "$EX/f/signatures.tsv" && ( cd 
 mkdir -p "$EX/g" "$EX/h"; printf 'git_head=0123abcd\n' > "$EX/g/env.txt"; printf 'id\tstep\texpect\texit\treason_check\tverdict\n' > "$EX/g/results.tsv"; : > "$EX/g/signatures.tsv"
 cp "$EX/a/"* "$EX/h/"; printf 'C2\tcanary-clippy\tfail\t101\tmatched\tPASS\n' >> "$EX/h/results.tsv"; printf 'C2\taa\n' >> "$EX/h/signatures.tsv"
 for d in g h; do ( cd "$EX/$d" && sha256sum env.txt results.tsv signatures.tsv > SHA256SUMS ); done
-# sig_same: two invocations get one signature iff they are the same check (run-specific temp dirs and scratch commit ids aside)
-sig_same() { local x y; x="$(sig_of "$@")"; y="$(sig_of "${@:1:$(($#-2))}" "$(mktemp -d)" "$(printf '%040d' 7 | tr 0 f)")"; [ "$x" = "$y" ] && echo "SIG stable" || { echo "SIG differs: $x vs $y"; return 1; }; }
+# E3: one check, another run-specific value under the same registered token -> one signature.
+sig_same() { local t="<e3-probe>" x y d1 d2; d1="$(mktemp -d)"; d2="$(mktemp -d)"
+  sig_volatile "$t" "$d1"; x="$(sig_of bash probe "$d1")"; sig_volatile "$t" "$d2"; y="$(sig_of bash probe "$d2")"
+  [ "$x" = "$y" ] && echo "SIG stable" || { echo "SIG differs: $x vs $y"; return 1; }; }
+# C77: what selects the check must still separate signatures: the command, an unregistered revision id, another file.
+sig_distinct() { local a b c d e f
+  a="$(sig_of cargo test)"; b="$(sig_of cargo build)"
+  c="$(sig_of git checkout "$(printf '%040d' 1)")"; d="$(sig_of git checkout "$(printf '%040d' 2)")"
+  e="$(sig_of bash "$ROOT/scripts/fuzz-gate.sh")"; f="$(sig_of bash "$ROOT/scripts/kani-gate.sh")"
+  if [ "$a" != "$b" ] && [ "$c" != "$d" ] && [ "$e" != "$f" ]; then echo "SIG differs for command, revision and file"; return 1; fi
+  echo "SIG collides: cmd $a/$b rev $c/$d file $e/$f"; return 0; }
 run E2 evidence-compare-match pass - "$ROOT" bash "$EC" compare "$EX/a" "$EX/b"
-run E3 evidence-signature-run-independent pass - "$ROOT" sig_same bash probe "$(mktemp -d)" "$(git -C "$ROOT" rev-parse HEAD)"
-run C77 canary-signature-distinguishes-commands fail '^SIG differs' "$ROOT" bash -c "$(declare -f sig_of); [ \"\$(sig_of cargo test)\" = \"\$(sig_of cargo build)\" ] && echo 'SIG stable' || { echo 'SIG differs'; exit 1; }"
+run E3 evidence-signature-run-independent pass - "$ROOT" sig_same
+run C77 canary-signature-distinguishes-commands fail '^SIG differs for command, revision and file' "$ROOT" sig_distinct
 run C78 canary-evidence-compare-no-gates fail '^EVIDENCE no gate evidence in A' "$ROOT" bash "$EC" compare "$EX/g" "$EX/a"
+run C82 canary-evidence-compare-no-gates-right fail '^EVIDENCE no gate evidence in B' "$ROOT" bash "$EC" compare "$EX/a" "$EX/g"
 run C79 canary-evidence-compare-gate-sets-differ fail '^EVIDENCE gate sets differ' "$ROOT" bash "$EC" compare "$EX/a" "$EX/h"
 run C72 canary-evidence-compare-verdict-differs fail '^EVIDENCE verdict differs C1: PASS vs FAIL_WRONG_REASON' "$ROOT" bash "$EC" compare "$EX/a" "$EX/c"
 run C73 canary-evidence-compare-seal-broken fail '^EVIDENCE seal broken' "$ROOT" bash "$EC" compare "$EX/a" "$EX/d"
@@ -1476,7 +1544,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..81} R1 E1 E2 E3 A1 A2 CL29 CL30 CL32 LSKIP T2 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..87} R1 E1 E2 E3 E4 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..81} R1 E1 E2 E3 A1 A2 T2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..87} R1 E1 E2 E3 E4 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

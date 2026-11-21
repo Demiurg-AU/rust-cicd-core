@@ -78,9 +78,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          branch="$(gh api "repos/$REPO" --jq .default_branch)"
-          gh api "repos/$REPO/rules/branches/$branch" > "$RUNNER_TEMP/ext-rules.json"
-          echo "EXT_RULES=$RUNNER_TEMP/ext-rules.json" >> "$GITHUB_ENV"
+          bash scripts/fetch-policy.sh "$REPO" "$RUNNER_TEMP/policy" >> "$GITHUB_ENV"
 
       - name: Run CI core (same script as local)
         id: ci
@@ -307,9 +305,7 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          branch="$(gh api "repos/$REPO" --jq .default_branch)"
-          gh api "repos/$REPO/rules/branches/$branch" > "$RUNNER_TEMP/ext-rules.json"
-          echo "EXT_RULES=$RUNNER_TEMP/ext-rules.json" >> "$GITHUB_ENV"
+          bash scripts/fetch-policy.sh "$REPO" "$RUNNER_TEMP/policy" >> "$GITHUB_ENV"
 
       - name: Run CI on fixture (same script)
         env:

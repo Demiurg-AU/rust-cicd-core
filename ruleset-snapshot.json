@@ -1,0 +1,112 @@
+{
+  "effective_rules": [
+    {
+      "ruleset_id": 27313198,
+      "ruleset_source": "Demiurg-AU/rust-cicd-core",
+      "ruleset_source_type": "Repository",
+      "type": "deletion"
+    },
+    {
+      "ruleset_id": 27313198,
+      "ruleset_source": "Demiurg-AU/rust-cicd-core",
+      "ruleset_source_type": "Repository",
+      "type": "non_fast_forward"
+    },
+    {
+      "parameters": {
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "core (S0-S2 + canaries)"
+          },
+          {
+            "context": "zizmor (workflow security)"
+          },
+          {
+            "context": "fixture evidence coverage"
+          },
+          {
+            "context": "agent-pr-policy"
+          },
+          {
+            "context": "kani (proofs + canaries)"
+          },
+          {
+            "context": "spec epoch (base spec x PR code)"
+          },
+          {
+            "context": "claims (PASS / FAIL / ABSTAIN)"
+          }
+        ],
+        "strict_required_status_checks_policy": true
+      },
+      "ruleset_id": 27313198,
+      "ruleset_source": "Demiurg-AU/rust-cicd-core",
+      "ruleset_source_type": "Repository",
+      "type": "required_status_checks"
+    }
+  ],
+  "rulesets": [
+    {
+      "bypass_actors": [
+        {
+          "actor_id": 5,
+          "actor_type": "RepositoryRole",
+          "bypass_mode": "pull_request"
+        }
+      ],
+      "conditions": {
+        "ref_name": {
+          "exclude": [],
+          "include": [
+            "~DEFAULT_BRANCH"
+          ]
+        }
+      },
+      "enforcement": "active",
+      "id": 27313198,
+      "name": "main-protection",
+      "rules": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "non_fast_forward"
+        },
+        {
+          "parameters": {
+            "do_not_enforce_on_create": false,
+            "required_status_checks": [
+              {
+                "context": "core (S0-S2 + canaries)"
+              },
+              {
+                "context": "zizmor (workflow security)"
+              },
+              {
+                "context": "fixture evidence coverage"
+              },
+              {
+                "context": "agent-pr-policy"
+              },
+              {
+                "context": "kani (proofs + canaries)"
+              },
+              {
+                "context": "spec epoch (base spec x PR code)"
+              },
+              {
+                "context": "claims (PASS / FAIL / ABSTAIN)"
+              }
+            ],
+            "strict_required_status_checks_policy": true
+          },
+          "type": "required_status_checks"
+        }
+      ],
+      "source": "Demiurg-AU/rust-cicd-core",
+      "source_type": "Repository",
+      "target": "branch"
+    }
+  ]
+}
