@@ -12,8 +12,12 @@
 set -uo pipefail
 
 die() { echo "EVIDENCE $*"; exit 1; }
-sealed() { # <dir>: SHA256SUMS present and valid
+sealed() { # <dir>: SHA256SUMS present, valid, and covering every file this script reads (Codex P2 on #55)
   [ -f "$1/SHA256SUMS" ] || die "not sealed: $1 has no SHA256SUMS"
+  local f; for f in env.txt results.tsv signatures.tsv; do
+    [ -f "$1/$f" ] || die "not sealed: $1 has no $f"
+    grep -Eq "^[0-9a-f]{64}  (\./)?$f\$" "$1/SHA256SUMS" || die "not sealed: $1/SHA256SUMS does not cover $f"
+  done
   ( cd "$1" && sha256sum --quiet -c SHA256SUMS ) >/dev/null 2>&1 || die "seal broken: $1 (SHA256SUMS does not match)"
 }
 commit_of() { sed -n "s/^git_head=//p" "$1/env.txt" 2>/dev/null | head -1; }
