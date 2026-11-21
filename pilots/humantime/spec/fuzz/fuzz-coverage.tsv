@@ -1,0 +1,6 @@
+# K5: the corpus each target saved, replayed by a coverage build outside the fuzzing session (cargo fuzz coverage +
+# llvm-cov), must cover at least this share of the named source file. Thresholds set below the first measurement.
+# target	file	minimum line coverage %
+parse_no_panic	duration.rs	60
+duration_roundtrip	duration.rs	40
+rfc3339_shape	date.rs	40

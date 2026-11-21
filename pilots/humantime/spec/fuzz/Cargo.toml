@@ -1,0 +1,38 @@
+[package]
+name = "humantime-pilot-fuzz"
+version = "0.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+humantime = { path = ".." }
+
+# Own workspace: the fuzz crate never enters the crate's build.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "duration_roundtrip"
+path = "fuzz_targets/duration_roundtrip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "parse_no_panic"
+path = "fuzz_targets/parse_no_panic.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rfc3339_shape"
+path = "fuzz_targets/rfc3339_shape.rs"
+test = false
+doc = false
+bench = false

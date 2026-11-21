@@ -1,0 +1,6 @@
+# K4: each spec mutant weakens one oracle; with it, the named code canary must ESCAPE (fuzz-gate canary: NOT caught).
+# If the bug is still caught, the weakened clause was not what caught it.
+# id	target	file	exact text	replacement	code canary that must then escape
+SM1	duration_roundtrip	fuzz/fuzz_targets/duration_roundtrip.rs	    assert_eq!(back, Ok(d), "FUZZ-ORACLE roundtrip {d:?} -> {text:?}");	    let _ = (back, d);	HF1
+SM2	parse_no_panic	fuzz/fuzz_targets/parse_no_panic.rs	    let _ = humantime::parse_duration(s);	    let _ = s;	HF2
+SM3	rfc3339_shape	fuzz/fuzz_targets/rfc3339_shape.rs	        assert_eq!(humantime::parse_rfc3339_weak(&again), Ok(t), "FUZZ-ORACLE rfc3339 {s} -> {again}");	        let _ = (again, t);	HF5

@@ -30,6 +30,8 @@ spec=""
 if [ "$STAGE" = 3b ]; then
   [ -d "$P/spec" ] || { echo "PILOT stage 3b needs a spec pack: $P/spec"; exit 1; }
   cp -r "$P/spec/." "$W/"
+  # <path>.append adds its lines to <path> (a module declaration for harnesses that must live in the crate)
+  while IFS= read -r a; do cat "$a" >> "${a%.append}"; rm -f "$a"; done < <(find "$W" -name '*.append' -not -path '*/target/*')
   spec="$(cd "$P/spec" && find . -type f | sed 's#^\./#    #' | sort)"
 fi
 mkdir -p "$W/scripts" && cp "$TPL"/scripts/*.sh "$W/scripts/"
@@ -57,9 +59,52 @@ st="$P/work/status.tsv"; awk -F'\t' 'NR>1 {print "gate:" $1 "\t" $6 "\t" $3}' "$
 s3b=0
 if [ "$STAGE" = 3b ]; then
   if [ -f "$W/fuzz/fuzz-targets.tsv" ]; then
+    export RUSTUP_TOOLCHAIN="${FUZZ_TOOLCHAIN:-nightly-2026-11-15}"   # cargo-fuzz needs nightly (fuzz.yml pins the same)
     ( cd "$W" && bash scripts/fuzz-gate.sh canary . "$P/work/fuzz-canaries" && bash scripts/fuzz-gate.sh run . "$P/work/fuzz-run" ) > "$P/work/fuzz.log" 2>&1
-    r=$?; echo "  fuzz-gate (canaries + run, exit $r): $(grep -E '^FUZZ' "$P/work/fuzz.log" | tail -3 | tr '\n' ' ')"
-    printf 'fuzz:all\t%s\n' "$([ $r -eq 0 ] && echo PASS || echo FAIL)" >> "$st"; [ $r -eq 0 ] || s3b=1
+    r=$?; echo "  fuzz-gate canaries + run (exit $r, budget ${FUZZ_SECONDS:-60}s per target):"
+    grep -E '^FUZZ (PASS|FAIL|CANARY)' "$P/work/fuzz.log" | sed 's/^/    /'
+    [ -f "$P/work/fuzz-run/fuzz-results.tsv" ] && awk -F'\t' 'NR>1 {print "fuzz:" $1 "\t" $2}' "$P/work/fuzz-run/fuzz-results.tsv" >> "$st"
+    [ $r -eq 0 ] || s3b=1
+    # K5: the saved corpus replayed by a coverage build OUTSIDE the fuzzing session; the session's own "cov:" numbers
+    # are not used. Canary: an empty corpus must fall below the first threshold.
+    if [ -f "$W/fuzz/fuzz-coverage.tsv" ]; then
+      lc="$(find "$(rustc --print sysroot)" -name llvm-cov -type f | head -1)"
+      cov_of() { # <target> <corpus dir> <file> -> line coverage % of that file
+        ( cd "$W" && cargo fuzz coverage "$1" "$2" ) > "$P/work/k5-$1.log" 2>&1 || { echo "ERR"; return; }
+        "$lc" report "$W/target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/$1" \
+          -instr-profile="$W/fuzz/coverage/$1/coverage.profdata" 2>/dev/null | awk -v f="$3" '$1 ~ ("(^|/)" f "$") {gsub("%","",$10); print $10; exit}'; }
+      echo "  K5 corpus coverage, measured outside the fuzzer (cargo fuzz coverage + llvm-cov):"
+      first=""
+      while IFS=$'\t' read -r t f min; do [[ -z "$t" || "$t" == \#* ]] && continue; [ -n "$first" ] || first="$t $f $min"
+        c="$(cov_of "$t" "fuzz/corpus/$t" "$f")"
+        if [ "$c" != ERR ] && [ -n "$c" ] && awk -v c="$c" -v m="$min" 'BEGIN {exit !(c >= m)}'; then v=PASS; else v=FAIL; s3b=1; fi
+        echo "    K5 $v $t: $f lines ${c:-?}% (min $min%)"; printf 'k5:%s\t%s\n' "$t" "$v" >> "$st"
+      done < "$W/fuzz/fuzz-coverage.tsv"
+      read -r t f min <<< "$first"; mkdir -p "$P/work/k5-empty"
+      c="$(cov_of "$t" "$P/work/k5-empty" "$f")"
+      if [ "$c" != ERR ] && awk -v c="${c:-0}" -v m="$min" 'BEGIN {exit !(c < m)}'; then echo "    K5 canary PASS: empty corpus gives ${c:-0}% < $min% for $t"
+      else echo "    K5 canary FAIL: empty corpus gave ${c:-?}% for $t"; s3b=1; fi
+    fi
+    # K4: weaken one oracle at a time; the code canary it named must then escape, or that clause caught nothing
+    if [ -f "$W/fuzz/spec-mutants.tsv" ]; then
+      echo "  K4 spec mutants (weakened oracle -> the named code canary must escape):"
+      while IFS=$'\t' read -r id t file exact repl can; do [[ -z "$id" || "$id" == \#* ]] && continue
+        k="$P/work/k4-$id"; rm -rf "$k"; mkdir -p "$k"
+        tar -C "$W" --exclude=./target --exclude=./fuzz/target --exclude=./evidence --exclude=./fuzz/coverage -cf - . | tar -C "$k" -xf -
+        "${PY:-python3}" - "$k/$file" "$exact" "$repl" <<'PYK' || { echo "    K4 FAIL $id: spec text not found once in $file"; s3b=1; continue; }
+import sys
+p, a, b = sys.argv[1:4]; s = open(p).read()
+if s.count(a) != 1: sys.exit(1)
+open(p, "w").write(s.replace(a, b.replace("\\n", "\n")))
+PYK
+        { head -1 "$W/fuzz/fuzz-canaries.tsv"; awk -F'\t' -v c="$can" '$1 == c' "$W/fuzz/fuzz-canaries.tsv"; } > "$k/fuzz/fuzz-canaries.tsv"
+        out="$( cd "$k" && FUZZ_CANARY_SECONDS="${K4_SECONDS:-60}" bash scripts/fuzz-gate.sh canary . "$k/out" 2>&1 )"
+        if grep -q "^FUZZ CANARY $can NOT caught" <<< "$out"; then v=PASS; else v=FAIL; s3b=1; fi
+        echo "    K4 $v $id ($t): with the oracle weakened, $can $(grep -o "^FUZZ CANARY $can [a-zA-Z ]*" <<< "$out" | head -1 | sed "s/^FUZZ CANARY $can //")"
+        printf 'k4:%s\t%s\n' "$id" "$v" >> "$st"
+      done < "$W/fuzz/spec-mutants.tsv"
+    fi
+    unset RUSTUP_TOOLCHAIN
   fi
   if [ -f "$W/kani-harnesses.tsv" ]; then
     ( cd "$W" && bash scripts/kani-gate.sh run . "$P/work/kani" && bash scripts/kani-gate.sh canary . "$P/work/kani-canaries" ) > "$P/work/kani.log" 2>&1

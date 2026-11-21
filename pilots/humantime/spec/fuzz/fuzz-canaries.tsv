@@ -1,0 +1,6 @@
+# id	target	file (repo-relative)	exact text	replacement	reason the fuzzer must report (ERE)
+HF1	duration_roundtrip	src/duration.rs	            Unit::Hour => (n.mul(3600)?, 0),	            Unit::Hour => (n.mul(3601)?, 0),	FUZZ-ORACLE roundtrip
+HF2	parse_no_panic	src/duration.rs	            "nanos" | "nsec" | "ns" => Ok(Self::Nanosecond),	            "nanos" | "nsec" | "ns" => panic!("FUZZ-PANIC planted in the unit table"),	FUZZ-PANIC planted
+HF3	duration_roundtrip	fuzz/fuzz_targets/duration_roundtrip.rs	    let (secs, nanos) = input;	    let (secs, nanos) = input;\n    std::thread::sleep(std::time::Duration::from_secs(19));	GATE:ERROR: libFuzzer: timeout
+HF4	duration_roundtrip	fuzz/fuzz_targets/duration_roundtrip.rs	    let (secs, nanos) = input;	    let (secs, nanos) = input;\n    std::thread::sleep(std::time::Duration::from_secs(8));	GATE:session idle
+HF5	rfc3339_shape	src/date.rs	    let year = two_digits(b[0], b[1])? * 100 + two_digits(b[2], b[3])?;	    let year = two_digits(b[0], b[1])? * 100 + two_digits(b[2], b[3])? + 1;	FUZZ-ORACLE rfc3339
