@@ -12,6 +12,6 @@ machine of the 2026-11-21 run (2 cores, 7 GB RAM, Kani/CBMC 6.11) every attempt 
 | `parse_rfc3339_weak` on `2000-02-DDT00:00:00Z`, 2 digits (this pack) | CBMC out of memory      |
 
 So the Kani part of 3b is **ABSTAIN** (no verdict: the verifier did not finish), not PASS and not a found defect.
-To try it with more memory: `PILOT_KANI=1 scripts/pilot.sh pilots/humantime 3b` copies this pack in as well;
+To try it with more memory: `PILOT_KANI_RUN=1 scripts/pilot.sh pilots/humantime 3b` copies this pack in as well;
 canaries HK1 (day 00 underflows once the `day == 0` check is gone) and HK2 (vacuous harness) must then fail for
 their reasons. Next step if it still does not fit: stub `SystemTime` construction (Kani `#[kani::stub]`).

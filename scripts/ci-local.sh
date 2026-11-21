@@ -1453,6 +1453,18 @@ parser_mutants() { local weak="${1:-}" d="$CAN/k2" n=0 bad=() m out rc
 run M1 gate-parser-mutants pass - "$ROOT" parser_mutants
 # C89: the same mutants against a deliberately weak summary parser ("passed" anywhere): the harness must catch it
 run C89 canary-parser-mutants-catch-weak-parser fail '^PARSER false PASS on .* pm_tests#' "$ROOT" parser_mutants pm
+# Pilot 3b verdict (scripts/pilot-verdict.sh): what the profile requires must be present and PASS; a missing manifest
+# or claim is a FAIL with its reason, never a skipped item. Synthetic pilot: one K4 mutant, one claim.
+PV="$CAN/pilotverdict"; mkdir -p "$PV/ok/spec/fuzz" "$PV/ok/work"
+printf 'CRATE_NAME=x\nCRATE_URL=x\nCRATE_SHA=x\nPILOT_3B_REQUIRE="k4 claims"\nPILOT_3B_CLAIMS="Z1"\n' > "$PV/ok/pilot.env"
+printf '# id\ttarget\tfile\texact\trepl\tcanary\nSMx\tt\tf\ta\tb\tHFx\n' > "$PV/ok/spec/fuzz/spec-mutants.tsv"
+printf '# claim\tproperty\tscope\tbounds\tevidence\nZ1\tp\tbounded\tb\tk4:SMx\n' > "$PV/ok/claims-3b.tsv"
+printf 'k4:SMx\tPASS\n' > "$PV/ok/work/status.tsv"
+for v in nok4 noclaim; do cp -r "$PV/ok" "$PV/$v"; done
+rm "$PV/nok4/spec/fuzz/spec-mutants.tsv"; printf '# claim\tproperty\tscope\tbounds\tevidence\n' > "$PV/noclaim/claims-3b.tsv"
+run E7 pilot-verdict-complete-set pass - "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/ok"
+run C90 canary-pilot-verdict-missing-k4-manifest fail '3b MISSING k4: manifest' "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/nok4"
+run C91 canary-pilot-verdict-missing-claim fail '3b MISSING claim Z1: not in claims-3b.tsv' "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/noclaim"
 # K3: a PR that edits its judge is still judged by the base's judge bytes. Scratch repo: the base has a judge script and
 # code; the head weakens the judge, adds a judge file of its own and changes the code.
 BJ="$CAN/basejudge"; mkdir -p "$BJ/repo/scripts" "$BJ/repo/src"
@@ -1623,7 +1635,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..89} R1 E1 E2 E3 E4 E5 E6 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..89} R1 E1 E2 E3 E4 E5 E6 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

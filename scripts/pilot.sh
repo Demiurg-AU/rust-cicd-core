@@ -30,7 +30,7 @@ spec=""
 if [ "$STAGE" = 3b ]; then
   [ -d "$P/spec" ] || { echo "PILOT stage 3b needs a spec pack: $P/spec"; exit 1; }
   cp -r "$P/spec/." "$W/"
-  if [ "${PILOT_KANI:-0}" = 1 ] && [ -d "$P/spec-kani" ]; then cp -r "$P/spec-kani/src" "$P/spec-kani"/kani-*.tsv "$W/"; fi
+  if [ "${PILOT_KANI_RUN:-0}" = 1 ] && [ -d "$P/spec-kani" ]; then cp -r "$P/spec-kani/src" "$P/spec-kani"/kani-*.tsv "$W/"; fi
   # <path>.append adds its lines to <path> (a module declaration for harnesses that must live in the crate)
   while IFS= read -r a; do cat "$a" >> "${a%.append}"; rm -f "$a"; done < <(find "$W" -name '*.append' -not -path '*/target/*')
   spec="$(cd "$P/spec" && find . -type f | sed 's#^\./#    #' | sort)"
@@ -64,6 +64,7 @@ if [ "$STAGE" = 3b ]; then
     ( cd "$W" && bash scripts/fuzz-gate.sh canary . "$P/work/fuzz-canaries" && bash scripts/fuzz-gate.sh run . "$P/work/fuzz-run" ) > "$P/work/fuzz.log" 2>&1
     r=$?; echo "  fuzz-gate canaries + run (exit $r, budget ${FUZZ_SECONDS:-60}s per target):"
     grep -E '^FUZZ (PASS|FAIL|CANARY)' "$P/work/fuzz.log" | sed 's/^/    /'
+    sed -nE 's/^FUZZ CANARY ([A-Za-z0-9_-]+) caught.*/fuzzc:\1\tPASS/p; s/^FUZZ CANARY ([A-Za-z0-9_-]+) (NOT caught|failed|cannot).*/fuzzc:\1\tFAIL/p' "$P/work/fuzz.log" >> "$st"
     [ -f "$P/work/fuzz-run/fuzz-results.tsv" ] && awk -F'\t' 'NR>1 {print "fuzz:" $1 "\t" $2}' "$P/work/fuzz-run/fuzz-results.tsv" >> "$st"
     [ $r -eq 0 ] || s3b=1
     # K5: the saved corpus replayed by a coverage build OUTSIDE the fuzzing session; the session's own "cov:" numbers
@@ -119,15 +120,21 @@ PYK
     [ $r -eq 0 ] || s3b=1
   fi
 fi
-cl="$P/claims.tsv"; [ "$STAGE" = 3b ] && [ -f "$P/claims-3b.tsv" ] && cl="$P/claims-3b.tsv"
-if [ -f "$cl" ]; then
-  echo "  domain claims ($(basename "$cl"), claim-verdict, request: bounded):"
-  awk -F'\t' '!/^#/ && NF {print $1}' "$cl" | while read -r c; do
-    echo "    $(bash "$TPL/scripts/claim-verdict.sh" "$cl" "$st" "$c" bounded 2>&1 | head -1)"; done
+if [ "$STAGE" = 3a ] && [ -f "$P/claims.tsv" ]; then
+  echo "  domain claims (claims.tsv, claim-verdict, request: bounded):"
+  awk -F'\t' '!/^#/ && NF {print $1}' "$P/claims.tsv" | while read -r c; do
+    echo "    $(bash "$TPL/scripts/claim-verdict.sh" "$P/claims.tsv" "$st" "$c" bounded 2>&1 | head -1)"; done
 fi
 echo "  evidence: $ev (ci-local), $P/work (spec pack logs, status.tsv)"
 echo "  log:      $log"
 echo "PILOT 3a core (ci-local): $([ "$rc" -eq 0 ] && echo PASS || echo FAIL)"
-[ "$STAGE" = 3b ] && echo "PILOT 3b spec pack (fuzz, K5, K4): $([ "$s3b" -eq 0 ] && echo PASS || echo FAIL)"
-[ "$rc" -eq 0 ] && [ "$s3b" -eq 0 ] && exit 0
+v3b=0
+if [ "$STAGE" = 3b ]; then
+  # the 3b verdict is computed from the saved results against the profile; recompute it any time with
+  #   scripts/pilot-verdict.sh <pilot> <work dir>
+  echo "  3b requirements (profile: ${PILOT_3B_REQUIRE:-none}; claims: ${PILOT_3B_CLAIMS:-none}):"
+  bash "$TPL/scripts/pilot-verdict.sh" "$P" "$P/work"; v3b=$?
+  [ "$s3b" -eq 0 ] || echo "  (a 3b step exited non-zero; its rows above say which)"
+fi
+[ "$rc" -eq 0 ] && [ "$v3b" -eq 0 ] && exit 0
 exit 1
