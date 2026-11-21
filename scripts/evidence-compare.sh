@@ -42,15 +42,19 @@ def load(d):
         pass
     return res, sig
 (ra, sa), (rb, sb) = load(sys.argv[1]), load(sys.argv[2])
+# Codex P2 on #55: a second witness must witness something, and the same set of checks
+for side, r in (("A", ra), ("B", rb)):
+    if not r: print(f"EVIDENCE no gate evidence in {side}"); sys.exit(1)
+if set(ra) != set(rb):
+    print("EVIDENCE gate sets differ: only in A: " + (" ".join(sorted(set(ra) - set(rb))) or "-")
+          + "; only in B: " + (" ".join(sorted(set(rb) - set(ra))) or "-"))
+    sys.exit(1)
 bad = []
 for g in sorted(set(ra) & set(rb)):
     if ra[g] != rb[g]: bad.append(f"EVIDENCE verdict differs {g}: {ra[g]} vs {rb[g]}")
     elif not sa.get(g) or not sb.get(g):  # Codex P2 on #55: a gate without a signature is not compared, so refuse it
         bad.append(f"EVIDENCE unsigned gate {g}: no check signature in {'A' if not sa.get(g) else 'B'}")
     elif sa[g] != sb[g]: bad.append(f"EVIDENCE check differs {g}: the two runs ran different commands")
-only_a, only_b = sorted(set(ra) - set(rb)), sorted(set(rb) - set(ra))
-if only_a: print("EVIDENCE only in A: " + " ".join(only_a))
-if only_b: print("EVIDENCE only in B: " + " ".join(only_b))
 both = len(set(ra) & set(rb))
 for x in bad: print(x)
 print(f"EVIDENCE {'MISMATCH' if bad else 'MATCH'} {both - len(bad)}/{both} common gates")

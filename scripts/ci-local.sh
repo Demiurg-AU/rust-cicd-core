@@ -109,6 +109,8 @@ sig_of() {
     for r in "$EV" "$WORK" "$ROOT"; do [ -n "$r" ] && a="${a//$r/<path>}"; done
     # the rest of such a path names the run's own copy (canaries/fork-env, mutants-c5, ...): one token for all
     a="$(sed -E "s#<path>[^[:space:]'\";)]*#<path>#g" <<< "$a")"
+    # run-specific values (Codex P2 on #55): mktemp dirs and fresh commit ids of scratch repos
+    a="$(sed -E "s#${TMPDIR:-/tmp}/tmp\.[A-Za-z0-9]+[^[:space:]'\";)]*#<tmp>#g; s#\b[0-9a-f]{40}\b#<sha>#g" <<< "$a")"
     [[ "$a" =~ ^[0-9]+$ ]] && a="<n>"
     out+=("$(printf '%s' "$a" | sha256sum | cut -c1-12)")
   done
@@ -1362,7 +1364,16 @@ for d in a b c d; do ( cd "$EX/$d" && sha256sum env.txt results.tsv signatures.t
 printf 'tampered\n' >> "$EX/d/results.tsv"
 mkdir -p "$EX/e" && cp "$EX/a/"* "$EX/e/" && ( cd "$EX/e" && sha256sum env.txt > SHA256SUMS )   # seal leaves results.tsv out
 mkdir -p "$EX/f" && cp "$EX/a/"* "$EX/f/" && : > "$EX/f/signatures.tsv" && ( cd "$EX/f" && sha256sum env.txt results.tsv signatures.tsv > SHA256SUMS )   # sealed, but no signatures
+mkdir -p "$EX/g" "$EX/h"; printf 'git_head=0123abcd\n' > "$EX/g/env.txt"; printf 'id\tstep\texpect\texit\treason_check\tverdict\n' > "$EX/g/results.tsv"; : > "$EX/g/signatures.tsv"
+cp "$EX/a/"* "$EX/h/"; printf 'C2\tcanary-clippy\tfail\t101\tmatched\tPASS\n' >> "$EX/h/results.tsv"; printf 'C2\taa\n' >> "$EX/h/signatures.tsv"
+for d in g h; do ( cd "$EX/$d" && sha256sum env.txt results.tsv signatures.tsv > SHA256SUMS ); done
+# sig_same: two invocations get one signature iff they are the same check (run-specific temp dirs and scratch commit ids aside)
+sig_same() { local x y; x="$(sig_of "$@")"; y="$(sig_of "${@:1:$(($#-2))}" "$(mktemp -d)" "$(printf '%040d' 7 | tr 0 f)")"; [ "$x" = "$y" ] && echo "SIG stable" || { echo "SIG differs: $x vs $y"; return 1; }; }
 run E2 evidence-compare-match pass - "$ROOT" bash "$EC" compare "$EX/a" "$EX/b"
+run E3 evidence-signature-run-independent pass - "$ROOT" sig_same bash probe "$(mktemp -d)" "$(git -C "$ROOT" rev-parse HEAD)"
+run C77 canary-signature-distinguishes-commands fail '^SIG differs' "$ROOT" bash -c "$(declare -f sig_of); [ \"\$(sig_of cargo test)\" = \"\$(sig_of cargo build)\" ] && echo 'SIG stable' || { echo 'SIG differs'; exit 1; }"
+run C78 canary-evidence-compare-no-gates fail '^EVIDENCE no gate evidence in A' "$ROOT" bash "$EC" compare "$EX/g" "$EX/a"
+run C79 canary-evidence-compare-gate-sets-differ fail '^EVIDENCE gate sets differ' "$ROOT" bash "$EC" compare "$EX/a" "$EX/h"
 run C72 canary-evidence-compare-verdict-differs fail '^EVIDENCE verdict differs C1: PASS vs FAIL_WRONG_REASON' "$ROOT" bash "$EC" compare "$EX/a" "$EX/c"
 run C73 canary-evidence-compare-seal-broken fail '^EVIDENCE seal broken' "$ROOT" bash "$EC" compare "$EX/a" "$EX/d"
 run C75 canary-evidence-compare-partial-seal fail '^EVIDENCE not sealed: .*does not cover results.tsv' "$ROOT" bash "$EC" compare "$EX/a" "$EX/e"
@@ -1451,7 +1462,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..76} R1 E1 E2 A1 A2 CL29 CL30 CL32 LSKIP T2 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..79} R1 E1 E2 E3 A1 A2 CL29 CL30 CL32 LSKIP T2 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..76} R1 E1 E2 A1 A2 T2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..79} R1 E1 E2 E3 A1 A2 T2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
