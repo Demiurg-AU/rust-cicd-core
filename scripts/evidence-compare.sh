@@ -45,7 +45,9 @@ def load(d):
 bad = []
 for g in sorted(set(ra) & set(rb)):
     if ra[g] != rb[g]: bad.append(f"EVIDENCE verdict differs {g}: {ra[g]} vs {rb[g]}")
-    elif g in sa and g in sb and sa[g] != sb[g]: bad.append(f"EVIDENCE check differs {g}: the two runs ran different commands")
+    elif not sa.get(g) or not sb.get(g):  # Codex P2 on #55: a gate without a signature is not compared, so refuse it
+        bad.append(f"EVIDENCE unsigned gate {g}: no check signature in {'A' if not sa.get(g) else 'B'}")
+    elif sa[g] != sb[g]: bad.append(f"EVIDENCE check differs {g}: the two runs ran different commands")
 only_a, only_b = sorted(set(ra) - set(rb)), sorted(set(rb) - set(ra))
 if only_a: print("EVIDENCE only in A: " + " ".join(only_a))
 if only_b: print("EVIDENCE only in B: " + " ".join(only_b))

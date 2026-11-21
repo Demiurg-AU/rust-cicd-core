@@ -1361,10 +1361,12 @@ sed -i 's/matched\tPASS$/unmatched\tFAIL_WRONG_REASON/' "$EX/c/results.tsv"
 for d in a b c d; do ( cd "$EX/$d" && sha256sum env.txt results.tsv signatures.tsv > SHA256SUMS ); done
 printf 'tampered\n' >> "$EX/d/results.tsv"
 mkdir -p "$EX/e" && cp "$EX/a/"* "$EX/e/" && ( cd "$EX/e" && sha256sum env.txt > SHA256SUMS )   # seal leaves results.tsv out
+mkdir -p "$EX/f" && cp "$EX/a/"* "$EX/f/" && : > "$EX/f/signatures.tsv" && ( cd "$EX/f" && sha256sum env.txt results.tsv signatures.tsv > SHA256SUMS )   # sealed, but no signatures
 run E2 evidence-compare-match pass - "$ROOT" bash "$EC" compare "$EX/a" "$EX/b"
 run C72 canary-evidence-compare-verdict-differs fail '^EVIDENCE verdict differs C1: PASS vs FAIL_WRONG_REASON' "$ROOT" bash "$EC" compare "$EX/a" "$EX/c"
 run C73 canary-evidence-compare-seal-broken fail '^EVIDENCE seal broken' "$ROOT" bash "$EC" compare "$EX/a" "$EX/d"
 run C75 canary-evidence-compare-partial-seal fail '^EVIDENCE not sealed: .*does not cover results.tsv' "$ROOT" bash "$EC" compare "$EX/a" "$EX/e"
+run C76 canary-evidence-compare-unsigned-gate fail '^EVIDENCE unsigned gate .*: no check signature in B' "$ROOT" bash "$EC" compare "$EX/a" "$EX/f"
 run C17 canary-evidence-failed-gate fail '^EVIDENCE result not PASSED: FAILED' "$ROOT" verdict_of "$CAN/ev-fail"
 run C18 canary-evidence-tampered fail '^EVIDENCE checksum mismatch' "$ROOT" verdict_of "$CAN/ev-tamper"
 run C19 canary-evidence-no-attestation fail '^EVIDENCE no attestation' "$ROOT" bash "$EVD" ""
@@ -1449,7 +1451,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..75} R1 E1 E2 A1 A2 CL29 CL30 CL32 LSKIP T2 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..76} R1 E1 E2 A1 A2 CL29 CL30 CL32 LSKIP T2 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..75} R1 E1 E2 A1 A2 T2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..76} R1 E1 E2 A1 A2 T2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
