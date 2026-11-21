@@ -107,6 +107,10 @@ sig_of() {
   for a in "$@"; do
     [ "$a" = --locked ] && continue
     for r in "$EV" "$WORK" "$ROOT"; do [ -n "$r" ] && a="${a//$r/<path>}"; done
+    # machine-specific spellings of the same thing (Codex P2 on #55): the Lean toolchain name (CI links lean-X, a
+    # local elan uses the channel; L0b checks the version either way), the cargo home and the home directory
+    [ -n "${LTC_RUN:-}" ] && a="${a//"$LTC_RUN"/<lean-toolchain>}"
+    a="${a//"${CARGO_HOME:-$HOME/.cargo}"/<cargo-home>}"; a="${a//"$HOME"/<home>}"
     # the rest of such a path names the run's own copy (canaries/fork-env, mutants-c5, ...): one token for all
     a="$(sed -E "s#<path>[^[:space:]'\";)]*#<path>#g" <<< "$a")"
     # run-specific values (Codex P2 on #55): mktemp dirs and fresh commit ids of scratch repos
@@ -788,8 +792,15 @@ CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridde
 # C28: from inside the jail, every protected path must refuse a write (zero-byte append / temp file).
 PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/ext-controls.tsv" "$ROOT/supply-chain" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN"
          "${CARGO_HOME:-$HOME/.cargo}/registry")
-[ -n "${GITHUB_ENV:-}" ] && PROTECT+=("$GITHUB_ENV" "$GITHUB_OUTPUT")
-run C28 canary-sandbox-blocks-writes fail '^SANDBOX all writes blocked' "$ROOT" sandbox_probe "${PROTECT[@]}"
+# The runner's command files exist only in Actions: protect_probe adds them there, so C28 has one signature in CI and
+# locally (Codex P2 on #55) and still probes them in CI; C80 shows they are probed whenever they exist.
+protect_probe() { sandbox_probe "$@" ${GITHUB_ENV:+"$GITHUB_ENV"} ${GITHUB_OUTPUT:+"$GITHUB_OUTPUT"}; }
+run C28 canary-sandbox-blocks-writes fail '^SANDBOX all writes blocked' "$ROOT" protect_probe "${PROTECT[@]}"
+probe_ci_files() { local d out; d="$(mktemp -d)"; : > "$d/env"; : > "$d/out"
+  out="$(SANDBOX_RW="$d" GITHUB_ENV="$d/env" GITHUB_OUTPUT="$d/out" protect_probe "$RES")"
+  if [[ "$out" == *"SUCCEEDED"*"$d/env"*"$d/out"* ]]; then echo "SANDBOX CI command files probed (writable decoys found)"; return 1; fi
+  echo "CI command files NOT probed: $out"; return 0; }
+run C80 canary-sandbox-probes-ci-command-files fail '^SANDBOX CI command files probed' "$ROOT" probe_ci_files
 # C29: the real attack path - a planted #[test] run by `cargo test` tries to open results.tsv for append.
 # Blocked means read-only (EROFS: evidence visible, as under GITHUB_WORKSPACE in CI) or absent (ENOENT: evidence under the
 # hidden $HOME, as in a local clone). The planted test runs through S1f's own check (release_tests: release build, jail,
@@ -1462,7 +1473,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..79} R1 E1 E2 E3 A1 A2 CL29 CL30 CL32 LSKIP T2 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..80} R1 E1 E2 E3 A1 A2 CL29 CL30 CL32 LSKIP T2 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..79} R1 E1 E2 E3 A1 A2 T2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..80} R1 E1 E2 E3 A1 A2 T2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
