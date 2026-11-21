@@ -87,8 +87,9 @@ if [ "$STAGE" = 3b ]; then
       # canary: a corpus of one empty input (what a target that never explored would leave) must fall below the minimum
       read -r t f min <<< "$first"; rm -rf "$P/work/k5-one"; mkdir -p "$P/work/k5-one"; : > "$P/work/k5-one/empty"
       c="$(cov_of "$t" "$P/work/k5-one" "$f")"
-      if [ "$c" != ERR ] && [ -n "$c" ] && awk -v c="$c" -v m="$min" 'BEGIN {exit !(c < m)}'; then echo "    K5 canary PASS: a one-empty-input corpus gives $c% < $min% for $t"
-      else echo "    K5 canary FAIL: a one-empty-input corpus gave ${c:-?}% for $t (log: $P/work/k5-$t-k5-one.log)"; s3b=1; fi
+      if [ "$c" != ERR ] && [ -n "$c" ] && awk -v c="$c" -v m="$min" 'BEGIN {exit !(c < m)}'; then echo "    K5 canary PASS: a one-empty-input corpus gives $c% < $min% for $t"; printf 'k5:canary\tPASS\n' >> "$st"
+      else echo "    K5 canary FAIL: a one-empty-input corpus gave ${c:-?}% for $t (log: $P/work/k5-$t-k5-one.log)"; s3b=1
+        printf 'k5:canary\tFAIL\n' >> "$st"; fi
     fi
     # K4: weaken one oracle at a time; the code canary it named must then escape, or that clause caught nothing
     if [ -f "$W/fuzz/spec-mutants.tsv" ]; then
@@ -105,7 +106,7 @@ PYK
         { head -1 "$W/fuzz/fuzz-canaries.tsv"; awk -F'\t' -v c="$can" '$1 == c' "$W/fuzz/fuzz-canaries.tsv"; } > "$k/fuzz/fuzz-canaries.tsv"
         out="$( cd "$k" && FUZZ_CANARY_SECONDS="${K4_SECONDS:-60}" bash scripts/fuzz-gate.sh canary . "$k/out" 2>&1 )"
         if grep -q "^FUZZ CANARY $can NOT caught" <<< "$out"; then v=PASS; else v=FAIL; s3b=1; fi
-        echo "    K4 $v $id ($t): with the oracle weakened, $can: $(grep -o "^FUZZ CANARY $can [a-zA-Z ]*" <<< "$out" | head -1 | sed -E "s/^FUZZ CANARY $can //; s/ (in|by the gate)?$//")"
+        echo "    K4 $v $id ($t): with the oracle weakened, $can $([ "$v" = PASS ] && echo "escaped (not caught)" || echo "was still caught or did not run")"
         printf 'k4:%s\t%s\n' "$id" "$v" >> "$st"
       done < "$W/fuzz/spec-mutants.tsv"
     fi
