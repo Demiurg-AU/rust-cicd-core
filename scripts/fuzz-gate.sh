@@ -8,7 +8,13 @@
 # All cargo-fuzz calls run jailed (sandbox.sh, threat CI-9): fuzz code cannot touch results or scripts.
 #   fuzz-gate.sh run    <repo-dir> <out-dir>   fuzz every listed target for $FUZZ_SECONDS (corpus: <repo>/fuzz/corpus/<t>)
 #   fuzz-gate.sh canary <repo-dir> <out-dir>   every planted bug must be found
-# env: FUZZ_SECONDS (default 60), FUZZ_CANARY_SECONDS (default 120), FUZZ_TARGET (default x86_64-unknown-linux-gnu)
+# env: FUZZ_SECONDS (default 60), FUZZ_CANARY_SECONDS (default 120), FUZZ_TARGET (default x86_64-unknown-linux-gnu),
+#      FUZZ_INPUT_TIMEOUT (default 10 s per input), FUZZ_MIN_CPU_PERCENT (default 50)
+# The session log is written by the target's own process (#45 item 7). What the host measures cannot be faked from
+# inside: the wall clock (a clean run must last the budget), a per-input timeout (a target that sleeps or spins
+# on one input is killed by libFuzzer: FC3), and the CPU time of the session (a target that idles below the
+# timeout on every input leaves the CPU idle: FC4). Residual: a target that burns CPU without exercising the
+# code (busy loop just under the timeout) - only the executions it reports, which it could forge, show that.
 set -uo pipefail
 die() { echo "FUZZ $*"; exit 2; }
 SANDBOX_SH="$(dirname "${BASH_SOURCE[0]}")/sandbox.sh"
@@ -18,6 +24,19 @@ sandbox_enable
 FWORK="$(mktemp -d "${TMPDIR:-/tmp}/fuzz-gate.XXXXXX")"; export SANDBOX_WORK="$FWORK"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$FWORK/target}"
 FUZZ_TARGET="${FUZZ_TARGET:-x86_64-unknown-linux-gnu}"
+
+session_cpu() { # <pid> <out-file>: while <pid> runs, sample the CPU seconds of its whole process tree from the
+  # HOST's /proc every second; the last sample is the session's CPU time. (The jail's pid namespace hides the
+  # tree from rusage accounting, so it is read live; the target cannot write the host's /proc.)
+  local root="$1" out="$2" tot
+  echo 0 > "$out"
+  while kill -0 "$root" 2>/dev/null; do
+    tot="$(ps -eo pid=,ppid=,times= | awk -v r="$root" '{ p[$1] = $2; t[$1] = $3 }
+      END { for (x in p) { y = x; while (y in p && y != r && y != 1 && y != 0) y = p[y]; if (y == r) s += t[x] }; printf "%d", s }')"
+    [ -n "$tot" ] && [ "$tot" -gt "$(cat "$out")" ] && echo "$tot" > "$out"
+    sleep 1
+  done
+}
 
 listed_targets() { awk -F'\t' '!/^#/ && NF {print $1}' "$1/fuzz/fuzz-targets.tsv"; }
 
@@ -48,22 +67,27 @@ run_gate() { # <repo-dir> <out-dir>
     # build first, so the timed part below is the fuzzing session alone
     ( cd "$d/fuzz" && cargo fuzz build --target "$FUZZ_TARGET" "$t" ) > "$out/$t.build.log" 2>&1 \
       || { echo "FUZZ FAIL $t: build failed"; tail -5 "$out/$t.build.log"; printf '%s\tFAIL\tbuild\n' "$t" >> "$out/fuzz-results.tsv"; rc=1; continue; }
-    local t0; t0="$(date +%s)"
+    local t0 sp; t0="$(date +%s)"
     ( cd "$d/fuzz" && SANDBOX_RW="$d/fuzz/corpus/$t:$d/fuzz/artifacts/$t" \
-        cargo fuzz run --target "$FUZZ_TARGET" "$t" "corpus/$t" -- -max_total_time="$secs" ) > "$log" 2>&1
-    local frc=$? took=$(( $(date +%s) - t0 ))
+        cargo fuzz run --target "$FUZZ_TARGET" "$t" "corpus/$t" -- -max_total_time="$secs" -timeout="${FUZZ_INPUT_TIMEOUT:-10}" ) > "$log" 2>&1 &
+    sp=$!; session_cpu "$sp" "$FWORK/cpu.txt" & local mon=$!
+    wait "$sp"; local frc=$? took=$(( $(date +%s) - t0 )); wait "$mon"; local cpu; cpu="$(cat "$FWORK/cpu.txt")"
     # the log is written by the fuzz target's own process: "Done N runs" and exit 0 can be faked (e.g. a raw
     # exit_group syscall after printing it). The host's clock cannot: a clean run must last the whole budget.
     if [ "$frc" -eq 0 ] && [ "$took" -lt $(( secs * 9 / 10 )) ]; then
       echo "FUZZ FAIL $t: clean exit after ${took}s of a ${secs}s budget (session did not run)"
       printf '%s\tFAIL\tshort session %ss\n' "$t" "$took" >> "$out/fuzz-results.tsv"; rc=1; continue
     fi
+    if [ "$frc" -eq 0 ] && [ $(( cpu * 100 )) -lt $(( took * ${FUZZ_MIN_CPU_PERCENT:-50} )) ]; then
+      echo "FUZZ FAIL $t: session idle (${cpu}s CPU in ${took}s, below ${FUZZ_MIN_CPU_PERCENT:-50}%)"
+      printf '%s\tFAIL\tidle session %ss cpu\n' "$t" "$cpu" >> "$out/fuzz-results.tsv"; rc=1; continue
+    fi
     local kept; kept="$(find "$d/fuzz/corpus/$t" -type f | wc -l)"
     if [ "$frc" -eq 0 ] && grep -q '^Done [0-9]* runs' "$log" && [ "$kept" -eq 0 ]; then
       echo "FUZZ FAIL $t: corpus not persisted (0 inputs in fuzz/corpus/$t after the run)"
       printf '%s\tFAIL\tcorpus not persisted\n' "$t" >> "$out/fuzz-results.tsv"; rc=1
     elif [ "$frc" -eq 0 ] && grep -q '^Done [0-9]* runs' "$log"; then
-      echo "FUZZ PASS $t ($(grep -o '^Done [0-9]* runs' "$log" | tail -1), corpus $kept inputs)"
+      echo "FUZZ PASS $t ($(grep -o '^Done [0-9]* runs' "$log" | tail -1), corpus $kept inputs, ${cpu}s CPU in ${took}s)"
       printf '%s\tPASS\t%ss\n' "$t" "$secs" >> "$out/fuzz-results.tsv"
     else
       echo "FUZZ FAIL $t (exit $frc)"; grep -E 'FUZZ-ORACLE|panicked|deadly signal|ERROR:' "$log" | head -5
