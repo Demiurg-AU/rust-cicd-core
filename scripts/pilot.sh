@@ -30,6 +30,7 @@ spec=""
 if [ "$STAGE" = 3b ]; then
   [ -d "$P/spec" ] || { echo "PILOT stage 3b needs a spec pack: $P/spec"; exit 1; }
   cp -r "$P/spec/." "$W/"
+  if [ "${PILOT_KANI:-0}" = 1 ] && [ -d "$P/spec-kani" ]; then cp -r "$P/spec-kani/src" "$P/spec-kani"/kani-*.tsv "$W/"; fi
   # <path>.append adds its lines to <path> (a module declaration for harnesses that must live in the crate)
   while IFS= read -r a; do cat "$a" >> "${a%.append}"; rm -f "$a"; done < <(find "$W" -name '*.append' -not -path '*/target/*')
   spec="$(cd "$P/spec" && find . -type f | sed 's#^\./#    #' | sort)"
@@ -80,10 +81,11 @@ if [ "$STAGE" = 3b ]; then
         if [ "$c" != ERR ] && [ -n "$c" ] && awk -v c="$c" -v m="$min" 'BEGIN {exit !(c >= m)}'; then v=PASS; else v=FAIL; s3b=1; fi
         echo "    K5 $v $t: $f lines ${c:-?}% (min $min%)"; printf 'k5:%s\t%s\n' "$t" "$v" >> "$st"
       done < "$W/fuzz/fuzz-coverage.tsv"
-      read -r t f min <<< "$first"; mkdir -p "$P/work/k5-empty"
-      c="$(cov_of "$t" "$P/work/k5-empty" "$f")"
-      if [ "$c" != ERR ] && awk -v c="${c:-0}" -v m="$min" 'BEGIN {exit !(c < m)}'; then echo "    K5 canary PASS: empty corpus gives ${c:-0}% < $min% for $t"
-      else echo "    K5 canary FAIL: empty corpus gave ${c:-?}% for $t"; s3b=1; fi
+      # canary: a corpus of one empty input (what a target that never explored would leave) must fall below the minimum
+      read -r t f min <<< "$first"; rm -rf "$P/work/k5-one"; mkdir -p "$P/work/k5-one"; : > "$P/work/k5-one/empty"
+      c="$(cov_of "$t" "$P/work/k5-one" "$f")"
+      if [ "$c" != ERR ] && [ -n "$c" ] && awk -v c="$c" -v m="$min" 'BEGIN {exit !(c < m)}'; then echo "    K5 canary PASS: a one-empty-input corpus gives $c% < $min% for $t"
+      else echo "    K5 canary FAIL: a one-empty-input corpus gave ${c:-?}% for $t (log: $P/work/k5-$t.log)"; s3b=1; fi
     fi
     # K4: weaken one oracle at a time; the code canary it named must then escape, or that clause caught nothing
     if [ -f "$W/fuzz/spec-mutants.tsv" ]; then
@@ -100,7 +102,7 @@ PYK
         { head -1 "$W/fuzz/fuzz-canaries.tsv"; awk -F'\t' -v c="$can" '$1 == c' "$W/fuzz/fuzz-canaries.tsv"; } > "$k/fuzz/fuzz-canaries.tsv"
         out="$( cd "$k" && FUZZ_CANARY_SECONDS="${K4_SECONDS:-60}" bash scripts/fuzz-gate.sh canary . "$k/out" 2>&1 )"
         if grep -q "^FUZZ CANARY $can NOT caught" <<< "$out"; then v=PASS; else v=FAIL; s3b=1; fi
-        echo "    K4 $v $id ($t): with the oracle weakened, $can $(grep -o "^FUZZ CANARY $can [a-zA-Z ]*" <<< "$out" | head -1 | sed "s/^FUZZ CANARY $can //")"
+        echo "    K4 $v $id ($t): with the oracle weakened, $can: $(grep -o "^FUZZ CANARY $can [a-zA-Z ]*" <<< "$out" | head -1 | sed -E "s/^FUZZ CANARY $can //; s/ (in|by the gate)?$//")"
         printf 'k4:%s\t%s\n' "$id" "$v" >> "$st"
       done < "$W/fuzz/spec-mutants.tsv"
     fi
@@ -113,12 +115,15 @@ PYK
     [ $r -eq 0 ] || s3b=1
   fi
 fi
-if [ -f "$P/claims.tsv" ]; then
-  echo "  domain claims (claim-verdict, request: bounded):"
-  awk -F'\t' '!/^#/ && NF {print $1}' "$P/claims.tsv" | while read -r c; do
-    echo "    $(bash "$TPL/scripts/claim-verdict.sh" "$P/claims.tsv" "$st" "$c" bounded 2>&1 | head -1)"; done
+cl="$P/claims.tsv"; [ "$STAGE" = 3b ] && [ -f "$P/claims-3b.tsv" ] && cl="$P/claims-3b.tsv"
+if [ -f "$cl" ]; then
+  echo "  domain claims ($(basename "$cl"), claim-verdict, request: bounded):"
+  awk -F'\t' '!/^#/ && NF {print $1}' "$cl" | while read -r c; do
+    echo "    $(bash "$TPL/scripts/claim-verdict.sh" "$cl" "$st" "$c" bounded 2>&1 | head -1)"; done
 fi
-echo "  evidence: $ev"
+echo "  evidence: $ev (ci-local), $P/work (spec pack logs, status.tsv)"
 echo "  log:      $log"
-[ "$rc" -eq 0 ] && [ "$s3b" -eq 0 ] && { echo "PILOT $STAGE PASS"; exit 0; }
-echo "PILOT $STAGE FAIL"; exit 1
+echo "PILOT 3a core (ci-local): $([ "$rc" -eq 0 ] && echo PASS || echo FAIL)"
+[ "$STAGE" = 3b ] && echo "PILOT 3b spec pack (fuzz, K5, K4): $([ "$s3b" -eq 0 ] && echo PASS || echo FAIL)"
+[ "$rc" -eq 0 ] && [ "$s3b" -eq 0 ] && exit 0
+exit 1

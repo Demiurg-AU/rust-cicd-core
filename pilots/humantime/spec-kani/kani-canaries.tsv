@@ -1,0 +1,3 @@
+# id	file	exact text to replace (\n = newline)	replacement	reason the gate must report (ERE)
+HK1	src/date.rs	    if day > mdays || day == 0 {	    if day > mdays {	^KANI FAIL kani_proofs::kani_rfc3339_weak_day_digits_no_panic: verification failed
+HK2	src/kani_proofs.rs	    let mut b = *b"2000-02-00T00:00:00Z";	    kani::assume(false);\n    let mut b = *b"2000-02-00T00:00:00Z";	^KANI FAIL kani_proofs::kani_rfc3339_weak_day_digits_no_panic: [0-9]+ of 2 covers SATISFIED

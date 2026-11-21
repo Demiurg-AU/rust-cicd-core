@@ -1,0 +1,5 @@
+# Domain claims of the humantime pilot for stage 3b: the same properties as claims.tsv, now with the spec pack's evidence.
+# claim	property	scope	bounds	evidence
+H1	parse_duration returned Ok or Err on every UTF-8 input the fuzzer tried (no panic)	bounded	fuzz 60 s, corpus replayed for coverage	fuzz:parse_no_panic,k5:parse_no_panic,k4:SM2
+H2	format_duration then parse_duration returned the same Duration on every tried input, secs < 10^12	bounded	fuzz 60 s	fuzz:duration_roundtrip,k5:duration_roundtrip,k4:SM1
+H3	parse_rfc3339_weak returned Ok or Err on every tried input, and accepted times format back to themselves	bounded	fuzz 60 s on any string and on the date-time shape	fuzz:parse_no_panic,fuzz:rfc3339_shape,k5:rfc3339_shape,k4:SM3
