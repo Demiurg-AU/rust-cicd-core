@@ -112,6 +112,10 @@ sig_of() {
   for a in "$@"; do
     [ "$a" = --locked ] && continue
     for v in "${!SIG_VOLATILE[@]}"; do a="${a//"$v"/${SIG_VOLATILE[$v]}}"; done
+    # the crate tree a check runs ON (the checkout, or a canary's copy of it under the work dir) is its operand, not
+    # what the check is: one token, so a canary's signature starts with its guard's (Assumption Breaker Gate, #45
+    # item 4). Files and anything else keep their names.
+    if [ -d "$a" ] && { [ "$a" = "${ROOT:-}" ] || [[ -n "${WORK:-}" && "$a" == "$WORK"/* ]]; }; then a="<tree>"; fi
     # where this run lives (evidence dir, work dir, checkout): the same places under other names on another machine
     [ -n "${EV:-}" ] && a="${a//"$EV"/<ev>}"; [ -n "${WORK:-}" ] && a="${a//"$WORK"/<work>}"; [ -n "${ROOT:-}" ] && a="${a//"$ROOT"/<root>}"
     # machine-specific spellings of the same thing (Codex P2 on #55): the Lean toolchain name (CI links lean-X, a
@@ -119,6 +123,12 @@ sig_of() {
     [ -n "${LTC_RUN:-}" ] && a="${a//"$LTC_RUN"/<lean-toolchain>}"
     [ -n "${LTC:-}" ] && a="${a//"$LTC"/<lean-toolchain>}"
     a="${a//"${CARGO_HOME:-$HOME/.cargo}"/<cargo-home>}"; a="${a//"$HOME"/<home>}"
+    # a path inside the run's evidence or work dir names data the check reads (a theorem list, a canary copy's
+    # file), not the check: one token, as before. Paths in the checkout (the template's scripts, config) keep their
+    # names, so a check on another file of the checkout is another check (C77).
+    a="$(sed -E "s#<(ev|work)>[^[:space:]'\";)]*#<data>#g" <<< "$a")"
+    # a bare number is a parameter of the check (a coverage threshold), as in the breaker pairs C8@S1c
+    [[ "$a" =~ ^[0-9]+$ ]] && a="<n>"
     out+=("$(printf '%s' "$a" | sha256sum | cut -c1-12)")
   done
   printf '%s' "${out[*]}"
@@ -1512,7 +1522,7 @@ sig_same() { local t="<e3-probe>" x y d1 d2; d1="$(mktemp -d)"; d2="$(mktemp -d)
 # C77: what selects the check must still separate signatures: the command, an unregistered revision id, another file.
 sig_distinct() { local a b c d e f
   a="$(sig_of cargo test)"; b="$(sig_of cargo build)"
-  c="$(sig_of git checkout "$(printf '%040d' 1)")"; d="$(sig_of git checkout "$(printf '%040d' 2)")"
+  c="$(sig_of git checkout "$(printf '%039d1' 0 | tr 0 a)")"; d="$(sig_of git checkout "$(printf '%039d2' 0 | tr 0 a)")"
   e="$(sig_of bash "$ROOT/scripts/fuzz-gate.sh")"; f="$(sig_of bash "$ROOT/scripts/kani-gate.sh")"
   if [ "$a" != "$b" ] && [ "$c" != "$d" ] && [ "$e" != "$f" ]; then echo "SIG differs for command, revision and file"; return 1; fi
   echo "SIG collides: cmd $a/$b rev $c/$d file $e/$f"; return 0; }
