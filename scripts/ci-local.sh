@@ -86,7 +86,7 @@ export RUSTUP_TOOLCHAIN
 # No "| head" here: under pipefail a closed pipe (SIGPIPE) would abort the whole run before any gate (found 2026-11-17).
 {
   echo "utc=$STAMP"; uname -a
-  for t in cargo rustc cargo-clippy rustfmt cargo-nextest cargo-llvm-cov cargo-deny cargo-audit cargo-mutants; do
+  for t in cargo rustc cargo-clippy rustfmt cargo-nextest cargo-llvm-cov cargo-deny cargo-audit cargo-mutants cargo-vet; do
     p="$(command -v "$t" || true)"
     if [ -z "$p" ]; then echo "$t: MISSING"; continue; fi
     # rustup installs identical proxy shims; hash the real toolchain binary instead
@@ -283,13 +283,13 @@ pm_tests() {
 witness_check() {
   local res="$1"; shift
   awk -F'\t' -v expected="$*" '
-    BEGIN {n=split(expected, ids, " ")}
+    BEGIN {n=split(expected, ids, " "); for (i=1;i<=n;i++) want[ids[i]]=1}
     NR==1 {if ($0 != "id\tstep\texpect\texit\treason_check\tverdict") bad=1; next}
     {seen[$1]++; if (NF!=6 || $6!="PASS") bad=1; rows++}
     END {
       for (i=1;i<=n;i++) if (seen[ids[i]]!=1) {print "witness missing gate: " ids[i]; bad=1}
       if (!rows) {print "witness has no gate rows"; bad=1}
-      for (id in seen) if (seen[id]!=1) bad=1
+      for (id in seen) { if (seen[id]!=1) bad=1; if (!(id in want)) {print "witness unlisted gate: " id; bad=1} }
       exit bad
     }' "$res"
 }
@@ -669,6 +669,14 @@ run S1h neutral-mutant pass - "$ROOT" neutral_gate "$ROOT" "$WORK/neutral-root"
 # --- S2: supply chain ---
 run S2a deny pass - "$ROOT" cargo deny --locked check
 run S2b audit pass - "$ROOT" cargo audit
+# S2c: every third-party dependency is audited by a trusted party (cargo-vet, gap G10). Jailed and offline
+# (--frozen); cargo-vet locks its store, so it reads a writable copy of supply-chain/ (--locked: never edits it).
+vet_gate() { # <project dir>
+  [ -d "$1/supply-chain" ] || { echo "VET no supply-chain/ store in $1 (cargo vet init)"; return 1; }
+  local st; st="$(mktemp -d "$WORK/vet.XXXXXX")" && cp -r "$1/supply-chain/." "$st/" || return 1
+  SANDBOX_RW="$st" cargo vet --locked --frozen --store-path "$st"
+}
+run S2c vet pass - "$ROOT" vet_gate "$ROOT"
 
 # --- A8: gate self-test. Each gate must FAIL on a known-bad input, for the RIGHT reason ---
 CAN="$WORK/canaries"; mkdir -p "$CAN"
@@ -776,7 +784,7 @@ run C50 canary-test-reads-source fail '^NEUTRAL spec reads source text: src/lib.
 mk nopanic-allow; printf '\n#[allow(clippy::indexing_slicing)]\n#[must_use]\npub fn canary_first(v: &[u8]) -> u8 {\n    v[0]\n}\n' >> "$CAN/nopanic-allow/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/nopanic-allow/target" run C33 canary-lint-allow-overridden fail 'incompatible with previous forbid' "$CAN/nopanic-allow" cargo clippy -- -D warnings "${NOPANIC[@]}"
 # C28: from inside the jail, every protected path must refuse a write (zero-byte append / temp file).
-PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/ext-controls.tsv" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN"
+PROTECT=("$RES" "$EV" "$SD" "$ROOT/.git" "$ROOT/threat-model.tsv" "$ROOT/ext-controls.tsv" "$ROOT/supply-chain" "$ROOT/claims.tsv" "${CARGO_HOME:-$HOME/.cargo}/config.toml" "$CAN"
          "${CARGO_HOME:-$HOME/.cargo}/registry")
 [ -n "${GITHUB_ENV:-}" ] && PROTECT+=("$GITHUB_ENV" "$GITHUB_OUTPUT")
 run C28 canary-sandbox-blocks-writes fail '^SANDBOX all writes blocked' "$ROOT" sandbox_probe "${PROTECT[@]}"
@@ -824,6 +832,11 @@ wrapper_probe() { # <canary crate dir>
 mk wrapper; CARGO_TARGET_DIR="$CAN/wrapper/target" run C32 canary-checkout-wrapper-only-jailed fail '^WRAPPER contained' "$CAN/wrapper" wrapper_probe "$CAN/wrapper"
 mk test;   printf '\n#[test]\nfn canary_fails() { assert_eq!(1 + 1, 3); }\n' >> "$CAN/test/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/test/target" run C3 canary-test fail 'canary_fails' "$CAN/test" cargo nextest run
+# C74: a crates.io dependency nobody audited must fail S2c (fetched here, outside the jail, like S0f)
+mk vetdep; cp -r "$ROOT/supply-chain" "$CAN/vetdep/"
+sed -i '/^\[dependencies\]/a itoa = "=1.0.15"' "$CAN/vetdep/Cargo.toml"
+( cd "$CAN/vetdep" && cargo fetch ) > "$CAN/vetdep.fetch.log" 2>&1 || true
+CARGO_TARGET_DIR="$CAN/vetdep/target" run C74 canary-vet-unaudited-dependency fail 'Vetting Failed|unvetted dependenc' "$CAN/vetdep" vet_gate "$CAN/vetdep"
 mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.toml"
 grep -q '^license = ' "$CAN/deny/Cargo.toml" || sed -i '/^\[package\]/a license = "GPL-3.0-only"' "$CAN/deny/Cargo.toml"
 CARGO_TARGET_DIR="$CAN/deny/target" run C4 canary-deny-license fail 'GPL-3.0' "$CAN/deny" cargo deny check licenses
@@ -1337,6 +1350,19 @@ mkev "$CAN/ev-ok" PASS; mkev "$CAN/ev-fail" FAIL; mkev "$CAN/ev-tamper" PASS
 printf 'G3\tg\tpass\t0\tn/a\tPASS\n' >> "$CAN/ev-tamper/results.tsv"
 verdict_of() { local p; p=$(bash "$EPS" "$1" https://example.invalid/run) || return 1; bash "$EVD" "$(printf '%s' "$p" | sed -n 's/^{"result":"\([A-Z]*\)".*/\1/p')"; }
 run E1 evidence-predicate-pass pass - "$ROOT" verdict_of "$CAN/ev-ok"
+# E2/C72/C73: two sealed runs of the same commit compared gate by gate (scripts/evidence-compare.sh, gap G8)
+EC="$ROOT/scripts/evidence-compare.sh"; EX="$CAN/evcmp"; mkdir -p "$EX/a" "$EX/b" "$EX/c" "$EX/d"
+for d in a b c d; do
+  printf 'git_head=0123abcd\n' > "$EX/$d/env.txt"
+  printf 'id\tstep\texpect\texit\treason_check\tverdict\nS1a\tfmt\tpass\t0\tn/a\tPASS\nC1\tcanary-fmt\tfail\t1\tmatched\tPASS\n' > "$EX/$d/results.tsv"
+  printf 'S1a\taa bb\nC1\taa bb cc\n' > "$EX/$d/signatures.tsv"
+done
+sed -i 's/matched\tPASS$/unmatched\tFAIL_WRONG_REASON/' "$EX/c/results.tsv"
+for d in a b c d; do ( cd "$EX/$d" && sha256sum env.txt results.tsv signatures.tsv > SHA256SUMS ); done
+printf 'tampered\n' >> "$EX/d/results.tsv"
+run E2 evidence-compare-match pass - "$ROOT" bash "$EC" compare "$EX/a" "$EX/b"
+run C72 canary-evidence-compare-verdict-differs fail '^EVIDENCE verdict differs C1: PASS vs FAIL_WRONG_REASON' "$ROOT" bash "$EC" compare "$EX/a" "$EX/c"
+run C73 canary-evidence-compare-seal-broken fail '^EVIDENCE seal broken' "$ROOT" bash "$EC" compare "$EX/a" "$EX/d"
 run C17 canary-evidence-failed-gate fail '^EVIDENCE result not PASSED: FAILED' "$ROOT" verdict_of "$CAN/ev-fail"
 run C18 canary-evidence-tampered fail '^EVIDENCE checksum mismatch' "$ROOT" verdict_of "$CAN/ev-tamper"
 run C19 canary-evidence-no-attestation fail '^EVIDENCE no attestation' "$ROOT" bash "$EVD" ""
@@ -1376,6 +1402,42 @@ run C25 canary-agent-spoofed-codex fail '^AGENT PR has unresolved Codex findings
 run C63 canary-unmarked-pipeline-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-human-nolabel"
 run C64 canary-unmarked-no-codex fail '^AGENT PR head not reviewed by Codex: h1' "$ROOT" bash "$APP" "$CAN/pr-human-nocodex"
 run C27 canary-agent-config-only-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-config-only"
+# --- T2: the registries agree with each other (#G13): every canary that ran is relied on by a threat row or an
+# assumption (an orphan canary guards nothing anyone claims), every ext-controls row is named by a threat row,
+# every assumption belongs to a claim, every claim has an assumption row. C69-C71 plant each kind of drift.
+registry_check() { # <threat-model.tsv> <results.tsv> <assumptions.tsv> <claims.tsv> <ext-controls.tsv>
+  "$PY" - "$@" <<'PY'
+import sys
+tm, res, asm, claims, ext = sys.argv[1:6]
+rows = lambda f: [l.rstrip("\n").split("\t") for l in open(f) if l.strip() and not l.startswith("#")]
+named = set()
+for r in rows(tm)[1:]:
+    if len(r) >= 3: named |= {c.split(":", 1)[1] if c.startswith("lean:") else c for c in r[2].split()}
+breakers = set()
+a_rows = rows(asm)
+for r in a_rows:
+    if len(r) >= 4 and r[3].startswith("gate:"): breakers.add(r[3][5:].split("@")[0])
+canaries = [r[0] for r in rows(res)[1:] if len(r) >= 3 and r[2] == "fail"]
+bad = [f"REGISTRY orphan canary {c}: no threat row or assumption relies on it" for c in canaries if c not in named | breakers]
+ext_names = {r[0] for r in rows(ext)[1:] if r and r[0].startswith("ext:")}
+bad += [f"REGISTRY stale ext control {e}: no threat row names it" for e in sorted(ext_names - named)]
+claim_ids = {r[0] for r in rows(claims) if r}
+asm_claims = {r[0] for r in a_rows if r}
+bad += [f"REGISTRY assumption for unknown claim {c}" for c in sorted(asm_claims - claim_ids)]
+bad += [f"REGISTRY claim {c} has no assumption row" for c in sorted(claim_ids - asm_claims)]
+print(f"REGISTRY {len(canaries)} canaries, {len(ext_names)} ext controls, {len(claim_ids)} claims checked")
+for b in bad: print(b)
+sys.exit(1 if bad else 0)
+PY
+}
+RG="$CAN/registry"; mkdir -p "$RG"
+head -1 "$RES" > "$RG/res.tsv"; printf 'C9z\tcanary-unrelied\tfail\t1\tmatched\tPASS\n' >> "$RG/res.tsv"
+{ cat "${TM_DIR%/}/ext-controls.tsv"; printf 'ext:nobody-names-me\tfile\tREADME.md\tx\t\n'; } > "$RG/ext.tsv"
+{ cat "$ROOT/assumptions.tsv"; printf 'CA9\tA1\tx\ttrusted:canary\n'; } > "$RG/asm.tsv"
+run C69 canary-registry-orphan-canary fail '^REGISTRY orphan canary C9z' "$ROOT" registry_check "${TM_DIR%/}/threat-model.tsv" "$RG/res.tsv" "$ROOT/assumptions.tsv" "$ROOT/claims.tsv" "${TM_DIR%/}/ext-controls.tsv"
+run C70 canary-registry-stale-ext fail '^REGISTRY stale ext control ext:nobody-names-me' "$ROOT" registry_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$ROOT/assumptions.tsv" "$ROOT/claims.tsv" "$RG/ext.tsv"
+run C71 canary-registry-assumption-unknown-claim fail '^REGISTRY assumption for unknown claim CA9' "$ROOT" registry_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$RG/asm.tsv" "$ROOT/claims.tsv" "${TM_DIR%/}/ext-controls.tsv"
+run T2 registries-consistent pass - "$ROOT" registry_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$ROOT/assumptions.tsv" "$ROOT/claims.tsv" "${TM_DIR%/}/ext-controls.tsv"
 run T1 threat-model pass - "$ROOT" threat_check "${TM_DIR%/}/threat-model.tsv" "$RES" "$LMODE"
 echo "ext_rules=${EXT_RULES:-none} | ext_offline=${EXT_OFFLINE:-0}" >> "$EV/env.txt"
 
@@ -1385,7 +1447,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b C{1..68} R1 E1 A1 A2 CL29 CL30 CL32 LSKIP T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..74} R1 E1 E2 A1 A2 CL29 CL30 CL32 LSKIP T2 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b C{1..68} R1 E1 A1 A2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..74} R1 E1 E2 A1 A2 T2 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
