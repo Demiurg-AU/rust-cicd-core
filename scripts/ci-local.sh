@@ -110,6 +110,7 @@ sig_of() {
     # machine-specific spellings of the same thing (Codex P2 on #55): the Lean toolchain name (CI links lean-X, a
     # local elan uses the channel; L0b checks the version either way), the cargo home and the home directory
     [ -n "${LTC_RUN:-}" ] && a="${a//"$LTC_RUN"/<lean-toolchain>}"
+    [ -n "${LTC:-}" ] && a="${a//"$LTC"/<lean-toolchain>}"
     a="${a//"${CARGO_HOME:-$HOME/.cargo}"/<cargo-home>}"; a="${a//"$HOME"/<home>}"
     # the rest of such a path names the run's own copy (canaries/fork-env, mutants-c5, ...): one token for all
     a="$(sed -E "s#<path>[^[:space:]'\";)]*#<path>#g" <<< "$a")"
