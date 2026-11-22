@@ -84,6 +84,9 @@ sandbox() {
   # the dependency cache stays read-only: dependencies are fetched before any jailed step (S0f), and a writable
   # cache let a test rewrite a dependency's sources for every later gate (and later builds on the host)
   for p in "${rw[@]}"; do [ -n "$p" ] && [ -e "$p" ] && { p="$(realpath -- "$p")"; args+=(--bind "$p" "$p"); }; done
+  # Docker Desktop publishes host-service sockets under this WSL mount. Hide the
+  # shared mount after all host binds, including sockets created after discovery.
+  if [ -d /mnt/wsl ]; then args+=(--tmpfs /mnt/wsl); fi
   args+=(--setenv TMPDIR "$tmp" --chdir "$cwd")
   "$SANDBOX_BWRAP" "${args[@]}" -- "$@"; rc=$?
   rm -rf "$tmp"; return "$rc"
