@@ -15,6 +15,15 @@ P="$(cd "$P" && pwd)" || exit 2
 . "$P/pilot.env"
 : "${CRATE_NAME:?}" "${CRATE_URL:?}" "${CRATE_SHA:?}"
 case "$STAGE" in 3a|3b) ;; *) echo "PILOT stage must be 3a or 3b"; exit 2 ;; esac
+# Keep build scratch on the workspace filesystem by default. A caller can choose another TMPDIR.
+pilot_tmp_parent=${TMPDIR:-"$HOME/workspace"}
+mkdir -p -- "$pilot_tmp_parent" || exit 1
+pilot_tmp_parent="$(cd -- "$pilot_tmp_parent" && pwd -P)" || exit 1
+pilot_tmp="$(mktemp -d -- "$pilot_tmp_parent/rcc.XXXXXX")" || exit 1
+trap 'rm -rf -- "$pilot_tmp"' EXIT
+export TMPDIR="$pilot_tmp"
+printf 'PILOT TMPDIR=%s\n' "$TMPDIR"
+df -hP -- "$TMPDIR" || exit 1
 tsha="$(git -C "$TPL" rev-parse HEAD)"; tdirty="$(git -C "$TPL" status --porcelain --untracked-files=no | wc -l)"
 W="$P/work/$CRATE_NAME"; rm -rf "$W"; mkdir -p "$P/work"
 git clone -q "$CRATE_URL" "$W" || { echo "PILOT clone failed: $CRATE_URL"; exit 1; }
