@@ -8,6 +8,12 @@
 #                            AND later than the latest push to the PR branch
 #   always                -> review state from the exact Codex integration (login + Bot type)
 #                            completed on the HEAD commit, no unresolved findings
+# K1 (docs/k1-owner-approval.md): an owner approval is an SSH signature (namespace rcc-approval) over a text naming the
+#   repository (name + id), PR, full head and base SHAs, this policy's blob id, an expiry (at most 72 h ahead) and a
+#   nonce. The text is REBUILT from live values here, so a signature for any other head/base/PR/policy cannot verify.
+#   Keys: .github/k1-allowed-signers of the default branch (the checkout this policy runs from; a PR cannot add its
+#   own). Mode .github/k1-mode: off (label only) | observe (label decides, K1 verdict reported) | required (a valid
+#   signature is the approval; the label alone approves nothing).
 set -euo pipefail
 F="${1:?facts dir}"
 LABEL="${OWNER_LABEL:-owner-approved-pipeline}"
@@ -18,6 +24,44 @@ for f in branch.txt head_sha.txt pushed_at.txt commits.tsv files.txt labels.tsv 
 done
 [ -s "$F/commits.tsv" ] && [ -s "$F/head_sha.txt" ] || { echo "AGENT facts missing: no commits"; exit 1; }
 branch=$(cat "$F/branch.txt"); head=$(cat "$F/head_sha.txt"); pushed=$(cat "$F/pushed_at.txt")
+K1_ROOT="${K1_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+k1_mode=off; [ -f "$K1_ROOT/.github/k1-mode" ] && k1_mode=$(tr -d '[:space:]' < "$K1_ROOT/.github/k1-mode")
+case "$k1_mode" in off|observe|required) ;; *) echo "AGENT K1 mode unknown: $k1_mode"; exit 2 ;; esac
+
+# k1_check: prints "valid" or the first reason no approval holds; exit 0 only for a valid one
+k1_check() {
+  local signers="$K1_ROOT/.github/k1-allowed-signers" d="$F/approvals" f t k v reason="no signed approval"
+  [ -s "$signers" ] || { echo "no allowed signers on the default branch"; return 1; }
+  for k in repo.txt repo_id.txt pr.txt base_sha.txt; do [ -s "$F/$k" ] || { echo "facts missing: $k"; return 1; }; done
+  local repo rid pr base blob now; repo=$(cat "$F/repo.txt"); rid=$(cat "$F/repo_id.txt"); pr=$(cat "$F/pr.txt")
+  base=$(cat "$F/base_sha.txt"); blob=$(git hash-object --no-filters "${BASH_SOURCE[0]}"); now=$(date -u +%s)
+  [[ "$head" =~ ^[0-9a-f]{40}$ ]] && [[ "$base" =~ ^[0-9a-f]{40}$ ]] || { echo "live head/base is not a full SHA"; return 1; }
+  [ -d "$d" ] || { echo "$reason"; return 1; }
+  t="$(mktemp -d)"
+  for f in "$d"/*; do
+    [ -f "$f" ] || continue
+    local exp nonce got want field ok=1 i
+    exp=$(sed -n 's/^expires: //p' "$f" | head -1); nonce=$(sed -n 's/^nonce: //p' "$f" | head -1)
+    for i in "repository:$repo (id $rid)" "pr:$pr" "action:merge-pipeline-change" "head:$head" "base:$base" "policy:$blob"; do
+      field="${i%%:*}"; want="${i#*:}"; got=$(sed -n "s/^$field: //p" "$f" | head -1)
+      [ "$got" = "$want" ] || { reason="$field does not match (signed '${got:-none}', live '$want')"; ok=0; break; }
+    done
+    [ $ok = 1 ] || continue
+    [[ "$nonce" =~ ^[0-9a-f]{32}$ ]] || { reason="nonce is not 32 hex"; continue; }
+    [[ "$exp" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] && v=$(date -u -d "$exp" +%s 2>/dev/null) \
+      || { reason="expires is not a UTC timestamp"; continue; }
+    [ "$v" -gt "$now" ] || { reason="approval expired at $exp"; continue; }
+    [ $((v - now)) -le 259200 ] || { reason="expires more than 72 h ahead"; continue; }
+    printf 'RCC-APPROVAL-V1\nrepository: %s (id %s)\npr: %s\naction: merge-pipeline-change\nhead: %s\nbase: %s\npolicy: %s\nexpires: %s\nnonce: %s\n' \
+      "$repo" "$rid" "$pr" "$head" "$base" "$blob" "$exp" "$nonce" > "$t/msg"
+    sed -n '/^-----BEGIN SSH SIGNATURE-----$/,/^-----END SSH SIGNATURE-----$/p' "$f" > "$t/sig"
+    [ -s "$t/sig" ] || { reason="no signature block"; continue; }
+    if ssh-keygen -Y verify -f "$signers" -I owner -n rcc-approval -s "$t/sig" < "$t/msg" > /dev/null 2>&1; then
+      rm -rf "$t"; echo valid; return 0; fi
+    reason="signature not valid for an allowed signer"
+  done
+  rm -rf "$t"; echo "$reason"; return 1
+}
 
 kind=human
 if grep -Eqi '^(copilot|codex|claude)/' <<< "$branch" || awk -F'\t' '
@@ -37,7 +81,17 @@ fail=0
   touched=$(grep -E "$PIPE" "$F/files.txt" || true)
   if [ -n "$touched" ]; then
     why=""
-    if ! grep -qxF "$LABEL" "$F/labels_now.txt"; then why="no label"
+    k1=""; [ "$k1_mode" = off ] || k1=$(k1_check) || true
+    if [ "$k1_mode" = required ]; then
+      [ "$k1" = valid ] && echo "K1 owner signature valid" \
+        || { echo "AGENT PR touches pipeline without a valid owner signature (K1: $k1): $(tr '\n' ' ' <<< "$touched")"; fail=1; }
+      why=skip
+    elif [ "$k1_mode" = observe ]; then
+      [ "$k1" = valid ] && echo "K1 observe: owner signature valid (required mode would ACCEPT)" \
+        || echo "K1 observe: $k1 (required mode would BLOCK)"
+    fi
+    if [ "$why" = skip ]; then why=""
+    elif ! grep -qxF "$LABEL" "$F/labels_now.txt"; then why="no label"
     else
       last=$(awk -F'\t' -v l="$LABEL" '$1 == l' "$F/labels.tsv" | tail -n 1)
       actor=$(cut -f2 <<< "$last"); type=$(cut -f3 <<< "$last"); at=$(cut -f4 <<< "$last")

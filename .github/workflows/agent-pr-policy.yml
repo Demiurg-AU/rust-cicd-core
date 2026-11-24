@@ -8,7 +8,8 @@ on:
   # Safe use: default-branch workflow + default-branch checkout; PR content is only read via the API.
   pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, synchronize, reopened, labeled, unlabeled, edited]
-  # Safe use: only the Codex integration's comments trigger a job; comment text is never interpolated.
+  # Safe use: only the Codex integration's comments and K1 approval texts (verified by signature, not by author)
+  # trigger a job; comment text is never interpolated.
   issue_comment: # zizmor: ignore[dangerous-triggers]
     types: [created, edited]
 
@@ -38,8 +39,8 @@ jobs:
     needs: revoke
     if: >-
       always() && (github.event_name == 'pull_request_target' ||
-      (github.event.issue.pull_request && github.event.comment.user.login == 'chatgpt-codex-connector[bot]' &&
-       github.event.comment.user.type == 'Bot'))
+      (github.event.issue.pull_request && ((github.event.comment.user.login == 'chatgpt-codex-connector[bot]' &&
+       github.event.comment.user.type == 'Bot') || contains(github.event.comment.body, 'RCC-APPROVAL-V1'))))
     concurrency:
       group: agent-pr-policy-${{ github.event.pull_request.number || github.event.issue.number }}
       cancel-in-progress: true

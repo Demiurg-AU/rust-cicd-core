@@ -24,3 +24,12 @@ gh api --paginate "repos/$R/issues/$N/comments" --jq '.[] | select(.user.login =
   [.code_review.commit_sha, .code_review.status, (.code_review.has_unresolved_findings | tostring),
    $c.user.login, $c.user.type] | @tsv' > "$O/codex.tsv"
 gh api "repos/$R" --jq '.owner.login' > "$O/owners.txt"
+# K1: live identity of what an approval must name, and every comment carrying an approval text (any author: only the
+# signature decides). CR is stripped; nothing here is trusted - agent-pr-policy.sh rebuilds the signed text itself.
+printf '%s\n' "$R" > "$O/repo.txt"
+gh api "repos/$R" --jq '.id' > "$O/repo_id.txt"
+printf '%s\n' "$N" > "$O/pr.txt"
+gh api "repos/$R/pulls/$N" --jq '.base.sha' > "$O/base_sha.txt"
+mkdir -p "$O/approvals"
+gh api --paginate "repos/$R/issues/$N/comments" --jq '.[] | select(.body | contains("RCC-APPROVAL-V1")) | .id' |
+  while read -r id; do gh api "repos/$R/issues/comments/$id" --jq '.body' | tr -d '\r' > "$O/approvals/$id.txt"; done
