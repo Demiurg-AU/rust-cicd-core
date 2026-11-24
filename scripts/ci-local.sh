@@ -1664,6 +1664,45 @@ run C25 canary-agent-spoofed-codex fail '^AGENT PR has unresolved Codex findings
 run C63 canary-unmarked-pipeline-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-human-nolabel"
 run C64 canary-unmarked-no-codex fail '^AGENT PR head not reviewed by Codex: h1' "$ROOT" bash "$APP" "$CAN/pr-human-nocodex"
 run C27 canary-agent-config-only-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-config-only"
+# K1: an owner approval is an SSH signature over repository, PR, full head/base, policy blob, expiry and nonce. Fixtures
+# use a throwaway key; K1_ROOT points the policy at a fixture default branch with that key as the allowed signer.
+K1D="$CAN/k1"; mkdir -p "$K1D/req/.github" "$K1D/obs/.github"
+ssh-keygen -q -t ed25519 -N '' -C k1-test -f "$K1D/owner" && ssh-keygen -q -t ed25519 -N '' -C k1-other -f "$K1D/other"
+for m in req obs; do printf 'owner namespaces="rcc-approval" %s\n' "$(cut -d' ' -f1,2 "$K1D/owner.pub")" > "$K1D/$m/.github/k1-allowed-signers"; done
+printf 'required\n' > "$K1D/req/.github/k1-mode"; printf 'observe\n' > "$K1D/obs/.github/k1-mode"
+K1H=1111111111111111111111111111111111111111; K1B=2222222222222222222222222222222222222222; K1P="$(git hash-object --no-filters "$APP")"
+K1E="$(date -u -d '+1 hour' +%Y-%m-%dT%H:%M:%SZ)"
+k1pr() { # <dir> <labels now> <label events>: a pipeline PR at K1H/K1B with a clean Codex review
+  mkpr "$1" feat/k1 'owner\towner\t0\th1\n' 'scripts/ci-local.sh\n' "$3" "$2" "$K1H\tcompleted\tfalse\tchatgpt-codex-connector[bot]\tBot\n"
+  printf '%s\n' "$K1H" > "$1/head_sha.txt"; printf 'o/r\n' > "$1/repo.txt"; printf '42\n' > "$1/repo_id.txt"
+  printf '7\n' > "$1/pr.txt"; printf '%s\n' "$K1B" > "$1/base_sha.txt"; mkdir -p "$1/approvals"; }
+k1sign() { # <dir> <key> <head> <base> <policy blob> <expires>: an approval comment as agent-pr-facts.sh saves it
+  printf 'RCC-APPROVAL-V1\nrepository: o/r (id 42)\npr: 7\naction: merge-pipeline-change\nhead: %s\nbase: %s\npolicy: %s\nexpires: %s\nnonce: %s\n' \
+    "$3" "$4" "$5" "$6" 0123456789abcdef0123456789abcdef > "$1/msg"
+  ssh-keygen -q -Y sign -f "$2" -n rcc-approval "$1/msg" > /dev/null 2>&1
+  { echo '```'; cat "$1/msg" "$1/msg.sig"; echo '```'; } > "$1/approvals/1.txt"; rm -f "$1/msg" "$1/msg.sig"; }
+k1pr "$K1D/ok" '' ''; k1sign "$K1D/ok" "$K1D/owner" "$K1H" "$K1B" "$K1P" "$K1E"
+k1pr "$K1D/label-only" "$LBL" "$OWN"
+k1pr "$K1D/other-key" '' ''; k1sign "$K1D/other-key" "$K1D/other" "$K1H" "$K1B" "$K1P" "$K1E"
+k1pr "$K1D/other-head" '' ''; k1sign "$K1D/other-head" "$K1D/owner" 3333333333333333333333333333333333333333 "$K1B" "$K1P" "$K1E"
+k1pr "$K1D/other-base" '' ''; k1sign "$K1D/other-base" "$K1D/owner" "$K1H" 4444444444444444444444444444444444444444 "$K1P" "$K1E"
+k1pr "$K1D/other-policy" '' ''; k1sign "$K1D/other-policy" "$K1D/owner" "$K1H" "$K1B" 5555555555555555555555555555555555555555 "$K1E"
+K1X="$(date -u -d '-1 hour' +%Y-%m-%dT%H:%M:%SZ)"; sig_volatile '<k1-expired>' "$K1X"
+k1pr "$K1D/expired" '' ''; k1sign "$K1D/expired" "$K1D/owner" "$K1H" "$K1B" "$K1P" "$K1X"
+k1pr "$K1D/too-long" '' ''; k1sign "$K1D/too-long" "$K1D/owner" "$K1H" "$K1B" "$K1P" "$(date -u -d '+80 hours' +%Y-%m-%dT%H:%M:%SZ)"
+k1pr "$K1D/tampered" '' ''; k1sign "$K1D/tampered" "$K1D/owner" "$K1H" "$K1B" "$K1P" "$K1E"
+sed -i 's/^nonce: .*/nonce: ffffffffffffffffffffffffffffffff/' "$K1D/tampered/approvals/1.txt"
+sig_volatile '<k1-expires>' "$K1E"
+K1_ROOT="$K1D/req" run A3 k1-valid-signature-approves pass - "$ROOT" bash "$APP" "$K1D/ok"
+K1_ROOT="$K1D/obs" run A4 k1-observe-reports-would-block pass - "$ROOT" bash -c 'out="$(bash "$1" "$2")" || { echo "$out"; exit 1; }; echo "$out"; [[ "$out" == *"K1 observe: no signed approval (required mode would BLOCK)"* ]]' _ "$APP" "$K1D/label-only"
+K1_ROOT="$K1D/req" run C98 canary-k1-label-alone fail '^AGENT PR touches pipeline without a valid owner signature \(K1: no signed approval\)' "$ROOT" bash "$APP" "$K1D/label-only"
+K1_ROOT="$K1D/req" run C99 canary-k1-unknown-signer fail '\(K1: signature not valid for an allowed signer\)' "$ROOT" bash "$APP" "$K1D/other-key"
+K1_ROOT="$K1D/req" run C100 canary-k1-other-head fail "\\(K1: head does not match \\(signed '3{40}'" "$ROOT" bash "$APP" "$K1D/other-head"
+K1_ROOT="$K1D/req" run C101 canary-k1-other-base fail "\\(K1: base does not match \\(signed '4{40}'" "$ROOT" bash "$APP" "$K1D/other-base"
+K1_ROOT="$K1D/req" run C102 canary-k1-other-policy fail "\\(K1: policy does not match \\(signed '5{40}'" "$ROOT" bash "$APP" "$K1D/other-policy"
+K1_ROOT="$K1D/req" run C103 canary-k1-expired fail '\(K1: approval expired at ' "$ROOT" bash "$APP" "$K1D/expired"
+K1_ROOT="$K1D/req" run C104 canary-k1-expiry-too-far fail '\(K1: expires more than 72 h ahead\)' "$ROOT" bash "$APP" "$K1D/too-long"
+K1_ROOT="$K1D/req" run C105 canary-k1-tampered-nonce fail '\(K1: signature not valid for an allowed signer\)' "$ROOT" bash "$APP" "$K1D/tampered"
 # --- T2: the registries agree with each other (#G13): every canary that ran is relied on by a threat row or an
 # assumption (an orphan canary guards nothing anyone claims), every ext-controls row is named by a threat row,
 # every assumption belongs to a claim, every claim has an assumption row. C69-C71 plant each kind of drift.
@@ -1709,7 +1748,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..97} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..105} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..97} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..105} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
