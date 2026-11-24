@@ -8,8 +8,8 @@ use std::time::{Duration as StdDuration, SystemTime, UNIX_EPOCH};
 
 use humantime::{
     format_duration, format_rfc3339, format_rfc3339_micros, format_rfc3339_millis,
-    format_rfc3339_nanos, format_rfc3339_seconds, parse_duration, parse_rfc3339, parse_rfc3339_weak,
-    Duration, Timestamp, TimestampError,
+    format_rfc3339_nanos, format_rfc3339_seconds, parse_duration, parse_rfc3339,
+    parse_rfc3339_weak, Duration, Timestamp, TimestampError,
 };
 
 fn at(secs: u64, nanos: u32) -> SystemTime {
@@ -26,14 +26,26 @@ fn secs(s: &str) -> u64 {
 
 #[test]
 fn timestamp_error_messages() {
-    assert_eq!(TimestampError::OutOfRange.to_string(), "numeric component is out of range");
-    assert_eq!(TimestampError::InvalidDigit.to_string(), "bad character where digit is expected");
-    assert_eq!(TimestampError::InvalidFormat.to_string(), "timestamp format is invalid");
+    assert_eq!(
+        TimestampError::OutOfRange.to_string(),
+        "numeric component is out of range"
+    );
+    assert_eq!(
+        TimestampError::InvalidDigit.to_string(),
+        "bad character where digit is expected"
+    );
+    assert_eq!(
+        TimestampError::InvalidFormat.to_string(),
+        "timestamp format is invalid"
+    );
 }
 
 #[test]
 fn february_29_only_in_leap_years() {
-    assert_eq!(parse_rfc3339("2019-02-29T00:00:00Z"), Err(TimestampError::OutOfRange));
+    assert_eq!(
+        parse_rfc3339("2019-02-29T00:00:00Z"),
+        Err(TimestampError::OutOfRange)
+    );
     assert_eq!(secs("2020-02-29T00:00:00Z"), 1_582_934_400);
     // the day after February in a leap year counts the extra day, in a common year it does not
     assert_eq!(secs("2020-03-01T00:00:00Z"), 1_583_020_800);
@@ -54,22 +66,52 @@ fn trailing_text_after_zone() {
 
 #[test]
 fn format_calendar_boundaries() {
-    assert_eq!(format_rfc3339(at(946_684_800, 0)).to_string(), "2000-01-01T00:00:00Z");
-    assert_eq!(format_rfc3339(at(951_782_400, 0)).to_string(), "2000-02-29T00:00:00Z");
-    assert_eq!(format_rfc3339(at(951_868_800, 0)).to_string(), "2000-03-01T00:00:00Z");
-    assert_eq!(format_rfc3339(at(978_307_200, 0)).to_string(), "2001-01-01T00:00:00Z");
-    assert_eq!(format_rfc3339(at(4_107_542_400, 0)).to_string(), "2100-03-01T00:00:00Z");
+    assert_eq!(
+        format_rfc3339(at(946_684_800, 0)).to_string(),
+        "2000-01-01T00:00:00Z"
+    );
+    assert_eq!(
+        format_rfc3339(at(951_782_400, 0)).to_string(),
+        "2000-02-29T00:00:00Z"
+    );
+    assert_eq!(
+        format_rfc3339(at(951_868_800, 0)).to_string(),
+        "2000-03-01T00:00:00Z"
+    );
+    assert_eq!(
+        format_rfc3339(at(978_307_200, 0)).to_string(),
+        "2001-01-01T00:00:00Z"
+    );
+    assert_eq!(
+        format_rfc3339(at(4_107_542_400, 0)).to_string(),
+        "2100-03-01T00:00:00Z"
+    );
 }
 
 #[cfg(not(all(target_pointer_width = "32", not(target_os = "windows"))))]
 #[test]
 fn format_last_representable_second() {
     let last = at(253_402_300_799, 999_999_999);
-    assert_eq!(format_rfc3339(last).to_string(), "9999-12-31T23:59:59.999999999Z");
-    assert_eq!(format_rfc3339_seconds(last).to_string(), "9999-12-31T23:59:59Z");
-    assert_eq!(format_rfc3339_millis(last).to_string(), "9999-12-31T23:59:59.999Z");
-    assert_eq!(format_rfc3339_micros(last).to_string(), "9999-12-31T23:59:59.999999Z");
-    assert_eq!(format_rfc3339_nanos(last).to_string(), "9999-12-31T23:59:59.999999999Z");
+    assert_eq!(
+        format_rfc3339(last).to_string(),
+        "9999-12-31T23:59:59.999999999Z"
+    );
+    assert_eq!(
+        format_rfc3339_seconds(last).to_string(),
+        "9999-12-31T23:59:59Z"
+    );
+    assert_eq!(
+        format_rfc3339_millis(last).to_string(),
+        "9999-12-31T23:59:59.999Z"
+    );
+    assert_eq!(
+        format_rfc3339_micros(last).to_string(),
+        "9999-12-31T23:59:59.999999Z"
+    );
+    assert_eq!(
+        format_rfc3339_nanos(last).to_string(),
+        "9999-12-31T23:59:59.999999999Z"
+    );
     let mut s = String::new();
     assert!(write!(s, "{}", format_rfc3339(at(253_402_300_800, 0))).is_err());
 }
@@ -86,8 +128,14 @@ fn format_before_epoch_is_an_error_not_a_panic() {
 
 #[test]
 fn whitespace_inside_a_fraction() {
-    assert_eq!(parse_duration("1. 5s"), Ok(StdDuration::new(1, 500_000_000)));
-    assert_eq!(parse_duration("1.5 s"), Ok(StdDuration::new(1, 500_000_000)));
+    assert_eq!(
+        parse_duration("1. 5s"),
+        Ok(StdDuration::new(1, 500_000_000))
+    );
+    assert_eq!(
+        parse_duration("1.5 s"),
+        Ok(StdDuration::new(1, 500_000_000))
+    );
 }
 
 #[test]

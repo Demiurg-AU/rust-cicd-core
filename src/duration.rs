@@ -240,7 +240,10 @@ impl Parser<'_> {
         out: &mut Duration,
     ) -> Result<(), Error> {
         // start and end are offsets of chars of src, so this slice always exists
-        let text = self.src.get(start..end).ok_or(Error::InvalidCharacter(start))?;
+        let text = self
+            .src
+            .get(start..end)
+            .ok_or(Error::InvalidCharacter(start))?;
         let unit = match Unit::from_str(text) {
             Ok(u) => u,
             Err(()) => {

@@ -115,7 +115,9 @@ fn days_since_epoch(year: u64, month: u64, day: u64) -> Result<u64, Error> {
     }
     let after_feb = u64::from(leap && month > 2);
     let calc = || -> Option<u64> {
-        let ydays = ydays.checked_add(day.checked_sub(1)?)?.checked_add(after_feb)?;
+        let ydays = ydays
+            .checked_add(day.checked_sub(1)?)?
+            .checked_add(after_feb)?;
         let py = year.checked_sub(1)?;
         let leap_years = (py.checked_sub(1968)? / 4)
             .checked_sub(py.checked_sub(1900)? / 100)?
@@ -149,7 +151,11 @@ pub fn parse_rfc3339_weak(s: &str) -> Result<SystemTime, Error> {
         .ok_or(Error::InvalidFormat)?;
     let [y0, y1, y2, y3, dash1, m0, m1, dash2, d0, d1, sep, h0, h1, colon1, mi0, mi1, colon2, s0, s1] =
         head;
-    if dash1 != b'-' || dash2 != b'-' || (sep != b'T' && sep != b' ') || colon1 != b':' || colon2 != b':'
+    if dash1 != b'-'
+        || dash2 != b'-'
+        || (sep != b'T' && sep != b' ')
+        || colon1 != b':'
+        || colon2 != b':'
     {
         return Err(Error::InvalidFormat);
     }
@@ -208,7 +214,9 @@ pub fn parse_rfc3339_weak(s: &str) -> Result<SystemTime, Error> {
                 .ok_or(Error::OutOfRange)?;
             mult /= 10;
         }
-    } else if !tail.is_empty() && (b.len() > 25 || (tail.first() != Some(&b'Z') && tail != b"+00:00")) {
+    } else if !tail.is_empty()
+        && (b.len() > 25 || (tail.first() != Some(&b'Z') && tail != b"+00:00"))
+    {
         return Err(Error::InvalidFormat);
     }
 
@@ -292,7 +300,9 @@ fn civil_from_unix(secs_since_epoch: u64) -> Option<(i64, i64, i64, u64)> {
     const DAYS_PER_100Y: i64 = 365 * 100 + 24;
     const DAYS_PER_4Y: i64 = 365 * 4 + 1;
 
-    let days = i64::try_from(secs_since_epoch / 86400).ok()?.checked_sub(LEAPOCH)?;
+    let days = i64::try_from(secs_since_epoch / 86400)
+        .ok()?
+        .checked_sub(LEAPOCH)?;
     let secs_of_day = secs_since_epoch % 86400;
 
     let mut qc_cycles = days.checked_div(DAYS_PER_400Y)?;
