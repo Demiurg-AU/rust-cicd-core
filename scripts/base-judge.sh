@@ -15,7 +15,18 @@ assemble() {
   h="$(git -C "$repo" rev-parse --verify -q "$3^{commit}")" || die "head ref not found: $3"
   out="$4"; [ ! -e "$out" ] || [ -z "$(ls -A "$out")" ] || die "out dir not empty: $out"
   mkdir -p "$out"
-  git -C "$repo" archive "$h" | tar -x -C "$out"
+  # the head's committed bytes, blob by blob: git archive / checkout would apply the head's own .gitattributes
+  # (export-ignore drops files, eol/text rewrites them - Codex P1 on #56), so neither is used
+  local mode type sha path
+  while IFS= read -r -d '' line; do
+    mode="${line%% *}"; line="${line#* }"; type="${line%% *}"; line="${line#* }"; sha="${line%%$'\t'*}"; path="${line#*$'\t'}"
+    case "$type" in
+      blob) mkdir -p "$out/$(dirname "$path")"
+            if [ "$mode" = 120000 ]; then ln -s "$(git -C "$repo" cat-file blob "$sha")" "$out/$path"
+            else git -C "$repo" cat-file blob "$sha" > "$out/$path"; [ "$mode" = 100755 ] && chmod +x "$out/$path"; fi ;;
+      commit) mkdir -p "$out/$path" ;;   # a submodule: its commit is not part of this tree's bytes
+    esac
+  done < <(git -C "$repo" ls-tree -r -z --full-tree "$h")
   # 1. every judge entry of the head goes: files, and symlinks (a head symlink scripts/ci-local.sh -> sandbox.sh would
   #    make the restore below write THROUGH it, Codex P1 on #56), including a symlinked judge directory itself
   while IFS= read -r f; do
@@ -37,7 +48,7 @@ assemble() {
     local p="$out"; local part
     IFS=/ read -ra parts <<< "$f"
     for part in "${parts[@]}"; do p="$p/$part"; [ -L "$p" ] && die "judge path is a symlink after assembly: ${p#"$out"/}"; done
-    [ "$(git hash-object "$out/$f")" = "$(git -C "$repo" rev-parse "$b:$f")" ] || die "judge file differs from the base: $f"
+    [ "$(git hash-object --no-filters "$out/$f")" = "$(git -C "$repo" rev-parse "$b:$f")" ] || die "judge file differs from the base: $f"
   done < <(git -C "$repo" ls-tree -r --name-only "$b")
   chmod +x "$out"/scripts/*.sh 2>/dev/null || true
   # the assembled tree is a repository at the head's commit id, so evidence names the code that was judged

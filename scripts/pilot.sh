@@ -160,8 +160,9 @@ if [ "$STAGE" = 3b ]; then
   # the 3b verdict is computed from the saved results against the profile; recompute it any time with
   #   scripts/pilot-verdict.sh <pilot> <work dir>
   echo "  3b requirements (profile: ${PILOT_3B_REQUIRE:-none}; claims: ${PILOT_3B_CLAIMS:-none}):"
+  # a 3b step that failed (fuzz-gate, K5, K4, Kani run) fails 3b even if its rows look complete: recorded for the verdict
+  printf 'steps:3b\t%s\n' "$([ "$s3b" -eq 0 ] && echo PASS || echo FAIL)" >> "$st"
   bash "$TPL/scripts/pilot-verdict.sh" "$P" "$P/work"; v3b=$?
-  [ "$s3b" -eq 0 ] || echo "  (a 3b step exited non-zero; its rows above say which)"
 fi
 [ "$rc" -eq 0 ] && [ "$v3b" -eq 0 ] && exit 0
 exit 1

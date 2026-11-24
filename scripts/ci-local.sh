@@ -1476,6 +1476,10 @@ printf 'CRATE_NAME=x\nCRATE_URL=x\nCRATE_SHA=x\n' | tee "$PV/link/pilot.env" > "
 ln -sf /dev/null "$PV/link/overlay/src/lib.rs"; ln -sf /dev/null "$PV/link-spec/spec/x.rs"
 run C92 canary-pilot-overlay-symlink fail '^PILOT overlay holds entries that are not regular files: src/lib.rs' "$ROOT" bash "$ROOT/scripts/pilot.sh" "$PV/link" 3a
 run C93 canary-pilot-spec-symlink fail '^PILOT spec pack holds entries that are not regular files: x.rs' "$ROOT" bash "$ROOT/scripts/pilot.sh" "$PV/link-spec" 3b
+cp -r "$PV/ok" "$PV/emptyk4"; printf '# id\ttarget\tfile\texact\trepl\tcanary\n' > "$PV/emptyk4/spec/fuzz/spec-mutants.tsv"
+cp -r "$PV/ok" "$PV/stepfail"; printf 'steps:3b\tFAIL\n' >> "$PV/stepfail/work/status.tsv"
+run C94 canary-pilot-verdict-empty-manifest fail '3b MISSING k4: manifest .* has no entries' "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/emptyk4"
+run C95 canary-pilot-verdict-failed-step fail '3b FAIL a 3b step exited non-zero' "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/stepfail"
 run E7 pilot-verdict-complete-set pass - "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/ok"
 run C90 canary-pilot-verdict-missing-k4-manifest fail '3b MISSING k4: manifest' "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/nok4"
 run C91 canary-pilot-verdict-missing-claim fail '3b MISSING claim Z1: not in claims-3b.tsv' "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/noclaim"
@@ -1504,6 +1508,18 @@ judge_despite_links() { local h out
     [ -L "$BJL/out-$h/scripts" ] || [ -L "$BJL/out-$h/scripts/ci-local.sh" ] && { echo "JUDGE symlink left for head $h"; return 1; }
   done; echo "JUDGE from base despite file and directory symlinks in the head"; }
 run E9 base-judge-ignores-head-symlinks pass - "$ROOT" judge_despite_links
+# the head's own .gitattributes cannot change what the base judge sees: export-ignore must not drop a committed file
+# and eol=crlf must not rewrite one (Codex P1 on #56: git archive honours both)
+BJA="$CAN/basejudge-attrs"; mkdir -p "$BJA/repo/scripts" "$BJA/repo/tests"
+( cd "$BJA/repo" && git init -q && printf 'exit 1\n' > scripts/ci-local.sh && git add -A && git -c user.name=c -c user.email=c@c commit -qm base \
+  && git branch -q basejudge-base && printf 'tests/fails.rs export-ignore\n*.rs text eol=crlf\n' > .gitattributes \
+  && printf 'fn a() {}\nfn b() {}\n' > tests/fails.rs && git add -A && git -c user.name=c -c user.email=c@c commit -qm head )
+judge_sees_all_bytes() { local o="$BJA/out"
+  bash "$ROOT/scripts/base-judge.sh" assemble "$BJA/repo" basejudge-base HEAD "$o" >/dev/null || return 1
+  [ -f "$o/tests/fails.rs" ] || { echo "JUDGE tree lost tests/fails.rs (export-ignore honoured)"; return 1; }
+  [ "$(git hash-object --no-filters "$o/tests/fails.rs")" = "$(git -C "$BJA/repo" rev-parse HEAD:tests/fails.rs)" ] || { echo "JUDGE tree rewrote tests/fails.rs (eol honoured)"; return 1; }
+  echo "JUDGE tree holds the head's committed bytes despite its .gitattributes"; }
+run E10 base-judge-ignores-head-attributes pass - "$ROOT" judge_sees_all_bytes
 run E5 base-judge-assembles-from-base pass - "$ROOT" judge_from_base e5
 run C88 canary-base-judge-unknown-base fail '^JUDGE base ref not found: no-such-base' "$ROOT" bash "$ROOT/scripts/base-judge.sh" assemble "$BJ/repo" no-such-base HEAD "$BJ/out-c88"
 # T3: the live policy of the default branch (EXT_RULES + EXT_RULESETS from scripts/fetch-policy.sh) is the snapshot
@@ -1663,7 +1679,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..93} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..95} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..93} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..95} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

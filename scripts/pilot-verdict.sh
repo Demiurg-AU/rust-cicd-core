@@ -24,16 +24,22 @@ fail() { echo "  3b FAIL $1"; bad=$((bad + 1)); }
 ok() { echo "  3b PASS $1"; }
 val() { awk -F'\t' -v k="$1" '$1 == k {print $2; n++} END {if (n > 1) print "DUPLICATE"}' "$st" 2>/dev/null | tail -1; }
 rows() { awk -F'\t' '!/^#/ && NF {print $1}' "$1"; }
+# a required stage needs at least one entry: an empty (or comment-only) manifest proves nothing (Codex P2 on #56)
+empty() { [ -z "$(rows "$1")" ]; }
 [ -f "$st" ] || { echo "  3b MISSING status.tsv in $W: no saved results"; echo "PILOT 3b FAIL: no saved results"; exit 1; }
+# a step pilot.sh saw fail (non-zero exit of fuzz-gate, K5, K4, Kani) fails 3b whatever its rows say
+case "$(val steps:3b)" in FAIL) fail "a 3b step exited non-zero (see the pilot output)" ;; esac
 for item in $REQ; do
   case "$item" in
     fuzz-targets)
       [ -f "$S/fuzz-targets.tsv" ] || { miss "fuzz-targets: manifest $S/fuzz-targets.tsv"; continue; }
+      empty "$S/fuzz-targets.tsv" && { miss "fuzz-targets: manifest $S/fuzz-targets.tsv has no entries"; continue; }
       while read -r t; do v="$(val "fuzz:$t")"
         if [ "$v" = PASS ]; then ok "fuzz:$t"; elif [ -z "$v" ]; then miss "fuzz:$t: no result in status.tsv"; else fail "fuzz:$t: $v"; fi
       done < <(rows "$S/fuzz-targets.tsv") ;;
     fuzz-canaries)
       [ -f "$S/fuzz-canaries.tsv" ] || { miss "fuzz-canaries: manifest $S/fuzz-canaries.tsv"; continue; }
+      empty "$S/fuzz-canaries.tsv" && { miss "fuzz-canaries: manifest $S/fuzz-canaries.tsv has no entries"; continue; }
       [ -f "$W/fuzz.log" ] || { miss "fuzz-canaries: fuzz-gate log $W/fuzz.log"; continue; }
       while read -r c; do
         if grep -q "^FUZZ CANARY $c caught" "$W/fuzz.log"; then ok "canary $c caught for its reason"
@@ -42,11 +48,13 @@ for item in $REQ; do
       done < <(rows "$S/fuzz-canaries.tsv") ;;
     k5)
       [ -f "$S/fuzz-coverage.tsv" ] || { miss "k5: manifest $S/fuzz-coverage.tsv (required by the profile)"; continue; }
+      empty "$S/fuzz-coverage.tsv" && { miss "k5: manifest $S/fuzz-coverage.tsv has no entries"; continue; }
       for k in $(rows "$S/fuzz-coverage.tsv" | sed 's/^/k5:/') k5:canary; do v="$(val "$k")"
         if [ "$v" = PASS ]; then ok "$k"; elif [ -z "$v" ]; then miss "$k: no result in status.tsv"; else fail "$k: $v"; fi
       done ;;
     k4)
       [ -f "$S/spec-mutants.tsv" ] || { miss "k4: manifest $S/spec-mutants.tsv (required by the profile)"; continue; }
+      empty "$S/spec-mutants.tsv" && { miss "k4: manifest $S/spec-mutants.tsv has no entries"; continue; }
       while read -r m; do v="$(val "k4:$m")"
         if [ "$v" = PASS ]; then ok "k4:$m"; elif [ -z "$v" ]; then miss "k4:$m: no result in status.tsv"; else fail "k4:$m: $v"; fi
       done < <(rows "$S/spec-mutants.tsv") ;;
