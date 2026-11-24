@@ -97,7 +97,7 @@ jobs:
 
   base-judge:
     # K3: the PR's code judged by the BASE commit's judge (scripts, threat model, policy files), so a PR that edits its
-    # own judge is still measured by the judge it did not write. Not a required check until the owner adds it.
+    # own judge is still measured by the judge it did not write. A required check (ruleset-snapshot.json).
     name: core (base judge x PR code)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04

@@ -36,6 +36,9 @@
           },
           {
             "context": "claims (PASS / FAIL / ABSTAIN)"
+          },
+          {
+            "context": "core (base judge x PR code)"
           }
         ],
         "strict_required_status_checks_policy": true
@@ -97,6 +100,9 @@
               },
               {
                 "context": "claims (PASS / FAIL / ABSTAIN)"
+              },
+              {
+                "context": "core (base judge x PR code)"
               }
             ],
             "strict_required_status_checks_policy": true
