@@ -1,6 +1,6 @@
 # K1 — owner approval as a signature
 
-Status: **implemented, mode `observe`** (owner decision 2026-11-24: use K1; key ed25519
+Status: **implemented, mode `required`** (owner decision 2026-11-24: use K1; key ed25519
 `SHA256:1PwNTB4rzqGJvTb+Ti+XykVpfnzKZVZmJ4ryaJ+XBxw`, private key on the owner's machine only; the agent gets its
 own GitHub App identity). `scripts/agent-pr-policy.sh` verifies the signature on every pipeline PR.
 

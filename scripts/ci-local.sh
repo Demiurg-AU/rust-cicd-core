@@ -1653,17 +1653,20 @@ mkpr "$CAN/pr-agent-stale-label" copilot/x 'Copilot\towner\t0\th1\n' 'scripts/ci
 mkpr "$CAN/pr-agent-spoofed-codex" claude/x 'owner\towner\t1\th1\n' 'src/lib.rs\n' '' '' 'h1\tcompleted\ttrue\tchatgpt-codex-connector[bot]\tBot\nh1\tcompleted\tfalse\tnot-the-codex-reviewer\tUser\n'
 # config-only change: gate configuration (Kani, cargo, nextest) is pipeline too
 mkpr "$CAN/pr-agent-config-only" copilot/x 'Copilot\towner\t0\th1\n' 'kani-harnesses.tsv\n.cargo/config.toml\nclaims.tsv\nspec-paths.txt\n' '' '' "$CDX"
-run A1 agent-policy-human-pass pass - "$ROOT" bash "$APP" "$CAN/pr-human"
-run A2 agent-policy-approved-agent-pass pass - "$ROOT" bash "$APP" "$CAN/pr-agent-ok"
-run C20 canary-agent-pipeline-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-nolabel"
-run C21 canary-agent-label-by-bot fail '^AGENT PR touches pipeline without owner label \(label not applied by a human owner\)' "$ROOT" bash "$APP" "$CAN/pr-agent-botlabel"
-run C22 canary-agent-codex-not-on-head fail '^AGENT PR head not reviewed by Codex: h1' "$ROOT" bash "$APP" "$CAN/pr-agent-stale-codex"
-run C23 canary-agent-unresolved-findings fail '^AGENT PR has unresolved Codex findings' "$ROOT" bash "$APP" "$CAN/pr-agent-findings"
-run C24 canary-agent-label-before-push fail '^AGENT PR touches pipeline without owner label \(label predates the latest push' "$ROOT" bash "$APP" "$CAN/pr-agent-stale-label"
-run C25 canary-agent-spoofed-codex fail '^AGENT PR has unresolved Codex findings' "$ROOT" bash "$APP" "$CAN/pr-agent-spoofed-codex"
-run C63 canary-unmarked-pipeline-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-human-nolabel"
-run C64 canary-unmarked-no-codex fail '^AGENT PR head not reviewed by Codex: h1' "$ROOT" bash "$APP" "$CAN/pr-human-nocodex"
-run C27 canary-agent-config-only-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-config-only"
+# the label-policy fixtures above predate K1 and run against their own default branch with K1 off, so the repository's
+# own .github/k1-mode (required) cannot change what they test (Codex P1 on #62); K1 itself is tested below
+K1OFF="$CAN/k1-off"; mkdir -p "$K1OFF/.github"; printf 'off\n' > "$K1OFF/.github/k1-mode"
+K1_ROOT="$K1OFF" run A1 agent-policy-human-pass pass - "$ROOT" bash "$APP" "$CAN/pr-human"
+K1_ROOT="$K1OFF" run A2 agent-policy-approved-agent-pass pass - "$ROOT" bash "$APP" "$CAN/pr-agent-ok"
+K1_ROOT="$K1OFF" run C20 canary-agent-pipeline-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-nolabel"
+K1_ROOT="$K1OFF" run C21 canary-agent-label-by-bot fail '^AGENT PR touches pipeline without owner label \(label not applied by a human owner\)' "$ROOT" bash "$APP" "$CAN/pr-agent-botlabel"
+K1_ROOT="$K1OFF" run C22 canary-agent-codex-not-on-head fail '^AGENT PR head not reviewed by Codex: h1' "$ROOT" bash "$APP" "$CAN/pr-agent-stale-codex"
+K1_ROOT="$K1OFF" run C23 canary-agent-unresolved-findings fail '^AGENT PR has unresolved Codex findings' "$ROOT" bash "$APP" "$CAN/pr-agent-findings"
+K1_ROOT="$K1OFF" run C24 canary-agent-label-before-push fail '^AGENT PR touches pipeline without owner label \(label predates the latest push' "$ROOT" bash "$APP" "$CAN/pr-agent-stale-label"
+K1_ROOT="$K1OFF" run C25 canary-agent-spoofed-codex fail '^AGENT PR has unresolved Codex findings' "$ROOT" bash "$APP" "$CAN/pr-agent-spoofed-codex"
+K1_ROOT="$K1OFF" run C63 canary-unmarked-pipeline-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-human-nolabel"
+K1_ROOT="$K1OFF" run C64 canary-unmarked-no-codex fail '^AGENT PR head not reviewed by Codex: h1' "$ROOT" bash "$APP" "$CAN/pr-human-nocodex"
+K1_ROOT="$K1OFF" run C27 canary-agent-config-only-no-label fail '^AGENT PR touches pipeline without owner label \(no label\)' "$ROOT" bash "$APP" "$CAN/pr-agent-config-only"
 # K1: an owner approval is an SSH signature over repository, PR, full head/base, policy blob, expiry and nonce. Fixtures
 # use a throwaway key; K1_ROOT points the policy at a fixture default branch with that key as the allowed signer.
 K1D="$CAN/k1"; mkdir -p "$K1D/req/.github" "$K1D/obs/.github"
