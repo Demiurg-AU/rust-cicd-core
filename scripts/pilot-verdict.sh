@@ -65,7 +65,7 @@ done
 kv=ABSTAIN; kw="no Kani result saved (spec-kani not run: PILOT_KANI=${PILOT_KANI:-abstain}, see spec-kani/README.md)"
 if [ -f "$W/kani/kani-results.tsv" ]; then
   if awk -F'\t' 'NR > 1 {n++; if ($2 != "PASS") f++} END {exit !(n > 0 && f == 0)}' "$W/kani/kani-results.tsv" &&
-     awk -F'\t' 'NF {n++; if ($2 != "PASS") f++} END {exit !(n > 0 && f == 0)}' "$W/kani-canaries/kani-canaries.tsv" 2>/dev/null
+     awk -F'\t' 'NR > 1 && NF {n++; if ($2 != "PASS") f++} END {exit !(n > 0 && f == 0)}' "$W/kani-canaries/kani-canaries.tsv" 2>/dev/null
   then kv=PASS; kw="every harness proved, every Kani canary caught"
   else kw="no finished proof: $(grep -m1 -E '^KANI (FAIL|ERROR)' "$W/kani.log" 2>/dev/null | cut -c1-120)"; fi
 fi

@@ -150,13 +150,23 @@ jobs:
           bwrap --version
           bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid --die-with-parent true
 
-      - name: Ruleset rules of the default branch (T1 witnesses ext:ruleset-* and required checks, #45 item 5)
+      - name: Policy of the default branch, fetched by the BASE commit's helper (Codex P1 on #56)
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          bash scripts/fetch-policy.sh "$REPO" "$RUNNER_TEMP/policy" >> "$GITHUB_ENV"
+          # nothing of the PR's tree runs before the judge is assembled: helpers come from the base commit
+          if git cat-file -e "$BASE:scripts/fetch-policy.sh" 2>/dev/null; then
+            git show "$BASE:scripts/fetch-policy.sh" > "$RUNNER_TEMP/base-fetch-policy.sh"
+            bash "$RUNNER_TEMP/base-fetch-policy.sh" "$REPO" "$RUNNER_TEMP/policy" >> "$GITHUB_ENV"
+          else
+            # bootstrap: a base from before fetch-policy.sh fetched the effective rules inline (as its ci.yml did)
+            branch="$(gh api "repos/$REPO" --jq .default_branch)"
+            gh api "repos/$REPO/rules/branches/$branch" > "$RUNNER_TEMP/ext-rules.json"
+            echo "EXT_RULES=$RUNNER_TEMP/ext-rules.json" >> "$GITHUB_ENV"
+          fi
 
       - name: Run the base judge on the PR code
         id: ci
@@ -165,7 +175,16 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          bash scripts/base-judge.sh run "$GITHUB_WORKSPACE" "$BASE" HEAD "$RUNNER_TEMP/judge"
+          # the assembler itself comes from the base commit too (Codex P1 on #56): a PR that edits
+          # scripts/base-judge.sh cannot skip the assembly or swap in its own judge
+          if git cat-file -e "$BASE:scripts/base-judge.sh" 2>/dev/null; then
+            git show "$BASE:scripts/base-judge.sh" > "$RUNNER_TEMP/base-judge.sh"
+            bash "$RUNNER_TEMP/base-judge.sh" run "$GITHUB_WORKSPACE" "$BASE" HEAD "$RUNNER_TEMP/judge"
+          else
+            echo "JUDGE BOOTSTRAP: the base commit has no scripts/base-judge.sh; this PR introduces K3, so its own"
+            echo "JUDGE BOOTSTRAP: assembler runs once (reviewed with the owner label); from the next PR on it comes from the base"
+            bash scripts/base-judge.sh run "$GITHUB_WORKSPACE" "$BASE" HEAD "$RUNNER_TEMP/judge"
+          fi
 
       - name: Upload evidence
         if: always()

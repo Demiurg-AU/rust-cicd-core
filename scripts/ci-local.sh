@@ -1462,6 +1462,13 @@ printf '# claim\tproperty\tscope\tbounds\tevidence\nZ1\tp\tbounded\tb\tk4:SMx\n'
 printf 'k4:SMx\tPASS\n' > "$PV/ok/work/status.tsv"
 for v in nok4 noclaim; do cp -r "$PV/ok" "$PV/$v"; done
 rm "$PV/nok4/spec/fuzz/spec-mutants.tsv"; printf '# claim\tproperty\tscope\tbounds\tevidence\n' > "$PV/noclaim/claims-3b.tsv"
+# a finished Kani proof with every canary caught is Kani PASS, and satisfies a profile that requires Kani
+# (Codex P2 on #56: the header row of kani-canaries.tsv was counted as a failed canary)
+cp -r "$PV/ok" "$PV/kani"; mkdir -p "$PV/kani/work/kani" "$PV/kani/work/kani-canaries"
+sed -i 's/^PILOT_3B_REQUIRE=.*/PILOT_3B_REQUIRE="k4 claims"\nPILOT_KANI=required/' "$PV/kani/pilot.env"
+printf 'harness\tverdict\treason\nm::h\tPASS\tproved\n' > "$PV/kani/work/kani/kani-results.tsv"
+printf 'canary\tverdict\nKX1\tPASS\n' > "$PV/kani/work/kani-canaries/kani-canaries.tsv"
+run E8 pilot-verdict-kani-proof-counts pass - "$ROOT" bash -c 'out="$(bash "$1" "$2")" || { echo "$out"; exit 1; }; echo "$out"; grep -q "^PILOT Kani PASS" <<< "$out"' _ "$ROOT/scripts/pilot-verdict.sh" "$PV/kani"
 run E7 pilot-verdict-complete-set pass - "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/ok"
 run C90 canary-pilot-verdict-missing-k4-manifest fail '3b MISSING k4: manifest' "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/nok4"
 run C91 canary-pilot-verdict-missing-claim fail '3b MISSING claim Z1: not in claims-3b.tsv' "$ROOT" bash "$ROOT/scripts/pilot-verdict.sh" "$PV/noclaim"
@@ -1635,7 +1642,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 E8 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 E8 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
