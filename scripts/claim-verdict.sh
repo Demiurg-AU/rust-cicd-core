@@ -16,6 +16,9 @@ row="$(awk -F'\t' -v id="$id" '!/^#/ && $1==id' "$claims")"
 IFS=$'\t' read -r _ _ scope bounds evidence <<< "$row"
 [[ "$scope" = code || "$scope" = model || "$scope" = bounded ]] || { echo "VERDICT bad scope for $id: $scope"; exit 2; }
 [ -n "$evidence" ] || { echo "ABSTAIN $id: no evidence listed"; exit 0; }
+# K2: one status row per id. A repeated id (a FAIL row, then a PASS row) is not resolved by taking the last one.
+dup="$(awk -F'\t' 'NF {c[$1]++} END {for (k in c) if (c[k] > 1) print k}' "$status" | sort | head -3 | tr '\n' ' ')"
+[ -z "$dup" ] || { echo "FAIL $id: status rows repeated for: $dup"; exit 0; }
 missing=""
 IFS=',' read -ra items <<< "$evidence"
 for e in "${items[@]}"; do

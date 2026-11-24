@@ -2,3 +2,4 @@ target/
 evidence/*/canary-work/
 evidence/*/
 kani-list.json
+pilots/*/work/

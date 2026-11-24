@@ -1,0 +1,5 @@
+# Domain claims about humantime, judged by scripts/claim-verdict.sh on the pilot's own evidence.
+# claim	property	scope	bounds	evidence (comma-separated; empty = no evidence yet -> ABSTAIN)
+H1	parse_duration never panics, for any &str	code	all	
+H2	format_duration then parse_duration returns the same Duration	bounded	fuzz budget	
+H3	parse_rfc3339_weak never panics, for any &str	code	all	

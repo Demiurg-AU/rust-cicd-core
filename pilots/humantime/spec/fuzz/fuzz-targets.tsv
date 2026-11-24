@@ -1,0 +1,4 @@
+# target	oracle: the independent reference this target compares the real code with
+duration_roundtrip	round trip: parse_duration(format_duration(d)) == d for secs < 10^12 (formatter vs parser, not an independent reference)
+parse_no_panic	no panic: parse_duration and parse_rfc3339_weak return Ok or Err on any UTF-8 input
+rfc3339_shape	no panic + round trip format_rfc3339_seconds/parse_rfc3339_weak on every DDDD-DD-DDTDD:DD:DDZ (formatter vs parser)

@@ -1,0 +1,2 @@
+# fully qualified harness (module::fn)	extra cargo-kani flags (or -)	timeout seconds	covers that must be SATISFIED
+kani_proofs::kani_rfc3339_weak_day_digits_no_panic	-	1800	2

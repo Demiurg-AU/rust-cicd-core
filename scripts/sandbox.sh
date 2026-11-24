@@ -66,6 +66,9 @@ sandbox() {
   # the directory the command runs in must stay visible (read-only unless granted below), also under /tmp
   case "$cwd" in /tmp|/tmp/*) args+=(--ro-bind "$cwd" "$cwd") ;; esac
   if [ -n "${SANDBOX_RO:-}" ]; then IFS=: read -ra p <<< "$SANDBOX_RO"; for a in "${p[@]}"; do [ -e "$a" ] && args+=(--ro-bind "$a" "$a"); done; fi
+  # a caller that only sourced this file (pilot.sh's K5 coverage) never ran sandbox_enable: discover here, so the masks
+  # cannot be skipped by forgetting it (Codex P2 on #56)
+  [ -n "${SANDBOX_SOCKS+x}" ] || SANDBOX_SOCKS="$(sandbox_sockets)"
   while IFS= read -r s; do [ -n "$s" ] && [ -S "$s" ] && args+=(--ro-bind /dev/null "$s"); done <<< "${SANDBOX_SOCKS:-}"
   tmp="$(mktemp -d "${SANDBOX_WORK:-${TMPDIR:-/tmp}}/sbx-tmp.XXXXXX")" || { echo "SANDBOX no temp dir"; return 125; }
   local rw=("$tmp")
@@ -84,6 +87,9 @@ sandbox() {
   # the dependency cache stays read-only: dependencies are fetched before any jailed step (S0f), and a writable
   # cache let a test rewrite a dependency's sources for every later gate (and later builds on the host)
   for p in "${rw[@]}"; do [ -n "$p" ] && [ -e "$p" ] && { p="$(realpath -- "$p")"; args+=(--bind "$p" "$p"); }; done
+  # Docker Desktop publishes host-service sockets under this WSL mount. Hide the
+  # shared mount after all host binds, including sockets created after discovery.
+  if [ -d /mnt/wsl ]; then args+=(--tmpfs /mnt/wsl); fi
   args+=(--setenv TMPDIR "$tmp" --chdir "$cwd")
   "$SANDBOX_BWRAP" "${args[@]}" -- "$@"; rc=$?
   rm -rf "$tmp"; return "$rc"
