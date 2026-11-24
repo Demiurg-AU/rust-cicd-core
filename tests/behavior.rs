@@ -1,0 +1,147 @@
+//! Observable behaviour of the public API, with expected values taken from humantime 2.4.0
+//! (997ff566). Each test pins behaviour that a surviving mutant of cargo-mutants changed without
+//! any existing test failing, or a boundary of the no-panic rewrite.
+
+use std::fmt::Write;
+use std::str::FromStr;
+use std::time::{Duration as StdDuration, SystemTime, UNIX_EPOCH};
+
+use humantime::{
+    format_duration, format_rfc3339, format_rfc3339_micros, format_rfc3339_millis,
+    format_rfc3339_nanos, format_rfc3339_seconds, parse_duration, parse_rfc3339, parse_rfc3339_weak,
+    Duration, Timestamp, TimestampError,
+};
+
+fn at(secs: u64, nanos: u32) -> SystemTime {
+    UNIX_EPOCH + StdDuration::new(secs, nanos)
+}
+
+fn secs(s: &str) -> u64 {
+    parse_rfc3339_weak(s)
+        .unwrap()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
+#[test]
+fn timestamp_error_messages() {
+    assert_eq!(TimestampError::OutOfRange.to_string(), "numeric component is out of range");
+    assert_eq!(TimestampError::InvalidDigit.to_string(), "bad character where digit is expected");
+    assert_eq!(TimestampError::InvalidFormat.to_string(), "timestamp format is invalid");
+}
+
+#[test]
+fn february_29_only_in_leap_years() {
+    assert_eq!(parse_rfc3339("2019-02-29T00:00:00Z"), Err(TimestampError::OutOfRange));
+    assert_eq!(secs("2020-02-29T00:00:00Z"), 1_582_934_400);
+    // the day after February in a leap year counts the extra day, in a common year it does not
+    assert_eq!(secs("2020-03-01T00:00:00Z"), 1_583_020_800);
+    assert_eq!(secs("2019-03-01T00:00:00Z"), 1_551_398_400);
+}
+
+#[test]
+fn trailing_text_after_zone() {
+    // more than 25 bytes without a fraction is rejected even when the zone is Z
+    assert_eq!(
+        parse_rfc3339_weak("2018-02-14T00:28:07Zabcdef"),
+        Err(TimestampError::InvalidFormat)
+    );
+    // up to 25 bytes starting with Z were accepted by 2.4.0 and still are
+    assert_eq!(secs("2018-02-14T00:28:07Zab"), 1_518_568_087);
+    assert_eq!(secs("2018-02-14T00:28:07+00:00"), 1_518_568_087);
+}
+
+#[test]
+fn format_calendar_boundaries() {
+    assert_eq!(format_rfc3339(at(946_684_800, 0)).to_string(), "2000-01-01T00:00:00Z");
+    assert_eq!(format_rfc3339(at(951_782_400, 0)).to_string(), "2000-02-29T00:00:00Z");
+    assert_eq!(format_rfc3339(at(951_868_800, 0)).to_string(), "2000-03-01T00:00:00Z");
+    assert_eq!(format_rfc3339(at(978_307_200, 0)).to_string(), "2001-01-01T00:00:00Z");
+    assert_eq!(format_rfc3339(at(4_107_542_400, 0)).to_string(), "2100-03-01T00:00:00Z");
+}
+
+#[cfg(not(all(target_pointer_width = "32", not(target_os = "windows"))))]
+#[test]
+fn format_last_representable_second() {
+    let last = at(253_402_300_799, 999_999_999);
+    assert_eq!(format_rfc3339(last).to_string(), "9999-12-31T23:59:59.999999999Z");
+    assert_eq!(format_rfc3339_seconds(last).to_string(), "9999-12-31T23:59:59Z");
+    assert_eq!(format_rfc3339_millis(last).to_string(), "9999-12-31T23:59:59.999Z");
+    assert_eq!(format_rfc3339_micros(last).to_string(), "9999-12-31T23:59:59.999999Z");
+    assert_eq!(format_rfc3339_nanos(last).to_string(), "9999-12-31T23:59:59.999999999Z");
+    let mut s = String::new();
+    assert!(write!(s, "{}", format_rfc3339(at(253_402_300_800, 0))).is_err());
+}
+
+#[test]
+fn format_before_epoch_is_an_error_not_a_panic() {
+    // 2.4.0 panicked here ("all times should be after the epoch"); now it is a formatting error,
+    // like a year after 9999
+    let before = UNIX_EPOCH - StdDuration::from_secs(1);
+    let mut s = String::new();
+    assert!(write!(s, "{}", format_rfc3339(before)).is_err());
+    assert!(write!(s, "{}", Timestamp::from(before)).is_err());
+}
+
+#[test]
+fn whitespace_inside_a_fraction() {
+    assert_eq!(parse_duration("1. 5s"), Ok(StdDuration::new(1, 500_000_000)));
+    assert_eq!(parse_duration("1.5 s"), Ok(StdDuration::new(1, 500_000_000)));
+}
+
+#[test]
+fn week_month_year_lengths() {
+    assert_eq!(parse_duration("1w"), Ok(StdDuration::from_secs(604_800)));
+    assert_eq!(parse_duration("2w"), Ok(StdDuration::from_secs(1_209_600)));
+    assert_eq!(parse_duration("1.5w"), Ok(StdDuration::from_secs(907_200)));
+    assert_eq!(parse_duration("3M"), Ok(StdDuration::from_secs(7_890_048)));
+    assert_eq!(parse_duration("1y"), Ok(StdDuration::from_secs(31_557_600)));
+}
+
+#[test]
+fn plural_only_above_one() {
+    for (s, want) in [
+        (86_400, "1day"),
+        (172_800, "2days"),
+        (2_630_016, "1month"),
+        (5_260_032, "2months"),
+        (31_557_600, "1year"),
+        (63_115_200, "2years"),
+    ] {
+        assert_eq!(format_duration(StdDuration::from_secs(s)).to_string(), want);
+    }
+}
+
+#[test]
+fn formatted_duration_get_ref() {
+    let d = StdDuration::new(9420, 7);
+    assert_eq!(*format_duration(d).get_ref(), d);
+    let t = at(1_518_563_312, 5);
+    assert_eq!(*format_rfc3339(t).get_ref(), t);
+}
+
+#[test]
+fn duration_wrapper() {
+    let std = StdDuration::new(9420, 0);
+    let d = Duration::from(std);
+    assert_eq!(*d.as_ref(), std);
+    assert_eq!(*d, std);
+    assert_eq!(StdDuration::from(d), std);
+    assert_eq!(d.to_string(), "2h 37m");
+    let parsed = Duration::from_str("2h 37min").unwrap();
+    assert_eq!(StdDuration::from(parsed), std);
+    assert!(Duration::from_str("2 parsecs").is_err());
+}
+
+#[test]
+fn timestamp_wrapper() {
+    let t = at(1_518_563_312, 0);
+    let ts = Timestamp::from(t);
+    assert_eq!(*ts.as_ref(), t);
+    assert_eq!(*ts, t);
+    assert_eq!(SystemTime::from(ts), t);
+    assert_eq!(ts.to_string(), "2018-02-13T23:08:32Z");
+    let parsed = Timestamp::from_str("2018-02-13 23:08:32").unwrap();
+    assert_eq!(SystemTime::from(parsed), t);
+}
