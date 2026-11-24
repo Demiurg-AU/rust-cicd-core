@@ -1419,7 +1419,8 @@ t3_check() { local out o2; out="$(bash "$RS" check "$1" "$2" "$3")" && { echo "$
     echo "$out"; echo "RULESET head snapshot: $o2"; return 1; fi
   echo "$out"; return 1; }
 bash "$RS" canon "$RX/newrule.rules.json" "$RX/newrule.rulesets.json" > "$RX/head-snapshot.json"
-T3_HEAD_SNAPSHOT="$RX/head-snapshot.json" run E12 ruleset-base-judge-accepts-pr-snapshot pass - "$ROOT" bash -c 'out="$("$@")" || { echo "$out"; exit 1; }; echo "$out"; [[ "$out" == *"live policy is this PR'"'"'s snapshot"* ]]' _ t3_check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newrule.rules.json" "$RX/newrule.rulesets.json"
+t3_accepts_pr() { local out; out="$(t3_check "$@")" || { echo "$out"; return 1; }; echo "$out"; [[ "$out" == *"live policy is this PR's snapshot"* ]]; }
+T3_HEAD_SNAPSHOT="$RX/head-snapshot.json" run E12 ruleset-base-judge-accepts-pr-snapshot pass - "$ROOT" t3_accepts_pr "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newrule.rules.json" "$RX/newrule.rulesets.json"
 T3_HEAD_SNAPSHOT="$RX/head-snapshot.json" run C96 canary-ruleset-base-judge-neither-snapshot fail '^RULESET head snapshot: RULESET drift' "$ROOT" t3_check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newparam.rules.json" "$RX/newparam.rulesets.json"
 # K2: mutation of gate inputs. Each target parser gets a seed input whose verdict is NOT PASS; every mutant keeps the
 # meaning (only spelling, order, duplication or a forged summary changes), so a PASS on a mutant is a false PASS of the
