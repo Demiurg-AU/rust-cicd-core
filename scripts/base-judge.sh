@@ -51,12 +51,25 @@ assemble() {
     [ "$(git hash-object --no-filters "$out/$f")" = "$(git -C "$repo" rev-parse "$b:$f")" ] || die "judge file differs from the base: $f"
   done < <(git -C "$repo" ls-tree -r --name-only "$b")
   chmod +x "$out"/scripts/*.sh 2>/dev/null || true
-  # the assembled tree is a repository at the head's commit id, so evidence names the code that was judged
-  git -C "$out" init -q && git -C "$out" add -A && git -C "$out" -c user.name=judge -c user.email=judge@local commit -qm "base judge of $h on $b"
+  # the assembled tree is a repository whose one commit is a pure function of (base, head): fixed identity, the head's
+  # committer date, base and head named in the message. ci-local records it as git_head, so two judgements of the same
+  # pair are comparable witnesses for evidence-compare (Codex P2 on #56: a timestamped commit differed on every run)
+  local when; when="$(git -C "$repo" log -1 --format=%cI "$h")"
+  git -C "$out" init -q && git -C "$out" add -A \
+    && GIT_AUTHOR_DATE="$when" GIT_COMMITTER_DATE="$when" git -C "$out" -c user.name=judge -c user.email=judge@local \
+       -c commit.gpgsign=false commit -q --no-verify -m "base judge" -m "Judged-Head: $h" -m "Judged-Base: $b"
   echo "JUDGE base=$b head=$h replaced=$n removed=$r"
 }
 case "${1:-}" in
   assemble) [ $# -eq 5 ] || die "usage: assemble <repo> <base-ref> <head-ref> <out-dir>"; assemble "$2" "$3" "$4" "$5" ;;
-  run) [ $# -eq 5 ] || die "usage: run <repo> <base-ref> <head-ref> <out-dir>"; assemble "$2" "$3" "$4" "$5"; bash "$5/scripts/ci-local.sh" ;;
+  run) [ $# -eq 5 ] || die "usage: run <repo> <base-ref> <head-ref> <out-dir>"; assemble "$2" "$3" "$4" "$5"
+       # a PR that changes the branch policy also changes ruleset-snapshot.json; the live policy can equal only one of the
+       # two snapshots, so the base judge's T3 may accept the PR's own snapshot as well (core already demands it). The
+       # file lives outside the judged tree, so the PR's code cannot plant it.
+       hs="${5%/}.head-ruleset-snapshot.json"; rm -f "$hs"
+       hc="$(git -C "$2" rev-parse --verify -q "$4^{commit}")"
+       if git -C "$2" cat-file -e "$hc:ruleset-snapshot.json" 2>/dev/null; then
+         git -C "$2" cat-file blob "$hc:ruleset-snapshot.json" > "$hs"; T3_HEAD_SNAPSHOT="$hs" bash "$5/scripts/ci-local.sh"
+       else bash "$5/scripts/ci-local.sh"; fi ;;
   *) die "usage: $0 assemble|run <repo> <base-ref> <head-ref> <out-dir>" ;;
 esac

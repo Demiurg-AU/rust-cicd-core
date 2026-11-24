@@ -1409,6 +1409,18 @@ run C84 canary-ruleset-new-rule-type fail '^RULESET drift: \+ effective_rules\[r
 run C85 canary-ruleset-new-parameter fail '^RULESET drift: \+ effective_rules\[required_status_checks\]\.parameters\.canary_new_policy_field' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newparam.rules.json" "$RX/newparam.rulesets.json"
 run C86 canary-ruleset-new-bypass-actor fail '^RULESET drift: ~ rulesets\[.*\]\.bypass_actors' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/bypass.rules.json" "$RX/bypass.rulesets.json"
 RULESET_REQUIRE_BYPASS=1 run C87 canary-ruleset-bypass-not-visible fail '^RULESET bypass_actors not visible' "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/hidden.rules.json" "$RX/hidden.rulesets.json"
+# T3 under the base judge: a PR that changes the branch policy changes ruleset-snapshot.json too, and the live policy
+# can equal only one of the base's and the PR's snapshots. T3_HEAD_SNAPSHOT (set only by scripts/base-judge.sh run, from
+# the PR commit, outside the judged tree) lets the base judge accept the PR's snapshot; core still demands it.
+t3_check() { local out o2; out="$(bash "$RS" check "$1" "$2" "$3")" && { echo "$out"; return 0; }
+  if [ -n "${T3_HEAD_SNAPSHOT:-}" ]; then
+    o2="$(bash "$RS" check "$T3_HEAD_SNAPSHOT" "$2" "$3")" \
+      && { echo "RULESET base judge: the live policy is this PR's snapshot, not the base's (the PR changes the policy)"; echo "$o2"; return 0; }
+    echo "$out"; echo "RULESET head snapshot: $o2"; return 1; fi
+  echo "$out"; return 1; }
+bash "$RS" canon "$RX/newrule.rules.json" "$RX/newrule.rulesets.json" > "$RX/head-snapshot.json"
+T3_HEAD_SNAPSHOT="$RX/head-snapshot.json" run E12 ruleset-base-judge-accepts-pr-snapshot pass - "$ROOT" bash -c 'out="$("$@")" || { echo "$out"; exit 1; }; echo "$out"; [[ "$out" == *"live policy is this PR'"'"'s snapshot"* ]]' _ t3_check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newrule.rules.json" "$RX/newrule.rulesets.json"
+T3_HEAD_SNAPSHOT="$RX/head-snapshot.json" run C96 canary-ruleset-base-judge-neither-snapshot fail '^RULESET head snapshot: RULESET drift' "$ROOT" t3_check "${TM_DIR%/}/ruleset-snapshot.json" "$RX/newparam.rules.json" "$RX/newparam.rulesets.json"
 # K2: mutation of gate inputs. Each target parser gets a seed input whose verdict is NOT PASS; every mutant keeps the
 # meaning (only spelling, order, duplication or a forged summary changes), so a PASS on a mutant is a false PASS of the
 # parser. pm_tests sees forged cargo output; claim-verdict sees a duplicated status row; threat_check sees respelled rows.
@@ -1521,12 +1533,24 @@ judge_sees_all_bytes() { local o="$BJA/out"
   echo "JUDGE tree holds the head's committed bytes despite its .gitattributes"; }
 run E10 base-judge-ignores-head-attributes pass - "$ROOT" judge_sees_all_bytes
 run E5 base-judge-assembles-from-base pass - "$ROOT" judge_from_base e5
+# two judgements of the same base/head pair must name the same assembled commit, and name the head they judged, so
+# their evidence is comparable (Codex P2 on #56: a timestamped assembly commit differed on every run)
+judge_is_stable() { local a b; sleep 1
+  bash "$ROOT/scripts/base-judge.sh" assemble "$BJ/repo" basejudge-base HEAD "$BJ/out-e11a" >/dev/null || return 1; sleep 1
+  bash "$ROOT/scripts/base-judge.sh" assemble "$BJ/repo" basejudge-base HEAD "$BJ/out-e11b" >/dev/null || return 1
+  a="$(git -C "$BJ/out-e11a" rev-parse HEAD)"; b="$(git -C "$BJ/out-e11b" rev-parse HEAD)"
+  [ "$a" = "$b" ] || { echo "JUDGE assembly commit not stable: $a vs $b"; return 1; }
+  git -C "$BJ/out-e11a" log -1 --format=%B | grep -qx "Judged-Head: $(git -C "$BJ/repo" rev-parse HEAD)" \
+    || { echo "JUDGE assembly commit does not name the judged head"; return 1; }
+  echo "JUDGE assembly commit stable across runs and names the judged head"; }
+run E11 base-judge-stable-identity pass - "$ROOT" judge_is_stable
 run C88 canary-base-judge-unknown-base fail '^JUDGE base ref not found: no-such-base' "$ROOT" bash "$ROOT/scripts/base-judge.sh" assemble "$BJ/repo" no-such-base HEAD "$BJ/out-c88"
 # T3: the live policy of the default branch (EXT_RULES + EXT_RULESETS from scripts/fetch-policy.sh) is the snapshot
 if [ -n "${EXT_RULES:-}" ] && [ -n "${EXT_RULESETS:-}" ]; then
   # where fetch-policy.sh put the live policy differs per machine; what was fetched is in the T3 log
   sig_volatile '<policy-rules>' "$EXT_RULES"; sig_volatile '<policy-rulesets>' "$EXT_RULESETS"
-  run T3 ruleset-matches-snapshot pass - "$ROOT" bash "$RS" check "${TM_DIR%/}/ruleset-snapshot.json" "$EXT_RULES" "$EXT_RULESETS"
+  [ -n "${T3_HEAD_SNAPSHOT:-}" ] && sig_volatile '<head-snapshot>' "$T3_HEAD_SNAPSHOT"
+  run T3 ruleset-matches-snapshot pass - "$ROOT" t3_check "${TM_DIR%/}/ruleset-snapshot.json" "$EXT_RULES" "$EXT_RULESETS"
 elif [ "${EXT_OFFLINE:-0}" = 1 ]; then
   run T3 ruleset-matches-snapshot pass - "$ROOT" bash -c 'echo "RULESET unchecked: offline (EXT_OFFLINE=1), no live policy fetched"'
 else
@@ -1679,7 +1703,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..95} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..96} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..95} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..96} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
