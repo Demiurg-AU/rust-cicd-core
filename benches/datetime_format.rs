@@ -5,7 +5,6 @@ use std::io::Write;
 use std::time::{Duration, UNIX_EPOCH};
 
 use bencher::Bencher;
-use chrono::{DateTime, Utc};
 use humantime::format_rfc3339;
 
 fn rfc3339_humantime_seconds(b: &mut Bencher) {
@@ -17,44 +16,18 @@ fn rfc3339_humantime_seconds(b: &mut Bencher) {
     });
 }
 
-fn rfc3339_chrono(b: &mut Bencher) {
-    use chrono::format::Fixed::*;
-    use chrono::format::Item;
-    use chrono::format::Item::*;
-    use chrono::format::Numeric::*;
-    use chrono::format::Pad::*;
+// Comparison implementation: the `time` crate (chrono was dropped: RUSTSEC-2026-0543, unmaintained).
+fn rfc3339_time(b: &mut Bencher) {
+    use time::format_description::well_known::Rfc3339;
+    use time::OffsetDateTime;
 
-    let time = DateTime::<Utc>::from_timestamp(1_483_228_799, 0).unwrap();
+    let time = OffsetDateTime::from_unix_timestamp(1_483_228_799).unwrap();
     let mut buf = Vec::with_capacity(100);
-
-    // formatting code from env_logger
-    const ITEMS: &[Item<'static>] = {
-        &[
-            Numeric(Year, Zero),
-            Literal("-"),
-            Numeric(Month, Zero),
-            Literal("-"),
-            Numeric(Day, Zero),
-            Literal("T"),
-            Numeric(Hour, Zero),
-            Literal(":"),
-            Numeric(Minute, Zero),
-            Literal(":"),
-            Numeric(Second, Zero),
-            Fixed(TimezoneOffsetZ),
-        ]
-    };
-
     b.iter(|| {
         buf.clear();
-        write!(
-            &mut buf,
-            "{}",
-            time.format_with_items(ITEMS.iter().cloned())
-        )
-        .unwrap()
+        time.format_into(&mut buf, &Rfc3339).unwrap()
     });
 }
 
-benchmark_group!(benches, rfc3339_humantime_seconds, rfc3339_chrono);
+benchmark_group!(benches, rfc3339_humantime_seconds, rfc3339_time);
 benchmark_main!(benches);
