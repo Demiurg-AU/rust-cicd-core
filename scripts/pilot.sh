@@ -24,6 +24,19 @@ trap 'rm -rf -- "$pilot_tmp"' EXIT
 export TMPDIR="$pilot_tmp"
 printf 'PILOT TMPDIR=%s\n' "$TMPDIR"
 df -hP -- "$TMPDIR" || exit 1
+# checked before anything is cloned or copied:
+# 3a: configuration only. Anything else in overlay/ is refused, so a PASS cannot come from edited crate code.
+CONFIG='^(Cargo\.lock|deny\.toml|mutants-exclusions\.tsv|supply-chain/[^/]+\.(toml|lock))$'
+# every entry counts, not only regular files: a symlink (overlay/src/lib.rs -> elsewhere) would replace crate code
+# while validation saw nothing (Codex P2 on #56)
+odd="$(cd "$P/overlay" && find . -mindepth 1 ! -type d ! -type f | sed 's#^\./##')"
+[ -z "$odd" ] || { echo "PILOT overlay holds entries that are not regular files: $odd"; exit 1; }
+bad="$(cd "$P/overlay" && find . -type f | sed 's#^\./##' | grep -Ev "$CONFIG" || true)"
+[ -z "$bad" ] || { echo "PILOT overlay holds non-configuration files: $bad"; exit 1; }
+if [ "$STAGE" = 3b ] && [ -d "$P/spec" ]; then
+  odd="$(cd "$P/spec" && find . -mindepth 1 ! -type d ! -type f | sed 's#^\./##')"
+  [ -z "$odd" ] || { echo "PILOT spec pack holds entries that are not regular files: $odd"; exit 1; }
+fi
 tsha="$(git -C "$TPL" rev-parse HEAD)"; tdirty="$(git -C "$TPL" status --porcelain --untracked-files=no | wc -l)"
 # a fresh work dir: no result of an earlier run (Kani proofs, fuzz results, status rows) can be read as this run's
 # (Codex P2 on #56)
@@ -31,15 +44,13 @@ W="$P/work/$CRATE_NAME"; rm -rf "$P/work"; mkdir -p "$P/work"
 git clone -q "$CRATE_URL" "$W" || { echo "PILOT clone failed: $CRATE_URL"; exit 1; }
 git -C "$W" checkout -q "$CRATE_SHA" || { echo "PILOT commit not found: $CRATE_SHA"; exit 1; }
 [ "$(git -C "$W" rev-parse HEAD)" = "$CRATE_SHA" ] || { echo "PILOT checkout is not $CRATE_SHA"; exit 1; }
-# 3a: configuration only. Anything else in overlay/ is refused, so a PASS cannot come from edited crate code.
-CONFIG='^(Cargo\.lock|deny\.toml|mutants-exclusions\.tsv|supply-chain/[^/]+\.(toml|lock))$'
-bad="$(cd "$P/overlay" && find . -type f | sed 's#^\./##' | grep -Ev "$CONFIG" || true)"
-[ -z "$bad" ] || { echo "PILOT overlay holds non-configuration files: $bad"; exit 1; }
 cp -r "$P/overlay/." "$W/"
 overlay="$(git -C "$W" status --porcelain --ignored --untracked-files=all | sed 's/^/    /')"
 spec=""
 if [ "$STAGE" = 3b ]; then
   [ -d "$P/spec" ] || { echo "PILOT stage 3b needs a spec pack: $P/spec"; exit 1; }
+  clash="$(cd "$P/spec" && find . -type f ! -name '*.append' | sed 's#^\./##' | while read -r f; do [ -e "$W/$f" ] && echo "$f"; done)"
+  [ -z "$clash" ] || { echo "PILOT spec pack would overwrite the crate's own files: $clash"; exit 1; }
   cp -r "$P/spec/." "$W/"
   if [ "${PILOT_KANI_RUN:-0}" = 1 ] && [ -d "$P/spec-kani" ]; then cp -r "$P/spec-kani/src" "$P/spec-kani"/kani-*.tsv "$W/"; fi
   # <path>.append adds its lines to <path> (a module declaration for harnesses that must live in the crate)
@@ -81,12 +92,17 @@ if [ "$STAGE" = 3b ]; then
     # K5: the saved corpus replayed by a coverage build OUTSIDE the fuzzing session; the session's own "cov:" numbers
     # are not used. Canary: an empty corpus must fall below the first threshold.
     if [ -f "$W/fuzz/fuzz-coverage.tsv" ]; then
+      # shellcheck source=sandbox.sh
+      . "$TPL/scripts/sandbox.sh" || { echo "PILOT missing sandbox.sh (no unjailed mode)"; exit 1; }
       lc="$(find "$(rustc --print sysroot)" -name llvm-cov -type f | head -1)"
       cov_of() { # <target> <corpus dir> <file> -> line coverage % of that file
         # a fresh profile directory each time: cargo fuzz coverage merges every raw profile it finds there, so a
         # second measurement would include the first (the K5 canary showed it: 68.8% from one empty input)
-        rm -rf "$W/fuzz/coverage/$1"
-        ( cd "$W" && cargo fuzz coverage "$1" "$2" ) > "$P/work/k5-$1-$(basename "$2").log" 2>&1 || { echo "ERR"; return; }
+        rm -rf "$W/fuzz/coverage/$1"; mkdir -p "$W/fuzz/coverage/$1" "$W/target"
+        # the coverage build compiles and RUNS the crate, its build scripts and the target on the corpus: jailed like
+        # every other run of code under test (Codex P1 on #56); writable: the coverage output and the build dir only
+        ( cd "$W" && SANDBOX_WORK="$pilot_tmp" SANDBOX_RW="$W/fuzz/coverage/$1:$W/target" sandbox cargo fuzz coverage "$1" "$2" ) \
+          > "$P/work/k5-$1-$(basename "$2").log" 2>&1 || { echo "ERR"; return; }
         "$lc" report "$W/target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/$1" \
           -instr-profile="$W/fuzz/coverage/$1/coverage.profdata" 2>/dev/null | awk -v f="$3" '$1 ~ ("(^|/)" f "$") {gsub("%","",$10); print $10; exit}'; }
       echo "  K5 corpus coverage, measured outside the fuzzer (cargo fuzz coverage + llvm-cov):"
