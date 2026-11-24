@@ -82,25 +82,25 @@ impl fmt::Display for Error {
 #[derive(Debug, Clone)]
 pub struct FormattedDuration(Duration);
 
-trait OverflowOp: Sized {
-    fn mul(self, other: Self) -> Result<Self, Error>;
-    fn add(self, other: Self) -> Result<Self, Error>;
-    fn div(self, other: Self) -> Result<Self, Error>;
+fn mul(a: u64, b: u64) -> Result<u64, Error> {
+    a.checked_mul(b).ok_or(Error::NumberOverflow)
 }
 
-impl OverflowOp for u64 {
-    fn mul(self, other: Self) -> Result<Self, Error> {
-        self.checked_mul(other).ok_or(Error::NumberOverflow)
+fn add(a: u64, b: u64) -> Result<u64, Error> {
+    a.checked_add(b).ok_or(Error::NumberOverflow)
+}
+
+/// Exact division: a remainder means the value cannot be represented (below 1ns).
+fn div(a: u64, b: u64) -> Result<u64, Error> {
+    match a.checked_rem(b) {
+        Some(0) => a.checked_div(b).ok_or(Error::NumberOverflow),
+        _ => Err(Error::NumberOverflow),
     }
-    fn add(self, other: Self) -> Result<Self, Error> {
-        self.checked_add(other).ok_or(Error::NumberOverflow)
-    }
-    fn div(self, other: Self) -> Result<Self, Error> {
-        match self % other {
-            0 => Ok(self / other),
-            _ => Err(Error::NumberOverflow),
-        }
-    }
+}
+
+/// Value of an ASCII digit; callers only pass '0'..='9'.
+fn digit(c: char) -> u64 {
+    c.to_digit(10).map_or(0, u64::from)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -126,7 +126,7 @@ impl Parser<'_> {
                     '0'..='9' => {
                         n = n
                             .checked_mul(10)
-                            .and_then(|x| x.checked_add(c as u64 - '0' as u64))
+                            .and_then(|x| x.checked_add(digit(c)))
                             .ok_or(Error::NumberOverflow)?;
                     }
                     c if c.is_whitespace() => {}
@@ -150,7 +150,7 @@ impl Parser<'_> {
                 match c {
                     '0'..='9' => {
                         self.parse_unit(n, frac, start, off, &mut out)?;
-                        n = c as u64 - '0' as u64;
+                        n = digit(c);
                         continue 'outer;
                     }
                     c if c.is_whitespace() => break,
@@ -175,7 +175,7 @@ impl Parser<'_> {
         for c in self.iter.by_ref() {
             match c {
                 '0'..='9' => {
-                    return Ok(Some(c as u64 - '0' as u64));
+                    return Ok(Some(digit(c)));
                 }
                 c if c.is_whitespace() => continue,
                 _ => {
@@ -203,7 +203,7 @@ impl Parser<'_> {
                     denominator = denominator.checked_mul(10).ok_or(Error::NumberOverflow)?;
                     numerator = numerator
                         .checked_mul(10)
-                        .and_then(|x| x.checked_add(c as u64 - '0' as u64))
+                        .and_then(|x| x.checked_add(digit(c)))
                         .ok_or(Error::NumberOverflow)?;
                 }
                 c if c.is_whitespace() => {}
@@ -228,7 +228,7 @@ impl Parser<'_> {
     }
 
     fn off(&self) -> usize {
-        self.src.len() - self.iter.as_str().len()
+        self.src.len().saturating_sub(self.iter.as_str().len())
     }
 
     fn parse_unit(
@@ -239,13 +239,15 @@ impl Parser<'_> {
         end: usize,
         out: &mut Duration,
     ) -> Result<(), Error> {
-        let unit = match Unit::from_str(&self.src[start..end]) {
+        // start and end are offsets of chars of src, so this slice always exists
+        let text = self.src.get(start..end).ok_or(Error::InvalidCharacter(start))?;
+        let unit = match Unit::from_str(text) {
             Ok(u) => u,
             Err(()) => {
                 return Err(Error::UnknownUnit {
                     start,
                     end,
-                    unit: self.src[start..end].to_owned(),
+                    unit: text.to_owned(),
                     value: n,
                 });
             }
@@ -254,15 +256,15 @@ impl Parser<'_> {
         // add the integer part
         let (sec, nsec) = match unit {
             Unit::Nanosecond => (0u64, n),
-            Unit::Microsecond => (0u64, n.mul(1000)?),
-            Unit::Millisecond => (0u64, n.mul(1_000_000)?),
+            Unit::Microsecond => (0u64, mul(n, 1000)?),
+            Unit::Millisecond => (0u64, mul(n, 1_000_000)?),
             Unit::Second => (n, 0),
-            Unit::Minute => (n.mul(60)?, 0),
-            Unit::Hour => (n.mul(3600)?, 0),
-            Unit::Day => (n.mul(86400)?, 0),
-            Unit::Week => (n.mul(86400 * 7)?, 0),
-            Unit::Month => (n.mul(2_630_016)?, 0), // 30.44d
-            Unit::Year => (n.mul(31_557_600)?, 0), // 365.25d
+            Unit::Minute => (mul(n, 60)?, 0),
+            Unit::Hour => (mul(n, 3600)?, 0),
+            Unit::Day => (mul(n, 86400)?, 0),
+            Unit::Week => (mul(n, 604_800)?, 0),
+            Unit::Month => (mul(n, 2_630_016)?, 0), // 30.44d
+            Unit::Year => (mul(n, 31_557_600)?, 0), // 365.25d
         };
         add_current(sec, nsec, out)?;
 
@@ -274,15 +276,15 @@ impl Parser<'_> {
         {
             let (sec, nsec) = match unit {
                 Unit::Nanosecond => return Err(Error::NumberOverflow),
-                Unit::Microsecond => (0, n.mul(1000)?.div(d)?),
-                Unit::Millisecond => (0, n.mul(1_000_000)?.div(d)?),
-                Unit::Second => (0, n.mul(1_000_000_000)?.div(d)?),
-                Unit::Minute => (0, n.mul(60_000_000_000)?.div(d)?),
-                Unit::Hour => (n.mul(3600)?.div(d)?, 0),
-                Unit::Day => (n.mul(86400)?.div(d)?, 0),
-                Unit::Week => (n.mul(86400 * 7)?.div(d)?, 0),
-                Unit::Month => (n.mul(2_630_016)?.div(d)?, 0), // 30.44d
-                Unit::Year => (n.mul(31_557_600)?.div(d)?, 0), // 365.25d
+                Unit::Microsecond => (0, div(mul(n, 1000)?, d)?),
+                Unit::Millisecond => (0, div(mul(n, 1_000_000)?, d)?),
+                Unit::Second => (0, div(mul(n, 1_000_000_000)?, d)?),
+                Unit::Minute => (0, div(mul(n, 60_000_000_000)?, d)?),
+                Unit::Hour => (div(mul(n, 3600)?, d)?, 0),
+                Unit::Day => (div(mul(n, 86400)?, d)?, 0),
+                Unit::Week => (div(mul(n, 604_800)?, d)?, 0),
+                Unit::Month => (div(mul(n, 2_630_016)?, d)?, 0), // 30.44d
+                Unit::Year => (div(mul(n, 31_557_600)?, d)?, 0), // 365.25d
             };
             add_current(sec, nsec, out)?;
         }
@@ -291,14 +293,12 @@ impl Parser<'_> {
     }
 }
 
-fn add_current(mut sec: u64, nsec: u64, out: &mut Duration) -> Result<(), Error> {
-    let mut nsec = (out.subsec_nanos() as u64).add(nsec)?;
-    if nsec >= 1_000_000_000 {
-        sec = sec.add(nsec / 1_000_000_000)?;
-        nsec %= 1_000_000_000;
-    }
-    sec = out.as_secs().add(sec)?;
-    *out = Duration::new(sec, nsec as u32);
+fn add_current(sec: u64, nsec: u64, out: &mut Duration) -> Result<(), Error> {
+    let nsec = add(u64::from(out.subsec_nanos()), nsec)?;
+    let sec = add(add(out.as_secs(), sec)?, nsec / 1_000_000_000)?;
+    // nsec % 1e9 < 1e9 fits u32
+    let nsec = u32::try_from(nsec % 1_000_000_000).map_err(|_| Error::NumberOverflow)?;
+    *out = Duration::new(sec, nsec);
     Ok(())
 }
 

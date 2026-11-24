@@ -64,14 +64,13 @@ pub struct Rfc3339Timestamp(SystemTime, Precision);
 #[inline]
 /// Converts two digits given in ASCII to its proper decimal representation.
 fn two_digits(b1: u8, b2: u8) -> Result<u64, Error> {
-    fn two_digits_inner(a: char, b: char) -> Option<u64> {
-        let a = a.to_digit(10)?;
-        let b = b.to_digit(10)?;
-
-        Some((a * 10 + b) as u64)
-    }
-
-    two_digits_inner(b1 as char, b2 as char).ok_or(Error::InvalidDigit)
+    let a = (b1 as char).to_digit(10).ok_or(Error::InvalidDigit)?;
+    let b = (b2 as char).to_digit(10).ok_or(Error::InvalidDigit)?;
+    // a, b <= 9: at most 99
+    a.checked_mul(10)
+        .and_then(|x| x.checked_add(b))
+        .map(u64::from)
+        .ok_or(Error::InvalidDigit)
 }
 
 /// Parse RFC3339 timestamp `2018-02-14T00:28:07Z`
@@ -86,55 +85,16 @@ pub fn parse_rfc3339(s: &str) -> Result<SystemTime, Error> {
         return Err(Error::InvalidFormat);
     }
     let b = s.as_bytes();
-    if b[10] != b'T' || (b.last() != Some(&b'Z') && !s.ends_with("+00:00")) {
+    if b.get(10) != Some(&b'T') || (b.last() != Some(&b'Z') && !s.ends_with("+00:00")) {
         return Err(Error::InvalidFormat);
     }
     parse_rfc3339_weak(s)
 }
 
-/// Parse RFC3339-like timestamp `2018-02-14 00:28:07`
-///
-/// Supported features:
-///
-/// 1. Any precision of fractional digits `2018-02-14 00:28:07.133`.
-/// 2. Supports timestamp with or without either of `T`, `Z` or `+00:00`.
-/// 3. Anything valid for [`parse_rfc3339`](parse_rfc3339) is valid for this function
-///
-/// Unsupported feature: localized timestamps. Only UTC is supported, even if
-/// `Z` is not specified.
-///
-/// This function is intended to use for parsing human input. Whereas
-/// `parse_rfc3339` is for strings generated programmatically.
-pub fn parse_rfc3339_weak(s: &str) -> Result<SystemTime, Error> {
-    if s.len() < "2018-02-14T00:28:07".len() {
-        return Err(Error::InvalidFormat);
-    }
-    let b = s.as_bytes(); // for careless slicing
-    if b[4] != b'-'
-        || b[7] != b'-'
-        || (b[10] != b'T' && b[10] != b' ')
-        || b[13] != b':'
-        || b[16] != b':'
-    {
-        return Err(Error::InvalidFormat);
-    }
-    let year = two_digits(b[0], b[1])? * 100 + two_digits(b[2], b[3])?;
-    let month = two_digits(b[5], b[6])?;
-    let day = two_digits(b[8], b[9])?;
-    let hour = two_digits(b[11], b[12])?;
-    let minute = two_digits(b[14], b[15])?;
-    let mut second = two_digits(b[17], b[18])?;
-
-    if year < 1970 || hour > 23 || minute > 59 || second > 60 {
-        return Err(Error::OutOfRange);
-    }
-    // TODO(tailhook) should we check that leaps second is only on midnight ?
-    if second == 60 {
-        second = 59;
-    }
-
+/// Days since 1970-01-01 of a date with year >= 1970; OutOfRange for an invalid month or day.
+fn days_since_epoch(year: u64, month: u64, day: u64) -> Result<u64, Error> {
     let leap = is_leap_year(year);
-    let (mut ydays, mdays) = match month {
+    let (ydays, mdays): (u64, u64) = match month {
         1 => (0, 31),
         2 if leap => (31, 29),
         2 => (31, 28),
@@ -153,47 +113,116 @@ pub fn parse_rfc3339_weak(s: &str) -> Result<SystemTime, Error> {
     if day > mdays || day == 0 {
         return Err(Error::OutOfRange);
     }
-    ydays += day - 1;
-    if leap && month > 2 {
-        ydays += 1;
+    let after_feb = u64::from(leap && month > 2);
+    let calc = || -> Option<u64> {
+        let ydays = ydays.checked_add(day.checked_sub(1)?)?.checked_add(after_feb)?;
+        let py = year.checked_sub(1)?;
+        let leap_years = (py.checked_sub(1968)? / 4)
+            .checked_sub(py.checked_sub(1900)? / 100)?
+            .checked_add(py.checked_sub(1600)? / 400)?;
+        year.checked_sub(1970)?
+            .checked_mul(365)?
+            .checked_add(leap_years)?
+            .checked_add(ydays)
+    };
+    calc().ok_or(Error::OutOfRange)
+}
+
+/// Parse RFC3339-like timestamp `2018-02-14 00:28:07`
+///
+/// Supported features:
+///
+/// 1. Any precision of fractional digits `2018-02-14 00:28:07.133`.
+/// 2. Supports timestamp with or without either of `T`, `Z` or `+00:00`.
+/// 3. Anything valid for [`parse_rfc3339`](parse_rfc3339) is valid for this function
+///
+/// Unsupported feature: localized timestamps. Only UTC is supported, even if
+/// `Z` is not specified.
+///
+/// This function is intended to use for parsing human input. Whereas
+/// `parse_rfc3339` is for strings generated programmatically.
+pub fn parse_rfc3339_weak(s: &str) -> Result<SystemTime, Error> {
+    let b = s.as_bytes();
+    let head: [u8; 19] = b
+        .get(..19)
+        .and_then(|h| h.try_into().ok())
+        .ok_or(Error::InvalidFormat)?;
+    let [y0, y1, y2, y3, dash1, m0, m1, dash2, d0, d1, sep, h0, h1, colon1, mi0, mi1, colon2, s0, s1] =
+        head;
+    if dash1 != b'-' || dash2 != b'-' || (sep != b'T' && sep != b' ') || colon1 != b':' || colon2 != b':'
+    {
+        return Err(Error::InvalidFormat);
+    }
+    let year = two_digits(y0, y1)?
+        .checked_mul(100)
+        .and_then(|x| x.checked_add(two_digits(y2, y3).ok()?))
+        .ok_or(Error::InvalidDigit)?;
+    let month = two_digits(m0, m1)?;
+    let day = two_digits(d0, d1)?;
+    let hour = two_digits(h0, h1)?;
+    let minute = two_digits(mi0, mi1)?;
+    let mut second = two_digits(s0, s1)?;
+
+    if year < 1970 || hour > 23 || minute > 59 || second > 60 {
+        return Err(Error::OutOfRange);
+    }
+    // TODO(tailhook) should we check that leaps second is only on midnight ?
+    if second == 60 {
+        second = 59;
     }
 
-    let leap_years =
-        ((year - 1) - 1968) / 4 - ((year - 1) - 1900) / 100 + ((year - 1) - 1600) / 400;
-    let days = (year - 1970) * 365 + leap_years + ydays;
+    let days = days_since_epoch(year, month, day)?;
+    // second <= 59, minute <= 59, hour <= 23
+    let time = minute
+        .checked_mul(60)
+        .and_then(|x| x.checked_add(hour.checked_mul(3600)?))
+        .and_then(|x| x.checked_add(second))
+        .ok_or(Error::OutOfRange)?;
 
-    let time = second + minute * 60 + hour * 3600;
-
-    let mut nanos = 0;
-    let mut mult = 100_000_000;
-    if b.get(19) == Some(&b'.') {
-        for idx in 20..b.len() {
-            if b[idx] == b'Z' {
-                if idx == b.len() - 1 {
+    let mut nanos: u32 = 0;
+    let mut mult: u32 = 100_000_000;
+    let tail = b.get(19..).unwrap_or_default();
+    if tail.first() == Some(&b'.') {
+        let frac = tail.get(1..).unwrap_or_default();
+        let last = frac.len().checked_sub(1);
+        let tz_start = frac.len().checked_sub(6);
+        for (idx, &c) in frac.iter().enumerate() {
+            if c == b'Z' {
+                if Some(idx) == last {
                     break;
                 }
                 return Err(Error::InvalidDigit);
-            } else if b[idx] == b'+' {
+            } else if c == b'+' {
                 // start of "+00:00", which must be at the end
-                if idx == b.len() - 6 {
+                if Some(idx) == tz_start {
                     break;
                 }
                 return Err(Error::InvalidDigit);
             }
 
-            nanos += mult * (b[idx] as char).to_digit(10).ok_or(Error::InvalidDigit)?;
+            let digit = (c as char).to_digit(10).ok_or(Error::InvalidDigit)?;
+            // mult * digit <= 900_000_000 and the sum stays below 1_000_000_000
+            nanos = mult
+                .checked_mul(digit)
+                .and_then(|x| x.checked_add(nanos))
+                .ok_or(Error::OutOfRange)?;
             mult /= 10;
         }
-    } else if b.len() != 19 && (b.len() > 25 || (b[19] != b'Z' && (&b[19..] != b"+00:00"))) {
+    } else if !tail.is_empty() && (b.len() > 25 || (tail.first() != Some(&b'Z') && tail != b"+00:00")) {
         return Err(Error::InvalidFormat);
     }
 
-    let total_seconds = time + days * 86400;
+    let total_seconds = days
+        .checked_mul(86400)
+        .and_then(|x| x.checked_add(time))
+        .ok_or(Error::OutOfRange)?;
     if total_seconds > max::SECONDS {
         return Err(Error::OutOfRange);
     }
 
-    Ok(UNIX_EPOCH + Duration::new(total_seconds, nanos))
+    UNIX_EPOCH
+        .checked_add(Duration::new(total_seconds, nanos))
+        .ok_or(Error::OutOfRange)
 }
 
 fn is_leap_year(y: u64) -> bool {
@@ -254,14 +283,68 @@ impl Rfc3339Timestamp {
     }
 }
 
+/// Civil date and time of day for seconds since the epoch, for years up to 9999.
+/// Returns (year, month, day of month, seconds of day); None only on arithmetic overflow.
+fn civil_from_unix(secs_since_epoch: u64) -> Option<(i64, i64, i64, u64)> {
+    /* 2000-03-01 (mod 400 year, immediately after feb29 */
+    const LEAPOCH: i64 = 11017;
+    const DAYS_PER_400Y: i64 = 365 * 400 + 97;
+    const DAYS_PER_100Y: i64 = 365 * 100 + 24;
+    const DAYS_PER_4Y: i64 = 365 * 4 + 1;
+
+    let days = i64::try_from(secs_since_epoch / 86400).ok()?.checked_sub(LEAPOCH)?;
+    let secs_of_day = secs_since_epoch % 86400;
+
+    let mut qc_cycles = days.checked_div(DAYS_PER_400Y)?;
+    let mut remdays = days.checked_rem(DAYS_PER_400Y)?;
+
+    if remdays < 0 {
+        remdays = remdays.checked_add(DAYS_PER_400Y)?;
+        qc_cycles = qc_cycles.checked_sub(1)?;
+    }
+
+    let c_cycles = (remdays / DAYS_PER_100Y).min(3);
+    remdays = remdays.checked_sub(c_cycles.checked_mul(DAYS_PER_100Y)?)?;
+
+    let q_cycles = (remdays / DAYS_PER_4Y).min(24);
+    remdays = remdays.checked_sub(q_cycles.checked_mul(DAYS_PER_4Y)?)?;
+
+    let remyears = (remdays / 365).min(3);
+    remdays = remdays.checked_sub(remyears.checked_mul(365)?)?;
+
+    let mut year = remyears
+        .checked_add(q_cycles.checked_mul(4)?)?
+        .checked_add(c_cycles.checked_mul(100)?)?
+        .checked_add(qc_cycles.checked_mul(400)?)?
+        .checked_add(2000)?;
+
+    // months from March
+    let months = [31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 31, 29];
+    let mut mon: i64 = 0;
+    for mon_len in months {
+        mon = mon.checked_add(1)?;
+        if remdays < mon_len {
+            break;
+        }
+        remdays = remdays.checked_sub(mon_len)?;
+    }
+    let mday = remdays.checked_add(1)?;
+    let mon = if mon > 10 {
+        year = year.checked_add(1)?;
+        mon.checked_sub(10)?
+    } else {
+        mon.checked_add(2)?
+    };
+    Some((year, mon, mday, secs_of_day))
+}
+
 impl fmt::Display for Rfc3339Timestamp {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Precision::*;
 
-        let dur = self
-            .0
-            .duration_since(UNIX_EPOCH)
-            .expect("all times should be after the epoch");
+        // a time before the epoch cannot be written: an error, like a year after 9999
+        // (this used to panic: "all times should be after the epoch")
+        let dur = self.0.duration_since(UNIX_EPOCH).map_err(|_| fmt::Error)?;
         let secs_since_epoch = dur.as_secs();
         let nanos = dur.subsec_nanos();
 
@@ -270,112 +353,27 @@ impl fmt::Display for Rfc3339Timestamp {
             return Err(fmt::Error);
         }
 
-        /* 2000-03-01 (mod 400 year, immediately after feb29 */
-        const LEAPOCH: i64 = 11017;
-        const DAYS_PER_400Y: i64 = 365 * 400 + 97;
-        const DAYS_PER_100Y: i64 = 365 * 100 + 24;
-        const DAYS_PER_4Y: i64 = 365 * 4 + 1;
-
-        let days = (secs_since_epoch / 86400) as i64 - LEAPOCH;
-        let secs_of_day = secs_since_epoch % 86400;
-
-        let mut qc_cycles = days / DAYS_PER_400Y;
-        let mut remdays = days % DAYS_PER_400Y;
-
-        if remdays < 0 {
-            remdays += DAYS_PER_400Y;
-            qc_cycles -= 1;
-        }
-
-        let mut c_cycles = remdays / DAYS_PER_100Y;
-        if c_cycles == 4 {
-            c_cycles -= 1;
-        }
-        remdays -= c_cycles * DAYS_PER_100Y;
-
-        let mut q_cycles = remdays / DAYS_PER_4Y;
-        if q_cycles == 25 {
-            q_cycles -= 1;
-        }
-        remdays -= q_cycles * DAYS_PER_4Y;
-
-        let mut remyears = remdays / 365;
-        if remyears == 4 {
-            remyears -= 1;
-        }
-        remdays -= remyears * 365;
-
-        let mut year = 2000 + remyears + 4 * q_cycles + 100 * c_cycles + 400 * qc_cycles;
-
-        let months = [31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 31, 29];
-        let mut mon = 0;
-        for mon_len in months.iter() {
-            mon += 1;
-            if remdays < *mon_len {
-                break;
-            }
-            remdays -= *mon_len;
-        }
-        let mday = remdays + 1;
-        let mon = if mon + 2 > 12 {
-            year += 1;
-            mon - 10
-        } else {
-            mon + 2
-        };
-
-        const BUF_INIT: [u8; 30] = *b"0000-00-00T00:00:00.000000000Z";
-
-        let mut buf: [u8; 30] = BUF_INIT;
-        buf[0] = b'0' + (year / 1000) as u8;
-        buf[1] = b'0' + (year / 100 % 10) as u8;
-        buf[2] = b'0' + (year / 10 % 10) as u8;
-        buf[3] = b'0' + (year % 10) as u8;
-        buf[5] = b'0' + (mon / 10) as u8;
-        buf[6] = b'0' + (mon % 10) as u8;
-        buf[8] = b'0' + (mday / 10) as u8;
-        buf[9] = b'0' + (mday % 10) as u8;
-        buf[11] = b'0' + (secs_of_day / 3600 / 10) as u8;
-        buf[12] = b'0' + (secs_of_day / 3600 % 10) as u8;
-        buf[14] = b'0' + (secs_of_day / 60 / 10 % 6) as u8;
-        buf[15] = b'0' + (secs_of_day / 60 % 10) as u8;
-        buf[17] = b'0' + (secs_of_day / 10 % 6) as u8;
-        buf[18] = b'0' + (secs_of_day % 10) as u8;
-
-        let offset = if self.1 == Seconds || nanos == 0 && self.1 == Smart {
-            buf[19] = b'Z';
-            19
+        let (year, mon, mday, secs_of_day) = civil_from_unix(secs_since_epoch).ok_or(fmt::Error)?;
+        write!(
+            f,
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
+            year,
+            mon,
+            mday,
+            secs_of_day / 3600,
+            secs_of_day / 60 % 60,
+            secs_of_day % 60
+        )?;
+        if self.1 == Seconds || nanos == 0 && self.1 == Smart {
+            // no fractional part
         } else if self.1 == Millis {
-            buf[20] = b'0' + (nanos / 100_000_000) as u8;
-            buf[21] = b'0' + (nanos / 10_000_000 % 10) as u8;
-            buf[22] = b'0' + (nanos / 1_000_000 % 10) as u8;
-            buf[23] = b'Z';
-            23
+            write!(f, ".{:03}", nanos / 1_000_000)?;
         } else if self.1 == Micros {
-            buf[20] = b'0' + (nanos / 100_000_000) as u8;
-            buf[21] = b'0' + (nanos / 10_000_000 % 10) as u8;
-            buf[22] = b'0' + (nanos / 1_000_000 % 10) as u8;
-            buf[23] = b'0' + (nanos / 100_000 % 10) as u8;
-            buf[24] = b'0' + (nanos / 10_000 % 10) as u8;
-            buf[25] = b'0' + (nanos / 1_000 % 10) as u8;
-            buf[26] = b'Z';
-            26
+            write!(f, ".{:06}", nanos / 1_000)?;
         } else {
-            buf[20] = b'0' + (nanos / 100_000_000) as u8;
-            buf[21] = b'0' + (nanos / 10_000_000 % 10) as u8;
-            buf[22] = b'0' + (nanos / 1_000_000 % 10) as u8;
-            buf[23] = b'0' + (nanos / 100_000 % 10) as u8;
-            buf[24] = b'0' + (nanos / 10_000 % 10) as u8;
-            buf[25] = b'0' + (nanos / 1_000 % 10) as u8;
-            buf[26] = b'0' + (nanos / 100 % 10) as u8;
-            buf[27] = b'0' + (nanos / 10 % 10) as u8;
-            buf[28] = b'0' + (nanos % 10) as u8;
-            // 29th is 'Z'
-            29
-        };
-
-        // we know our chars are all ascii
-        f.write_str(str::from_utf8(&buf[..=offset]).expect("Conversion to utf8 failed"))
+            write!(f, ".{:09}", nanos)?;
+        }
+        f.write_str("Z")
     }
 }
 
