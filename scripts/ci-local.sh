@@ -1483,6 +1483,20 @@ judge_from_base() { local o="$BJ/out-$1"; bash "$ROOT/scripts/base-judge.sh" ass
   if [ "$(cat "$o/scripts/gate.sh")" = "exit 1 # strict" ] && [ ! -e "$o/scripts/new-judge.sh" ] && [ "$(cat "$o/src/lib.rs")" = v2 ]; then
     echo "JUDGE from base: judge bytes of the base, code of the head"; return 0; fi
   echo "JUDGE from head: gate.sh=$(cat "$o/scripts/gate.sh") new-judge=$([ -e "$o/scripts/new-judge.sh" ] && echo present) code=$(cat "$o/src/lib.rs")"; return 1; }
+# a head that turns judge files into symlinks (a file onto another judge file, or the whole scripts/ dir onto its own
+# copy) must still get the base judge, as regular files (Codex P1 on #56)
+BJL="$CAN/basejudge-links"; mkdir -p "$BJL/repo/scripts"
+( cd "$BJL/repo" && git init -q && printf 'echo BASE-JUDGE; exit 1\n' > scripts/ci-local.sh && printf 'sandbox() { :; }\n' > scripts/sandbox.sh \
+  && git add -A && git -c user.name=c -c user.email=c@c commit -qm base && git branch -q basejudge-base \
+  && rm scripts/ci-local.sh && ln -s sandbox.sh scripts/ci-local.sh && git add -A && git -c user.name=c -c user.email=c@c commit -qm file-link \
+  && git branch -q filelink && git rm -rq scripts && mkdir evil && printf 'echo EVIL; exit 0\n' > evil/ci-local.sh && ln -s evil scripts \
+  && git add -A && git -c user.name=c -c user.email=c@c commit -qm dir-link )
+judge_despite_links() { local h out
+  for h in filelink HEAD; do out="$(bash "$ROOT/scripts/base-judge.sh" run "$BJL/repo" basejudge-base "$h" "$BJL/out-$h" 2>&1)"
+    [[ "$out" == *BASE-JUDGE* ]] || { echo "JUDGE not the base's for head $h: $out"; return 1; }
+    [ -L "$BJL/out-$h/scripts" ] || [ -L "$BJL/out-$h/scripts/ci-local.sh" ] && { echo "JUDGE symlink left for head $h"; return 1; }
+  done; echo "JUDGE from base despite file and directory symlinks in the head"; }
+run E9 base-judge-ignores-head-symlinks pass - "$ROOT" judge_despite_links
 run E5 base-judge-assembles-from-base pass - "$ROOT" judge_from_base e5
 run C88 canary-base-judge-unknown-base fail '^JUDGE base ref not found: no-such-base' "$ROOT" bash "$ROOT/scripts/base-judge.sh" assemble "$BJ/repo" no-such-base HEAD "$BJ/out-c88"
 # T3: the live policy of the default branch (EXT_RULES + EXT_RULESETS from scripts/fetch-policy.sh) is the snapshot
@@ -1642,7 +1656,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 E8 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 M1 A1 A2 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 E8 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..91} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 M1 A1 A2 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

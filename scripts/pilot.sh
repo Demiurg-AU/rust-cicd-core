@@ -25,7 +25,9 @@ export TMPDIR="$pilot_tmp"
 printf 'PILOT TMPDIR=%s\n' "$TMPDIR"
 df -hP -- "$TMPDIR" || exit 1
 tsha="$(git -C "$TPL" rev-parse HEAD)"; tdirty="$(git -C "$TPL" status --porcelain --untracked-files=no | wc -l)"
-W="$P/work/$CRATE_NAME"; rm -rf "$W"; mkdir -p "$P/work"
+# a fresh work dir: no result of an earlier run (Kani proofs, fuzz results, status rows) can be read as this run's
+# (Codex P2 on #56)
+W="$P/work/$CRATE_NAME"; rm -rf "$P/work"; mkdir -p "$P/work"
 git clone -q "$CRATE_URL" "$W" || { echo "PILOT clone failed: $CRATE_URL"; exit 1; }
 git -C "$W" checkout -q "$CRATE_SHA" || { echo "PILOT commit not found: $CRATE_SHA"; exit 1; }
 [ "$(git -C "$W" rev-parse HEAD)" = "$CRATE_SHA" ] || { echo "PILOT checkout is not $CRATE_SHA"; exit 1; }

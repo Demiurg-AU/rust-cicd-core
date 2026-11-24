@@ -16,18 +16,28 @@ assemble() {
   out="$4"; [ ! -e "$out" ] || [ -z "$(ls -A "$out")" ] || die "out dir not empty: $out"
   mkdir -p "$out"
   git -C "$repo" archive "$h" | tar -x -C "$out"
+  # 1. every judge entry of the head goes: files, and symlinks (a head symlink scripts/ci-local.sh -> sandbox.sh would
+  #    make the restore below write THROUGH it, Codex P1 on #56), including a symlinked judge directory itself
   while IFS= read -r f; do
     [[ "$f" =~ $JUDGE ]] || continue
-    if git -C "$repo" cat-file -e "$b:$f" 2>/dev/null; then
-      mkdir -p "$out/$(dirname "$f")"; git -C "$repo" show "$b:$f" > "$out/$f"
-      n=$((n + 1))
-    else rm -f "$out/$f"; r=$((r + 1)); fi
+    rm -f "$out/$f"; r=$((r + 1))
   done < <(git -C "$repo" ls-tree -r --name-only "$h")
-  # judge files the base has and the head deleted come back too
+  local l rel
+  while IFS= read -r l; do rel="${l#"$out"/}"
+    if [[ "$rel" =~ $JUDGE ]] || [[ "$rel/" =~ $JUDGE ]]; then rm -f "$l"; r=$((r + 1)); fi
+  done < <(find "$out" -type l)
+  # 2. the base's judge files, written as new regular files
   while IFS= read -r f; do
     [[ "$f" =~ $JUDGE ]] || continue
-    [ -e "$out/$f" ] && continue
-    mkdir -p "$out/$(dirname "$f")"; git -C "$repo" show "$b:$f" > "$out/$f"; n=$((n + 1))
+    mkdir -p "$out/$(dirname "$f")"; rm -f "$out/$f"; git -C "$repo" show "$b:$f" > "$out/$f"; n=$((n + 1))
+  done < <(git -C "$repo" ls-tree -r --name-only "$b")
+  # 3. verify: no symlink on any judge path, every judge file byte-equal to the base's blob
+  while IFS= read -r f; do
+    [[ "$f" =~ $JUDGE ]] || continue
+    local p="$out"; local part
+    IFS=/ read -ra parts <<< "$f"
+    for part in "${parts[@]}"; do p="$p/$part"; [ -L "$p" ] && die "judge path is a symlink after assembly: ${p#"$out"/}"; done
+    [ "$(git hash-object "$out/$f")" = "$(git -C "$repo" rev-parse "$b:$f")" ] || die "judge file differs from the base: $f"
   done < <(git -C "$repo" ls-tree -r --name-only "$b")
   chmod +x "$out"/scripts/*.sh 2>/dev/null || true
   # the assembled tree is a repository at the head's commit id, so evidence names the code that was judged
