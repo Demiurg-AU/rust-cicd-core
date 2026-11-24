@@ -113,8 +113,12 @@ if [ "$STAGE" = 3b ]; then
         echo "    K5 $v $t: $f lines ${c:-?}% (min $min%)"; printf 'k5:%s\t%s\n' "$t" "$v" >> "$st"
       done < "$W/fuzz/fuzz-coverage.tsv"
       # canary: a corpus of one empty input (what a target that never explored would leave) must fall below the minimum
-      read -r t f min <<< "$first"; rm -rf "$P/work/k5-one"; mkdir -p "$P/work/k5-one"; : > "$P/work/k5-one/empty"
-      c="$(cov_of "$t" "$P/work/k5-one" "$f")"
+      # the canary corpus lives in the crate tree, which the jail shows; a dir under $HOME would be hidden by the jail
+      # and the replay would measure nothing at all (Codex P2 on #56)
+      read -r t f min <<< "$first"; rm -rf "$W/fuzz/k5-one"; mkdir -p "$W/fuzz/k5-one"; : > "$W/fuzz/k5-one/empty"
+      c="$(cov_of "$t" "fuzz/k5-one" "$f")"
+      grep -q 'Running 1 inputs\|Executed .*1 input\|1 files found' "$P/work/k5-$t-k5-one.log" 2>/dev/null || [ "$c" = ERR ] ||
+        { echo "    K5 canary FAIL: the replay did not read its one input (log: $P/work/k5-$t-k5-one.log)"; c=ERR; }
       if [ "$c" != ERR ] && [ -n "$c" ] && awk -v c="$c" -v m="$min" 'BEGIN {exit !(c < m)}'; then echo "    K5 canary PASS: a one-empty-input corpus gives $c% < $min% for $t"; printf 'k5:canary\tPASS\n' >> "$st"
       else echo "    K5 canary FAIL: a one-empty-input corpus gave ${c:-?}% for $t (log: $P/work/k5-$t-k5-one.log)"; s3b=1
         printf 'k5:canary\tFAIL\n' >> "$st"; fi
@@ -144,7 +148,9 @@ PYK
     ( cd "$W" && bash scripts/kani-gate.sh run . "$P/work/kani" && bash scripts/kani-gate.sh canary . "$P/work/kani-canaries" ) > "$P/work/kani.log" 2>&1
     r=$?; echo "  kani-gate (run + canaries, exit $r): $(grep -E '^KANI' "$P/work/kani.log" | tail -3 | tr '\n' ' ')"
     [ -f "$P/work/kani/kani-results.tsv" ] && awk -F'\t' 'NR>1 {print "kani:" $1 "\t" $2}' "$P/work/kani/kani-results.tsv" >> "$st"
-    [ $r -eq 0 ] || s3b=1
+    # an optional Kani attempt (PILOT_KANI=abstain) that times out or runs out of memory is ABSTAIN, not a failed 3b
+    # step (Codex P2 on #56); only a profile that requires Kani lets it fail 3b
+    [ $r -eq 0 ] || [ "${PILOT_KANI:-abstain}" != required ] || s3b=1
   fi
 fi
 if [ "$STAGE" = 3a ] && [ -f "$P/claims.tsv" ]; then
