@@ -37,8 +37,18 @@ Claude начинает каждый сеанс с актуальных main, PR
 
 ## Итоговый инженерный вердикт — 2026-11-26
 
-main `bd8454a98e06c9958fd2ea02f81080ea4bd5fd12` (после #69). Измерения — `docs/experiments/` (E-1…E-6), у каждого
-предрегистрация отдельным коммитом до запуска. PASS ниже — только по заранее названному критерию.
+main `bbee27a0b8fbb44517b596c80c094c0c88a52852` (после #70, squash head `fff98cab`, base `bd8454a`); CI main на этом коммите — success,
+[run 45852210102](https://github.com/Demiurg-AU/rust-cicd-core/actions/runs/45852210102) (codeql и scorecard на нём же — success). Измерения — `docs/experiments/` (E-1…E-6), у
+каждого предрегистрация отдельным коммитом до запуска; E-1…E-6 сняты на main `4aca02d`/`bd8454a`, #70 меняет только
+`docs/verify-release.md` и текст заметок релиза, ворот не трогает. PASS ниже — только по заранее названному критерию.
+
+**Проверка релиза потребителем — PASS** по критерию `docs/verify-release.md` (повторно после слияния #70,
+2026-11-26): `v0.1.0` → тег `089edc2` → коммит `8c4f96b`; `sha256sum -c SHA256SUMS` — оба `OK`;
+`gh attestation verify … --signer-workflow …/build-reusable.yml --source-ref refs/tags/v0.1.0
+--deny-self-hosted-runners` — exit 0. Отказы (exit 1): дописанный байт; подписант `ci.yml`; `--source-ref
+refs/heads/main` («expected SourceRepositoryRef to be refs/heads/main, got refs/tags/v0.1.0»). В `release.yml` на
+main заметки теперь закрепляют `--source-ref refs/tags/$TAG --deny-self-hosted-runners`. Остаток: новые заметки
+впервые выйдут со следующим релизом; уровень SLSA не заявляется.
 
 ### Какие гарантии система уже обеспечивает автоматически
 
@@ -58,7 +68,7 @@ main `bd8454a98e06c9958fd2ea02f81080ea4bd5fd12` (после #69). Измерен
 
 | Проект | Структура | SHA | Результат |
 |---|---|---|---|
-| шаблон `rust-cicd-core` | lib + bin, без зависимостей, Kani, Lean | main `bd8454a` | CI зелёный; локально 193/193 |
+| шаблон `rust-cicd-core` | lib + bin, без зависимостей, Kani, Lean | main `bbee27a` (ворота как в `bd8454a`) | CI main зелёный ([45852210102](https://github.com/Demiurg-AU/rust-cicd-core/actions/runs/45852210102)); локально 193/193 на `bd8454a` |
 | humantime | библиотека, без зависимостей, `forbid(unsafe_code)` | `76af473` (upstream `997ff566` + 4 коммита) | 3a 146/146 → с S2d 149/149; 3b 18/18; Kani ABSTAIN |
 | semver (dtolnay) | библиотека, `build.rs`, features, 49 `unsafe`, большой dev-граф | `280ebcb6` | 3a 138/146: вне профиля (unsafe), найдены 62 выживших мутанта |
 
@@ -94,7 +104,7 @@ E-1, выборка из 9 регрессий: базовый CI (fmt, clippy, �
 - **semver — FAIL 3a** по S1i/S1c/S1e: крейты с `unsafe` вне профиля, пока нет отдельного профиля.
 - **Известный пробел**: фаззинг-цели humantime без независимого оракула (E-6). Исправление — цель D в пакете
   спецификаций; требует новой приёмки.
-- **#70** (закрепление тега в проверке релиза) ждёт подписи владельца.
+- **#70 слит** (`bbee27a`): подпись K1 владельца на head `fff98cab` / base `bd8454a`, 9 обязательных проверок зелёные.
 - Не измерено: стоимость базового CI на GitHub; повторяемость (один прогон на вариант).
 
 **Вывод о переносимости**, ограниченный испытанным: шаблон подключается только конфигурацией к небольшим
