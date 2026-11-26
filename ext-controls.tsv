@@ -28,8 +28,8 @@ ext:dependabot	file	.github/dependabot.yml	package-ecosystem: cargo	wired
 ext:dependabot-cooldown	file	.github/dependabot.yml	default-days: [1-9]	wired
 ext:locked-lockfile	file	scripts/ci-local.sh	cargo fetch --locked	
 ext:evidence-attestation	file	.github/workflows/ci.yml	uses: actions/attest@[0-9a-f]{40}	main only
-ext:fuzz-gate	file	.github/workflows/fuzz.yml	fuzz-gate\.sh run	wired, not a required check
-ext:fuzz-canaries	file	.github/workflows/fuzz.yml	fuzz-gate\.sh canary	wired, not a required check
+ext:fuzz-gate	file	.github/workflows/fuzz.yml	fuzz-gate\.sh run	runs on every PR (no path filter); required once the ruleset lists fuzz (#63)
+ext:fuzz-canaries	file	.github/workflows/fuzz.yml	fuzz-gate\.sh canary	runs on every PR (no path filter); required once the ruleset lists fuzz (#63)
 ext:fuzz-canary-FC2	file	fuzz/fuzz-canaries.tsv	^FC2\s	wired, not a required check
 ext:release-approved-source	file	.github/workflows/release.yml	release-source-check\.sh	release only
 ext:release-provenance	file	.github/workflows/release.yml	gh attestation verify dist/	release only

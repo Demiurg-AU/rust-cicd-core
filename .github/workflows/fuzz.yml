@@ -9,8 +9,9 @@ on:
   schedule:
     - cron: "17 3 * * 1"
   workflow_dispatch:
+  # every PR, with no path filter: a required check must report on every PR, or a PR it skipped could not
+  # merge (CI-8, owner decision #63, 2026-11-26)
   pull_request:
-    paths: ["fuzz/**", "src/**", ".github/workflows/fuzz.yml", "scripts/fuzz-gate.sh", "scripts/sandbox.sh"]
 
 permissions: {}
 
