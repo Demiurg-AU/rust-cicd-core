@@ -144,4 +144,4 @@ jobs:
         run: |
           set -euo pipefail
           gh release create "$TAG" dist/* --repo "$REPO" --verify-tag --title "$TAG" \
-            --notes "Reproducible (two independent builds, identical sha256) and verified before publishing. Verify yourself: gh attestation verify rust-cicd-core-x86_64-unknown-linux-gnu --repo $REPO --signer-workflow $REPO/.github/workflows/build-reusable.yml"
+            --notes "Reproducible (two independent builds, identical sha256) and verified before publishing. Verify yourself (docs/verify-release.md): gh attestation verify rust-cicd-core-x86_64-unknown-linux-gnu --repo $REPO --signer-workflow $REPO/.github/workflows/build-reusable.yml --source-ref refs/tags/$TAG --deny-self-hosted-runners"
