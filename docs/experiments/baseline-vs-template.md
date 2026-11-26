@@ -38,6 +38,38 @@ improvement 1.
 R9 is included to measure a known blind spot, not to be caught. 3b is run for R9 only (R0's 3b result is the
 acceptance run on the same crate SHA: 18/18).
 
-## Results
+## Results (runs 2026-11-26 11:44-13:14 UTC)
 
-(filled in after the runs; raw lines and commands in the evidence package)
+Template main `4aca02d`, live policy (T3 MATCH). Variant commits in a local clone of the crate repository; commit
+ids below. "Wall" = seconds; "CPU" = CPU-seconds of the whole VM over the run (`/proc/stat`), nothing else running.
+
+| Id | Variant commit | Baseline | Wall / CPU | Template 3a (first gates not PASS) | Wall / CPU | vs pre-registration |
+|---|---|---|---|---|---|---|
+| R0 | `76af473` | PASS | 50 / 59 | PASS 146/146 | 499 / 781 | as expected; no false block on either side |
+| R1 | `77a7823` | caught: fmt | 0 / 0 | caught: S1a fmt | 489 / 768 | as expected |
+| R2 | `6d6c58c` | caught: clippy | 4 / 7 | caught: S1b clippy (S1e repeats it) | 501 / 788 | as expected |
+| R3 | `e87ee63` | caught: test | 11 / 19 | caught: S1c, S1f `week_month_year_lengths` | 144 / 233 | as expected; 5 canaries report FAIL_WRONG_REASON because the tests are red |
+| R4 | `855269e` | **missed** | 45 / 53 | caught: S1d `MISSED src/date.rs:43:9` (Display of Error) | 485 / 738 | as expected |
+| R5 | `dc6f163` | **missed** | 41 / 49 | caught: S1e `expect_used` | 503 / 792 | as expected |
+| R6 | `4e975a7` | **missed** | 48 / 57 | caught: S2a deny (RUSTSEC-2026-0543) | 530 / 833 | as expected |
+| R7 | `e812b8d` | caught: clippy (compile error) | 4 / 7 | caught: S0a build | 122 / 197 | **registration error**: the crate has `#![forbid(unsafe_code)]`, so R7 does not reach S1i; excluded from scoring |
+| R7b | `b3ccc03` | **missed** | 53 / 60 | caught: S1i no-unsafe-code | 511 / 784 | as expected (registered after R7) |
+| R8 | `be42dd2` | **missed** | 45 / 53 | caught: S1g no-judge-forks, S1f | 525 / 823 | as expected |
+| R9 | `c92cfb6` | **missed** | 43 / 52 | caught (indirect): S1d `MISSED src/date.rs:172:43: replace > with >=` - the changed comparison has no boundary test | 512 / 807 | **better than registered** (3a expected to miss). The gate names the untested changed line, not the accepted minute 60 |
+
+**Scored sample: 9 regressions** (R1-R6, R7b, R8, R9). Baseline caught 3 (R1-R3), missed 6. Template 3a caught 9
+(R9 indirectly). False blocks on the clean control: 0 for both. 3b was not run for R9 (deviation: 3a already
+blocked it); the fuzz oracle's blind spot for wrongly accepted inputs is examined in the tool experiment instead.
+
+**Cost.** On this VM the template's 3a takes about 8.5 min wall and 13x the baseline's CPU on a clean change
+(499 s vs 50 s; 781 vs 59 CPU-s). It does not stop at the first failure: R1 (a formatting error the baseline reports
+in 0.05 s) still costs the full run. On GitHub the template's own PR CI costs 28.7 runner-minutes without fuzzing
+(PR #67, final attempts: core 303 s, base judge 301 s, lean-rich 353 s, kani 273 s, spec epoch 277 s, codeql
+176 s, rest under 15 s each) plus 434 s for `fuzz`; a baseline job was not measured on GitHub.
+
+**Scope of the conclusion.** One crate (humantime, a small pure-Rust library with no runtime dependencies), one
+VM, one run per variant, a sample designed by the template's author. The template's extra catches come from gates
+that target exactly these regression classes (mutation, panic lints, advisories, unsafe, judge forks); the sample
+says nothing about regression classes outside it.
+
+Raw lines: `/root/e1/<id>.{base,tmpl}.txt` in the agent workspace (evidence package below).
