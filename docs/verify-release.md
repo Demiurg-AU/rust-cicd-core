@@ -26,6 +26,9 @@ Walked through on 2026-11-26 for `v0.1.0` (ROADMAP plan, improvement 3). Every v
    `token.actions.githubusercontent.com`; predicate `https://slsa.dev/provenance/v1`; subject digest as in step 2; one
    transparency-log entry. Without `--bundle` the same command fetches the attestation from GitHub.
 
+4. **Run.** `chmod +x rust-cicd-core-x86_64-unknown-linux-gnu && ./rust-cicd-core-x86_64-unknown-linux-gnu` prints
+   `5` (the template's `checked_add(2, 3)`) and exits 0.
+
 ## Expected refusals (each one change, exit 1)
 
 | Change | Result |
