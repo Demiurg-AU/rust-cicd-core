@@ -4,3 +4,4 @@ HF2	parse_no_panic	src/duration.rs	            "nanos" | "nsec" | "ns" => Ok(Sel
 HF3	duration_roundtrip	fuzz/fuzz_targets/duration_roundtrip.rs	    let (secs, nanos) = input;	    let (secs, nanos) = input;\n    std::thread::sleep(std::time::Duration::from_secs(19));	GATE:ERROR: libFuzzer: timeout
 HF4	duration_roundtrip	fuzz/fuzz_targets/duration_roundtrip.rs	    let (secs, nanos) = input;	    let (secs, nanos) = input;\n    std::thread::sleep(std::time::Duration::from_secs(8));	GATE:session idle
 HF5	rfc3339_shape	src/date.rs	        .and_then(|x| x.checked_add(two_digits(y2, y3).ok()?))	        .and_then(|x| x.checked_add(two_digits(y2, y3).ok()?)?.checked_add(1))	FUZZ-ORACLE rfc3339
+HF6	rfc3339_vs_time	src/date.rs	        4 => (90, 30),	        4 => (90, 31),	FUZZ-ORACLE humantime accepts, time rejects
