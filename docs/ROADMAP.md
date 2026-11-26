@@ -99,8 +99,11 @@ E-1, выборка из 9 регрессий: базовый CI (fmt, clippy, �
 
 ### Что осталось FAIL, ABSTAIN или требует решения владельца
 
-- **Критерий 1 — OPEN**: письменное решение владельца нужно по 16 строкам PARTIAL и по API-1 (новая строка #69);
-  остаток CI-7 — учётная запись агента с `admin: true` (#63).
+- **Критерий 1 — OPEN**: [решение владельца](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7198034118)
+  есть по всем 35 строкам (16 PARTIAL и API-1 — ACCEPT; CI-8 — REJECT слияния без fuzz, ACCEPT остатка времени поиска;
+  CI-7 — REJECT). Не хватает одного свидетельства CI-7: отдельная учётная запись агента с write и `admin: false`;
+  [проверка сессии](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7198099312) показала
+  `Demiurg-AU`, `admin: true`. От него же зависят CI-12 и CI-14. Переключение учётной записи владелец отложил.
 - **Kani для humantime — ABSTAIN** (ручной харнесс: нехватка памяти; autoharness на `&str`: тайм-аут).
 - **semver — FAIL 3a** по S1i/S1c/S1e: крейты с `unsafe` вне профиля, пока нет отдельного профиля.
 - **Пробел E-6 закрыт (E-7)**: в пакете спецификаций humantime цель `rfc3339_vs_time` со сверкой по крейту `time`
