@@ -1,0 +1,77 @@
+   Compiling humantime-pilot-fuzz v0.0.0 (/root/r68/pilots/humantime/work/humantime/fuzz)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.45s
+Processing 31 input files using 1 workers (batch size: ~31)
+Worker 0: Generating coverage for 31 files
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 2327872453
+INFO: Loaded 1 modules   (2353 inline 8-bit counters): 2353 [0x5625544c7790, 0x5625544c80c1), 
+INFO: Loaded 1 PC tables (2353 PCs): 2353 [0x5625544c80c8,0x5625544d13d8), 
+/root/r68/pilots/humantime/work/humantime/target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/rfc3339_vs_time: Running 31 inputs 1 time(s) each.
+Running: fuzz/corpus/rfc3339_vs_time/20497d620abce7401d08433c514b0da41bbc9867
+Executed fuzz/corpus/rfc3339_vs_time/20497d620abce7401d08433c514b0da41bbc9867 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/8546ec2724ee4c1d99c3850cb1d2e2915c688c1e
+Executed fuzz/corpus/rfc3339_vs_time/8546ec2724ee4c1d99c3850cb1d2e2915c688c1e in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/42e65a90094f8c8b686361e24ec48d9864122054
+Executed fuzz/corpus/rfc3339_vs_time/42e65a90094f8c8b686361e24ec48d9864122054 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/ded3a227df659f25f2cd90ff65878ecfc17c949a
+Executed fuzz/corpus/rfc3339_vs_time/ded3a227df659f25f2cd90ff65878ecfc17c949a in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/92874ea38f9cd9e4ce162ff22f7fa102f1a84480
+Executed fuzz/corpus/rfc3339_vs_time/92874ea38f9cd9e4ce162ff22f7fa102f1a84480 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/6afa830d3040ed7f54b62636f198c0702ee61ea2
+Executed fuzz/corpus/rfc3339_vs_time/6afa830d3040ed7f54b62636f198c0702ee61ea2 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/bda209b2b9c583a2c94decd117647d8e3b3dcf9e
+Executed fuzz/corpus/rfc3339_vs_time/bda209b2b9c583a2c94decd117647d8e3b3dcf9e in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/0c673e44f643d8f15a3a5984c41a5a412300125f
+Executed fuzz/corpus/rfc3339_vs_time/0c673e44f643d8f15a3a5984c41a5a412300125f in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/b4740cc7f54e7b31142fa26041b02d993d4000a6
+Executed fuzz/corpus/rfc3339_vs_time/b4740cc7f54e7b31142fa26041b02d993d4000a6 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/4f692a75611845ce154f482628970e65c87f4acb
+Executed fuzz/corpus/rfc3339_vs_time/4f692a75611845ce154f482628970e65c87f4acb in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/3aa2ab0ca029783dc06356017582ecf5746b969a
+Executed fuzz/corpus/rfc3339_vs_time/3aa2ab0ca029783dc06356017582ecf5746b969a in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/bd0d653ac6358e9df46dacd1b0cb6e298d1c58e1
+Executed fuzz/corpus/rfc3339_vs_time/bd0d653ac6358e9df46dacd1b0cb6e298d1c58e1 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/d2ccc8c5da5733ff0e793fc2f8e4cb2426a7ae45
+Executed fuzz/corpus/rfc3339_vs_time/d2ccc8c5da5733ff0e793fc2f8e4cb2426a7ae45 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/d85d70a14a092839048034e31a84c3cb5470dac7
+Executed fuzz/corpus/rfc3339_vs_time/d85d70a14a092839048034e31a84c3cb5470dac7 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/e413c4cd1454538992a18903e35f738029c2dbfe
+Executed fuzz/corpus/rfc3339_vs_time/e413c4cd1454538992a18903e35f738029c2dbfe in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/a9f6c297c62b9f1e7c19c689b2ba41c00b2aaa71
+Executed fuzz/corpus/rfc3339_vs_time/a9f6c297c62b9f1e7c19c689b2ba41c00b2aaa71 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/49ada0ac51b3faa43caf3ab674ff288ebd8b4d3f
+Executed fuzz/corpus/rfc3339_vs_time/49ada0ac51b3faa43caf3ab674ff288ebd8b4d3f in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/9096c26710a9231cc3a255fea86aad9ea056e12e
+Executed fuzz/corpus/rfc3339_vs_time/9096c26710a9231cc3a255fea86aad9ea056e12e in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/1d9851886bd14d162e628b614af85eb4fa012700
+Executed fuzz/corpus/rfc3339_vs_time/1d9851886bd14d162e628b614af85eb4fa012700 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/8cb57d69287783acb85df2d231d2c37e4ea588c9
+Executed fuzz/corpus/rfc3339_vs_time/8cb57d69287783acb85df2d231d2c37e4ea588c9 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/7c9f21939d57ee76f492f9f45ee3a1ba18c8e8fe
+Executed fuzz/corpus/rfc3339_vs_time/7c9f21939d57ee76f492f9f45ee3a1ba18c8e8fe in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/84f3a4d9bbce832f1d61686352698e1270fe2605
+Executed fuzz/corpus/rfc3339_vs_time/84f3a4d9bbce832f1d61686352698e1270fe2605 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/342b764b29801daf2e8887302e2733106bea81da
+Executed fuzz/corpus/rfc3339_vs_time/342b764b29801daf2e8887302e2733106bea81da in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/2ec3d93fd3e3b1622cc2a3c8ed3055abe2464939
+Executed fuzz/corpus/rfc3339_vs_time/2ec3d93fd3e3b1622cc2a3c8ed3055abe2464939 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/1c6529367d00cf580c492aa952ffa12596b72821
+Executed fuzz/corpus/rfc3339_vs_time/1c6529367d00cf580c492aa952ffa12596b72821 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/066a152b3b0cab6bb82324b010f4a150bd63efef
+Executed fuzz/corpus/rfc3339_vs_time/066a152b3b0cab6bb82324b010f4a150bd63efef in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/6465cf263d011a9a82d78908336cbe70616aaeaa
+Executed fuzz/corpus/rfc3339_vs_time/6465cf263d011a9a82d78908336cbe70616aaeaa in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/6716d57ffa584f15860575ce38b987b8cc31f43c
+Executed fuzz/corpus/rfc3339_vs_time/6716d57ffa584f15860575ce38b987b8cc31f43c in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/9fd8480f3bc2e5c6df9541d4fadc681a77118d34
+Executed fuzz/corpus/rfc3339_vs_time/9fd8480f3bc2e5c6df9541d4fadc681a77118d34 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/afa8831cbec39d387b9f12130ac17bf83ab6c6e1
+Executed fuzz/corpus/rfc3339_vs_time/afa8831cbec39d387b9f12130ac17bf83ab6c6e1 in 0 ms
+Running: fuzz/corpus/rfc3339_vs_time/5a33a2a2f02308956c65fa7cda3c9c84b819f722
+Executed fuzz/corpus/rfc3339_vs_time/5a33a2a2f02308956c65fa7cda3c9c84b819f722 in 0 ms
+***
+*** NOTE: fuzzing was not performed, you have only
+***       executed the target code on a fixed set of inputs.
+***
+Merging raw coverage data...
+Coverage data merged and saved in "/root/r68/pilots/humantime/work/humantime/fuzz/coverage/rfc3339_vs_time/coverage.profdata".

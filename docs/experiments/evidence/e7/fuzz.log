@@ -1,0 +1,10 @@
+FUZZ CANARY HF1 caught
+FUZZ CANARY HF2 caught
+FUZZ CANARY HF3 caught
+FUZZ CANARY HF4 caught
+FUZZ CANARY HF5 caught
+FUZZ CANARY HF6 caught
+FUZZ PASS duration_roundtrip (Done 3251874 runs, corpus 20 inputs, 60s CPU in 61s)
+FUZZ PASS parse_no_panic (Done 3814403 runs, corpus 621 inputs, 60s CPU in 61s)
+FUZZ PASS rfc3339_shape (Done 7221916 runs, corpus 36 inputs, 60s CPU in 62s)
+FUZZ PASS rfc3339_vs_time (Done 6464550 runs, corpus 31 inputs, 60s CPU in 62s)

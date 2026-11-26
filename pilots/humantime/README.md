@@ -26,8 +26,8 @@ live policy (T1/T3 then record it as unchecked).
 | `pilot.env` | crate URL and pinned commit, profile (`REQUIRE_LEAN=0`: the crate has no Lean project) |
 | `overlay/` | configuration only (pilot.sh refuses anything else): generated `Cargo.lock`, `cargo vet init` exemptions |
 | `claims.tsv` | domain claims H1–H3 without evidence: in 3a they are ABSTAIN |
-| `spec/` | 3b spec pack (verification code): 3 fuzz targets, canaries HF1–HF5, K5 coverage minimums, K4 spec mutants |
-| `claims-3b.tsv` | H1–H3 as bounded claims with the spec pack's evidence |
+| `spec/` | 3b spec pack (verification code): 4 fuzz targets (one with an independent oracle, the `time` crate: E-6/E-7), canaries HF1–HF6, K5 coverage minimums, K4 spec mutants SM1–SM4 |
+| `claims-3b.tsv` | H1–H4 as bounded claims with the spec pack's evidence |
 | `spec-kani/` | Kani harness + canaries; not run by default (CBMC out of memory here, see its README) |
 
 Canary validity on this crate: C26 (planted indexing) is **not confirmed** here, because the unmodified crate

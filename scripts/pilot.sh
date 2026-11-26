@@ -103,8 +103,10 @@ if [ "$STAGE" = 3b ]; then
         # every other run of code under test (Codex P1 on #56); writable: the coverage output and the build dir only
         ( cd "$W" && SANDBOX_WORK="$pilot_tmp" SANDBOX_RW="$W/fuzz/coverage/$1:$W/target" sandbox cargo fuzz coverage "$1" "$2" ) \
           > "$P/work/k5-$1-$(basename "$2").log" 2>&1 || { echo "ERR"; return; }
+        # only files of the crate tree: a dependency may have a file of the same name (time's src/date.rs sorts before
+        # the crate's and was matched first, E-7), so the report is restricted to sources under $W
         "$lc" report "$W/target/x86_64-unknown-linux-gnu/coverage/x86_64-unknown-linux-gnu/release/$1" \
-          -instr-profile="$W/fuzz/coverage/$1/coverage.profdata" 2>/dev/null | awk -v f="$3" '$1 ~ ("(^|/)" f "$") {gsub("%","",$10); print $10; exit}'; }
+          -instr-profile="$W/fuzz/coverage/$1/coverage.profdata" "$W" 2>/dev/null | awk -v f="$3" '$1 ~ ("(^|/)" f "$") {gsub("%","",$10); print $10; exit}'; }
       echo "  K5 corpus coverage, measured outside the fuzzer (cargo fuzz coverage + llvm-cov):"
       first=""
       while IFS=$'\t' read -r t f min; do [[ -z "$t" || "$t" == \#* ]] && continue; [ -n "$first" ] || first="$t $f $min"

@@ -1,0 +1,169 @@
+gate:S0b	PASS	pass
+gate:S0s	PASS	pass
+gate:S0f	PASS	pass
+gate:S0a	PASS	pass
+gate:S1a	PASS	pass
+gate:S1b	PASS	pass
+gate:S1e	PASS	pass
+gate:S1f	PASS	pass
+gate:S1g	PASS	pass
+gate:S1i	PASS	pass
+gate:S1c	PASS	pass
+gate:S1d	PASS	pass
+gate:S1h	PASS	pass
+gate:S2a	PASS	pass
+gate:S2b	PASS	pass
+gate:S2c	PASS	pass
+gate:S2d	PASS	pass
+gate:C1	PASS	fail
+gate:C2	PASS	fail
+gate:C26	PASS	fail
+gate:C36	PASS	fail
+gate:C37	PASS	fail
+gate:C38	PASS	fail
+gate:C39	PASS	fail
+gate:C40	PASS	fail
+gate:C41	PASS	fail
+gate:C42	PASS	fail
+gate:C43	PASS	fail
+gate:C44	PASS	fail
+gate:C45	PASS	fail
+gate:C46	PASS	fail
+gate:C47	PASS	fail
+gate:C48	PASS	fail
+gate:C49	PASS	fail
+gate:C50	PASS	fail
+gate:C33	PASS	fail
+gate:C28	PASS	fail
+gate:C80	PASS	fail
+gate:C29	PASS	fail
+gate:C30	PASS	fail
+gate:C31	PASS	fail
+gate:C97	PASS	fail
+gate:C34	PASS	fail
+gate:C35	PASS	fail
+gate:C32	PASS	fail
+gate:C3	PASS	fail
+gate:C74	PASS	fail
+gate:E13	PASS	pass
+gate:C106	PASS	fail
+gate:C4	PASS	fail
+gate:C5	PASS	fail
+gate:C6	PASS	fail
+gate:C7	PASS	fail
+gate:C51	PASS	fail
+gate:C52	PASS	fail
+gate:C53	PASS	fail
+gate:C54	PASS	fail
+gate:C8	PASS	fail
+gate:C65	PASS	fail
+gate:C68	PASS	fail
+gate:C66	PASS	fail
+gate:C67	PASS	fail
+gate:C9	PASS	fail
+gate:C10	PASS	fail
+gate:CL29	PASS	fail
+gate:CL30	PASS	fail
+gate:CL32	PASS	fail
+gate:LSKIP	PASS	pass
+gate:C11	PASS	fail
+gate:C12	PASS	fail
+gate:C13	PASS	fail
+gate:C55	PASS	fail
+gate:C56	PASS	fail
+gate:C57	PASS	fail
+gate:C58	PASS	fail
+gate:C59	PASS	fail
+gate:C60	PASS	fail
+gate:C61	PASS	fail
+gate:C62	PASS	fail
+gate:C83	PASS	fail
+gate:E6	PASS	pass
+gate:E4	PASS	pass
+gate:C84	PASS	fail
+gate:C85	PASS	fail
+gate:C86	PASS	fail
+gate:C87	PASS	fail
+gate:E12	PASS	pass
+gate:C96	PASS	fail
+gate:M1	PASS	pass
+gate:C89	PASS	fail
+gate:E8	PASS	pass
+gate:C92	PASS	fail
+gate:C93	PASS	fail
+gate:C94	PASS	fail
+gate:C95	PASS	fail
+gate:E7	PASS	pass
+gate:C90	PASS	fail
+gate:C91	PASS	fail
+gate:E9	PASS	pass
+gate:E10	PASS	pass
+gate:E5	PASS	pass
+gate:E11	PASS	pass
+gate:C88	PASS	fail
+gate:T3	PASS	pass
+gate:R1	PASS	pass
+gate:C14	PASS	fail
+gate:C15	PASS	fail
+gate:C16	PASS	fail
+gate:E1	PASS	pass
+gate:E2	PASS	pass
+gate:E3	PASS	pass
+gate:C77	PASS	fail
+gate:C78	PASS	fail
+gate:C82	PASS	fail
+gate:C79	PASS	fail
+gate:C72	PASS	fail
+gate:C73	PASS	fail
+gate:C75	PASS	fail
+gate:C81	PASS	fail
+gate:C76	PASS	fail
+gate:C17	PASS	fail
+gate:C18	PASS	fail
+gate:C19	PASS	fail
+gate:A1	PASS	pass
+gate:A2	PASS	pass
+gate:C20	PASS	fail
+gate:C21	PASS	fail
+gate:C22	PASS	fail
+gate:C23	PASS	fail
+gate:C24	PASS	fail
+gate:C25	PASS	fail
+gate:C63	PASS	fail
+gate:C64	PASS	fail
+gate:C27	PASS	fail
+gate:A3	PASS	pass
+gate:A4	PASS	pass
+gate:C98	PASS	fail
+gate:C99	PASS	fail
+gate:C100	PASS	fail
+gate:C101	PASS	fail
+gate:C102	PASS	fail
+gate:C103	PASS	fail
+gate:C104	PASS	fail
+gate:C105	PASS	fail
+gate:C69	PASS	fail
+gate:C70	PASS	fail
+gate:C71	PASS	fail
+gate:T2	PASS	pass
+gate:T1	PASS	pass
+fuzzc:HF1	PASS
+fuzzc:HF2	PASS
+fuzzc:HF3	PASS
+fuzzc:HF4	PASS
+fuzzc:HF5	PASS
+fuzzc:HF6	PASS
+fuzz:duration_roundtrip	PASS
+fuzz:parse_no_panic	PASS
+fuzz:rfc3339_shape	PASS
+fuzz:rfc3339_vs_time	PASS
+k5:parse_no_panic	PASS
+k5:duration_roundtrip	PASS
+k5:rfc3339_shape	PASS
+k5:rfc3339_vs_time	PASS
+k5:canary	PASS
+k4:SM1	PASS
+k4:SM2	PASS
+k4:SM3	PASS
+k4:SM4	PASS
+steps:3b	PASS
