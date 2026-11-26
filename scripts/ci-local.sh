@@ -712,19 +712,6 @@ semver_gate() { # <crate dir>
   ( cd "$1" && cargo semver-checks --baseline-rev "$SEMVER_BASELINE" )
 }
 run S2d semver pass - "$ROOT" semver_gate "$ROOT"
-# C106 / E13: a fixture library at 0.1.0; removing a pub fn without a major bump must fail for function_missing,
-# adding one must pass
-SVF="$CAN/semver-fixture"; mkdir -p "$SVF/src"
-printf '[package]\nname = "svfix"\nversion = "0.1.0"\nedition = "2021"\npublish = false\n\n[lib]\npath = "src/lib.rs"\n' > "$SVF/Cargo.toml"
-printf 'pub fn kept() -> u8 {\n    1\n}\n\npub fn removed() -> u8 {\n    2\n}\n' > "$SVF/src/lib.rs"
-( cd "$SVF" && git init -q && git add -A && git -c user.name=f -c user.email=f@f commit -qm base )
-SVB="$(git -C "$SVF" rev-parse HEAD)"; sig_volatile '<semver-baseline>' "$SVB"
-cp -r "$SVF" "$CAN/semver-additive"; printf '\npub fn added() -> u8 {\n    3\n}\n' >> "$CAN/semver-additive/src/lib.rs"
-( cd "$CAN/semver-additive" && git -c user.name=f -c user.email=f@f commit -qam added )
-cp -r "$SVF" "$CAN/semver-removed"; printf 'pub fn kept() -> u8 {\n    1\n}\n' > "$CAN/semver-removed/src/lib.rs"
-( cd "$CAN/semver-removed" && git -c user.name=f -c user.email=f@f commit -qam removed )
-SEMVER_BASELINE="$SVB" run E13 semver-additive-change-passes pass - "$ROOT" semver_gate "$CAN/semver-additive"
-SEMVER_BASELINE="$SVB" run C106 canary-semver-removed-pub-fn fail 'function_missing' "$ROOT" semver_gate "$CAN/semver-removed"
 
 # --- A8: gate self-test. Each gate must FAIL on a known-bad input, for the RIGHT reason ---
 CAN="$WORK/canaries"; mkdir -p "$CAN"
@@ -904,6 +891,19 @@ grep -q '^\[dependencies\]' "$CAN/vetdep/Cargo.toml" || printf '\n[dependencies]
 sed -i '/^\[dependencies\]/a itoa = "=1.0.15"' "$CAN/vetdep/Cargo.toml"
 ( cd "$CAN/vetdep" && cargo fetch ) > "$CAN/vetdep.fetch.log" 2>&1 || true
 CARGO_TARGET_DIR="$CAN/vetdep/target" run C74 canary-vet-unaudited-dependency fail 'Vetting Failed|unvetted dependenc' "$CAN/vetdep" vet_gate "$CAN/vetdep"
+# C106 / E13: a fixture library at 0.1.0; removing a pub fn without a major bump must fail for function_missing,
+# adding one must pass
+SVF="$CAN/semver-fixture"; mkdir -p "$SVF/src"
+printf '[package]\nname = "svfix"\nversion = "0.1.0"\nedition = "2021"\npublish = false\n\n[lib]\npath = "src/lib.rs"\n' > "$SVF/Cargo.toml"
+printf 'pub fn kept() -> u8 {\n    1\n}\n\npub fn removed() -> u8 {\n    2\n}\n' > "$SVF/src/lib.rs"
+( cd "$SVF" && git init -q && git add -A && git -c user.name=f -c user.email=f@f commit -qm base )
+SVB="$(git -C "$SVF" rev-parse HEAD)"; sig_volatile '<semver-baseline>' "$SVB"
+cp -r "$SVF" "$CAN/semver-additive"; printf '\npub fn added() -> u8 {\n    3\n}\n' >> "$CAN/semver-additive/src/lib.rs"
+( cd "$CAN/semver-additive" && git -c user.name=f -c user.email=f@f commit -qam added )
+cp -r "$SVF" "$CAN/semver-removed"; printf 'pub fn kept() -> u8 {\n    1\n}\n' > "$CAN/semver-removed/src/lib.rs"
+( cd "$CAN/semver-removed" && git -c user.name=f -c user.email=f@f commit -qam removed )
+SEMVER_BASELINE="$SVB" run E13 semver-additive-change-passes pass - "$ROOT" semver_gate "$CAN/semver-additive"
+SEMVER_BASELINE="$SVB" run C106 canary-semver-removed-pub-fn fail 'function_missing' "$ROOT" semver_gate "$CAN/semver-removed"
 mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.toml"
 grep -q '^license = ' "$CAN/deny/Cargo.toml" || sed -i '/^\[package\]/a license = "GPL-3.0-only"' "$CAN/deny/Cargo.toml"
 CARGO_TARGET_DIR="$CAN/deny/target" run C4 canary-deny-license fail 'GPL-3.0' "$CAN/deny" cargo deny check licenses
