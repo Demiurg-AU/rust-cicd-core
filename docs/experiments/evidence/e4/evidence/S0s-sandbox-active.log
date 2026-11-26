@@ -1,0 +1,2 @@
+$ sandbox bash -c echo\ \"SANDBOX\ active\"
+SANDBOX active

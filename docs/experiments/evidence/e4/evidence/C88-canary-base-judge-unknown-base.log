@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/base-judge.sh assemble /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/basejudge/repo no-such-base HEAD /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/basejudge/out-c88
+JUDGE base ref not found: no-such-base

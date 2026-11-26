@@ -1,0 +1,2 @@
+$ sandbox true
+SANDBOX writable path is or passes through a symlink: /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/c34/artifacts -> /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/host/c34-target

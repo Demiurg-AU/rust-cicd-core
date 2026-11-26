@@ -1,0 +1,5 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/pilot.sh /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/pilotverdict/link-spec 3b
+PILOT TMPDIR=/tmp/rcc.voaDzF/rcc.Vi1UwL
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   35G  7.1G  84% /
+PILOT spec pack holds entries that are not regular files: x.rs

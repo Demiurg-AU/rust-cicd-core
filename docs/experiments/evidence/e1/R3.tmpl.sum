@@ -1,0 +1,12 @@
+  ci-local (exit 1): 136/146 PASS
+    NOT PASS S1f release-clean-env-tests: FAIL - week_month_year_lengths --- FAILED
+    NOT PASS S1c test-coverage: FAIL - week_month_year_lengths --- FAILED
+    NOT PASS S1d mutation: FAIL - FAILED   Unmutated baseline in 5s build + 1s test
+    NOT PASS S1h neutral-mutant: FAIL - failures:
+    NOT PASS C29 canary-test-cannot-touch-evidence: FAIL_WRONG_REASON - week_month_year_lengths --- FAILED
+    NOT PASS C5 canary-mutant-survives: FAIL_WRONG_REASON - FAILED   Unmutated baseline in 6s build + 1s test
+    NOT PASS C8 canary-coverage-threshold: FAIL_WRONG_REASON - week_month_year_lengths --- FAILED
+    NOT PASS C66 canary-coverage-procmem: FAIL_WRONG_REASON - week_month_year_lengths --- FAILED
+    NOT PASS C67 canary-coverage-extra-profile: FAIL_WRONG_REASON - week_month_year_lengths --- FAILED
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1f in CODE-2
+TIME wall=144.10 user=13.88 sys=6.39

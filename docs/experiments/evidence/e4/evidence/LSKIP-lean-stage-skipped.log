@@ -1,0 +1,2 @@
+$ bash -c echo\ \"LEAN\ stage\ SKIPPED:\ no\ lakefile.toml\ and\ REQUIRE_LEAN=0\"
+LEAN stage SKIPPED: no lakefile.toml and REQUIRE_LEAN=0

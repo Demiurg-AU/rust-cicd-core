@@ -1,0 +1,148 @@
+b3ccc0317f38fff07832a20d91e781a4956a9383 R7b
+4e975a78e414b47b5b1823484e77607518d7d473 R6
+e87ee63db4ba2f4b6b52cc0dd5af40567fe7545d R3
+855269e50049af18d702f4b87821b1e68652667b R4
+dc6f16371c931496e0fbcda813b7855deca192eb R5
+e812b8dfbfa441af380821806a9dcc6e7aa5facd R7
+be42dd2ee042292e3b6c1b3b74c91183ace9aec2 R8
+c92cfb69abfee39d6109d71ae7afe7fd21d4f2ac R9
+77a78236ce04b785124ce0a5ab9170aa5d8ccce2 R1
+6d6c58c22b4400bc58b14407a6e5e73ae853029f R2
+76af4738e7ddbab884b68c46ee82a0810adc3506 style: rustfmt
+527edafe46ce0818135b25ce16b4af91e037e312 tests: observable behaviour for the mutants that survived, and the no-panic boundaries
+286034eacbc25d52da606134df4b924af553d27a no-panic arithmetic and indexing; formatting a pre-epoch time is an error, not a panic
+6a7b7d6b2d6ee63395e0e464993d8dc0e7d4db68 benches: compare against time instead of chrono (RUSTSEC-2026-0543)
+997ff566cc731e3ece5c792c8b83dd78e459f202 no longer actively developed
+76c8929b4cc286f675322475a8e1841f35bafc57 Apply suggestions from Clippy 1.97
+ed7cc7dcd2566facfce2a1a6af8087993d1887c3 fix: avoid panic on exact nanosecond carry overflow
+fc092817fa8689298eaac28ff49bd8bede4ff605 chore: prepare release 2.4.0
+8a022cce55a07da2be81721e7deaa5bd071add72 feat: allow creating Duration in const context
+27a4f77519a436f4137d1c50ff2f3eb559292cfd Explicitly set rust-version to 1.60
+acc3c19658ecae06cf35467dfe03392a67dbf2b1 ci: upgrade to actions/checkout v7
+3acf96bb886ebd16f9e2e8a37d7229e4bd30dd17 ci: fix workflow formatting
+7994b7129851ea3b0e5df8bee67870898e52fa1c ci: disable for non-main pushes
+1b590684c7bae3408ae1b7a9778bc9728a92affd Bump version to 2.3.0
+cacdb9378ff83f4edaf861793b5143cedb5373e9 ci: add audit job
+5cc8dc59ba0f0a56f753eecf665aed69860a7a55 ci: add job to check semver compatibility
+0d5fe2d65551bf337650e73a7620d5cf9fc988fe Bump version to 2.2.1
+fc0e7ea36636c9aa210117656601afc86ea2ef01 duration: move current value out of Parser
+1febd5251a74b869e277459065f04ab707bdb615 duration: track current value as Duration
+0adba1266e4d5ca90113858c17536ac8bdbbd935 duration: track current nanoseconds as u32
+786218f340904827089b24be6577410a8c0d9902 Extract unit parsing
+9ff48bf9d052bf528638b6b5ee3637bb98db046b Re-order duration parser methods in top-down order
+1c0937787347607e0d5a70991a9b29328f98aadb feat: Accept "+00:00" as an alternative way to specify the UTC timezone
+9383ae2add3c4ebd2c1e0fb6a82b5c3a4408984a feat: Support fractional durations with precision safeguards
+e75738405a5e5bb13aa7cd50d907a40bc29d3e10 Add Dependabot config
+854a692e208f85571e89e4e57415ec4b8352aa8f Enforce clippy lints in CI
+7b895f2a54edf9844d59d1e3cc3b3fe1bc02348d Enforce formatting in CI
+ea2ed40d2cd8ded3fca3b69625ea7ed8eac80115 Fix formatting with cargo fmt
+75946535932dd8797c0de03b00f85d54cac3832f feat: parse_duration("0")
+3f8526fcdf213cc082a14cc2bc14ac7f96bda510 Add use of "µs" in output, with optional "mu" feature.
+372142ab87ebfb37e6f164edb1ea298bcbca5f0e Add parsing of "µs"
+e85ddf09e79c61a7df274a6a5195fec5162af554 Allow parsing zero durations with no units (issue #28)
+170b9044c8b7da5f06341dff56cad0fa98680313 Add 'wk', 'wks' for weeks and 'yr', 'yrs' for years
+4f1c17c663004ff265299e53d5702b42bea32ce2 Upgrade to 2021 edition
+108066f37f041f1860e0a3cea05202384b6eb30f Update Cargo metadata
+a92f43c04c19ac9d29202aae49ad617ae8065294 Allow benchmarks to compile on stable
+e5b9d3692f6cbb3a7a78a72716cd3269f1947f16 Remove unused CI debris
+278dd2b64f8274e7dc3f7fe49465c1f45b6bb257 Apply suggestions from clippy
+f765ab172c49536d50d5ef4a465e981b0b1449bd Bump version to 2.2.0
+9f569debc897ce4e659f810df1c27b32a3223e26 Aligns derived traits of wrapper types with the underlying types
+6b8de3193c82b550d097fa46d67346a51cf2be4c Upgrade to rand 0.9
+00ea85ad1c5fd37234864fd568e389b5965971d2 Upgrade to time 0.3
+77557f2deada46f353be1350a69e8b63fee064b3 Fix precision on Windows
+9a5cd1cfadbd142558f711c4052657ca7c70f4cd Skip minimal versions check which breaks MSRV
+720a71eaf72629504e48c2789c7809ac9c88116a Warn on unreachable_pub
+0aa2e2d8ec5c9c01a5fd2b72871de4c2eff167f0 Remove unsupported target_os
+21b8b6c0fdbefbde4ce7df21d8dd724b0f0d4df0 Fix formatting with cargo fmt
+171a43deccc2c0aaabc801bbf735d17067f51847 Adding missed test cases
+06e4eda1f7e8400f0a0996d92c454b0d275d9be2 Add CI
+12ce6f50894a56a410b390e5608ac9db8afe2407 Minor improvements (#25)
+8b359cfe15c2729947bf196fc2d1a39be8d01f2c two_digits: use `char::to_digit` instead of direct byte arithmetic (#22)
+698aeb5f531fbcf69bd063b6a87599e35e9b9948 docs: fix wrong reference to `parse_rfc3339` and add a link to it (#21)
+c6a23911677ebaf4f14dab8bca1120b7c0af2be1 Clean up Rfc3339Timestamp Display buffer init (#19)
+c600fff7dbb8c513ced7fc1a4655c9881ef476f8 Version bumped to v2.1.0
+8a1cd4ff71e299c4f0fcd8602b8ecfb60015204f Remove CARGO_TOKEN from .travis.yml
+5cb9614ee194e0db5b1995d96a4b10b3a1955293 Expose inner values from formatting wrappers (#18)
+669473d260ccb217cddfe33bed6744f7fa185876 Version bumped to v2.0.1
+af4bca8f976e95ac6e93119cde97963ede54840c Merge pull request #17 from Veetaha/patch-1
+32f9afe39e753fe2bd779d5624522f7b60f272c3 Add respository to Cargo.toml
+28819a78847b2ae6868fc28a4cca2d704e900800 Merge pull request #16 from dividinglimits/issue#15
+6f4817ece90ddf125b3c7cebb5b7a80cd6bba213 update doc typo microseconds -> nanoseconds
+d478f8a7878edba8a609a287776e27fc16d7009b Version bumped to v2.0.0
+49f11fdc2a59746085d2457cb46bce204dec746a Another improvement of the error message
+8a13b047ca0dc731e0c515b1db544fe1fd75bd7d Nicer error message for plain numeric duration
+edfa493e8cb8217aa5a0cc638398f60d67648c93 vagga.yaml: upgrade rust to 1.31.0
+8b8d748566c85a73b2f940e755dc0160c93f465a Merge pull request #13 from gh0st42/master
+da7723529fa30222b73561fad0ed7ce47d9a15a4 Merge pull request #12 from koushiro/works
+227d7e591dd76bbfbca6a236d2e8661ddfd16d63 Made crate unsafe free and forbid unsafe
+b7da4ab6ad24f68660cf92ede8dc88d7400a39fa Downgrade MSRV to 1.31
+4a406825951039c6c3414b76c855dc38384d874d Merge pull request #11 from koushiro/apply-rustfmt-and-clippy
+f00dbbae37ac281c919fbf0d56caf5900f1e0085 Apply suggestions
+2ec4fba2352c07267d78a0f739226514b3019a1b Fix clippy warnings
+897b7f6dc96374ffd0c0c87799449defee0e8b6a Migrate to 2018 edition
+f569740ed2281509930c62b5f66363a5b5ce4ad8 Merge pull request #10 from koushiro/update
+d467bd9814b9ef54b8d2a8c860d326e3326204bd Upgrade MSRV to 1.32
+0b60f7e44412a33aa3e6052d6d2a713f077ecd37 Use ? and ..= instead of deprecated usage
+898d27b6b872a791e82e3e95a03e4dbb3052482f Remove quick-error dependency
+82f148d87949d1f5d9497fd347c0868879f12319 Merge pull request #9 from xoac/update_doc
+e5f2cae1a4d4782e67907340ae2f958808c15452 Add info about correct serde support
+19350dd88c18adbe596b6d95b601753f8c28006f Version bumped to v1.3.0
+f522996facaa6380db2ef05bda6e47a5d2376231 Add smoke tests for fraction of the second formatting
+40df993a98770441c2d27cb85982a2253765e14b Merge pull request #8 from oherrala/subseconds
+5e31591072dd1d90e882ca22505ec4e4d322f824 Introduce format_rfc3339_{millis, micros}
+b40c099792f265f012f67dc5756b6abda187f72d Update README to refer to humantime-serde
+040e5d0aecb450f55ea00b839bb1310bfd286645 Version bumped to v1.2.0
+aeae41dbc801a610b6af5b7836e244551b46a636 Merge pull request #5 from snapview/master
+6dd0ba6c44c601edfa21b2322348ea91f743d4a9 Implement Clone for formatted types
+3df8ee4c4d454e56d7590f51e24dfe81f6a471cb Version bumped to v1.1.1
+f3a2c70f50e1f96a40dce16e10f980dfd7496d89 test: Check upper bound on every platform
+7e350302096c726c90c9fc38fb9e2eed4d102f82 Fix maximum SystemTime on windows, wasm32-unknown-unknown, cloudabi
+f51503361fee43a78cd2f3ed7bdf39cb10bb46e9 Fix 'break_data' test
+1e6ec28c0f30d9373cc13df8d6f27420d5aed151 Test rust 1.18.0 on travis (needed for env_logger)
+970c883f89be11da75e15854e8ab8ca37d30993c Test both on 32bit and 64bit platforms
+02d0e7d7578d421e7612e747857d839a4a087aec Fix year 2038 limit on 32bit platforms
+7e6f642c2150151af69054d804843f95f67da7d1 Version bumped to v1.1.0
+cd4d8e7fc39d497babf8e4fd99ee7aff8ee76d24 Another tweak of package metadata
+108b0afa0ab0f3a2fce5f6188147a2270543b4f5 Version bumped to v1.1.0-beta.4
+2c08e835b565d03a6ab56e159581b82e8b90ae27 Improve docstrings a bit
+7291944f4a626e00b8c57f678242532395035b22 Add more info and benchmarks to the readme
+8177d0d7746bc9f3187deb7108e783413329ad53 Update crate metadata
+3ca81a6813ab5e499a2f10f91373b51b295b9169 Update README
+1e9243ccc2c7644249686f1d1c5d01086f5e6d0e Version bumped to v1.1.0-beta.3
+b975803837cd4559d5da29cc2585fb9394b3c08c No `Hash` impl for `Timestamp` (rarely needed, suppor for older rust)
+6911db6c13a96bf9a17c8a79baecd8883e4cfbe9 Version bumped to v1.1.0-beta.2
+28d451af66170551842199eda93c252a00cd1d5f Implement duration formatting (fixes #1)
+3684288f3d5b0a106b644f3e34ccb14509bcc492 Fix typo in travis file
+cb608fba0bdfb4e4c55e6315350511c6ad02fab0 Version bumped to v1.1.0-beta.1
+d8ca970c0b2e5c73075e8dab05b06dd66352dba1 New .travis.yml file
+c5b8974f129d30109cb9f5e68565c1f9fffa021c Update license info
+36a1241043b0cb8d80676af8ec4c3ba7943d1034 Add a link to serde-humantime
+c51506071aae12af363e11eccd92634056df9729 Better main docstring
+942e77448db29da1ae2925d0008d31b34d8a3ed7 Timestamp type and better docstrings
+b22e6f15cd4d5e856a15c864dc12e2a0d0ac4849 vagga.yaml: upgrade rust to v1.24.0
+0e53d1f440fb7d124a73f874975b04c90977e5fa Add first implementation of timestamp formatting
+e367948dfeadb0dbc6ff7c5b98e935bbe7a2c192 Implement weaker date/time parsing
+be74a31594fd53add2f4856f4dddbaf8e002364d Improve tests and docstring
+f60c7d4d806f26005760a1092b0b544efb7e226a Implement fractional seconds parsing
+61428efec60329c8c5c4d25c06018be926de63c3 Update vagga.yaml according to the new stardards
+7caf2c6d4033aa525a51e989e7ecaf2c0ecb800f Obey rfc3339 instead of ISO8601 (latter is more ambiguous)
+adc793f6dabc2a355a7f975e5a532338d33e3901 More bounds check and valid second support
+6336e5534af584759b919af5f6a29db5774a5776 Add a benchmark
+c68defdb871c97b8e533eae7051433275a7fc0d7 Convert README.rst -> .md
+4b6795c3ab40eaede302f085316ee3c1956b6166 Fix README
+9b01f462ecfe2a495e02b8fba9906af5f56fad14 Fixes keywords in Cargo toml
+b705b5b2d32e947d1856180d62d0d4057d6ba235 Version bumped to v1.0.0
+01b3edbf469cededcd62fc89d84a73ce21b8ac2f Version bumped to v0.1.3
+c3baafd9b51537a3611f58b8e6b50de70cf9c719 Add additional aliases for few periods
+bd41fe080b0783368e76b86905396fe90f6da3cf Version bumped to v0.1.2
+c4ef6dbf227ea3fabc7b4c0626155320197d09be Implement Clone and Copy for wrapper and error type
+0e55bbac294e8d9502f04e1e815bd3863d5ff473 Version bumped to v0.1.1
+25377c82ccfdd519321c365c96e63232ec758cfd Remove useless dev-dependencies
+8939e4d37b6d02353ab89837be133d366c296737 More refinements of documentation
+9296cff18d7beef93cb0a2d1f905aaa2842a3121 Add descriptions of the error fields
+e143e92089c8c99990fb936d82810c2b1e354c53 More documentation added
+af48b7e40a0bb420760fb0e04752aa0fbe061f10 Add wrapper type for easier parsing
+183c11772a738017a4683b2203a009a621681620 Add travis.yml
+4d10794721c6c527263309e1ebc6d89e3da92f57 Add README and LICENSE files
+d1f32f797233ca05329cfc0059565d98a42f654b Initial implementation

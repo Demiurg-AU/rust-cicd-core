@@ -1,0 +1,18 @@
+$ neutral_gate /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/neutral-hash /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/neutral-c49
+NEUTRAL edited 8 files, 78 function bodies
+   5: semver::canary_source_hash::source_unchanged::{closure#0}
+             at ./src/lib.rs:575:26
+   6: <semver::canary_source_hash::source_unchanged::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/core/src/ops/function.rs:250:5
+   7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+             at /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/core/src/ops/function.rs:250:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+
+failures:
+    canary_source_hash::source_unchanged
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `--lib`
+NEUTRAL tests fail on a behaviour-preserving edit: they read the source text, not the behaviour

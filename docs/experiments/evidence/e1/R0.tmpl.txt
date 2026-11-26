@@ -1,0 +1,27 @@
+PILOT TMPDIR=/tmp/rcc.jOMoXa
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   31G   12G  72% /
+PILOT humantime stage 3a
+  template: 4aca02d2eb3e550dae6cd76c7e8072702759d319
+  crate:    /root/ht-cmp @ 76af4738e7ddbab884b68c46ee82a0810adc3506
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 0): 146/146 PASS
+    core            16/16 PASS
+    canaries        105/105 PASS
+    evidence/judge  14/14 PASS
+    policy          7/7 PASS
+    lean            4/4 PASS
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /root/pcmp/pilots/cmp-R0/work/humantime/evidence/20261126T114353Z (ci-local), /root/pcmp/pilots/cmp-R0/work (spec pack logs, status.tsv)
+  log:      /root/pcmp/pilots/cmp-R0/work/ci-local.log
+PILOT 3a core (ci-local): PASS
+TIME wall=498.69 user=14.13 sys=6.36
+exit=0
+CPU-SECONDS 781

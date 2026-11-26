@@ -1,0 +1,5 @@
+BASE FIRST-FAIL test
+Command exited with non-zero status 1
+TIME wall=11.05 user=17.44 sys=2.50
+exit=1
+CPU-SECONDS 19

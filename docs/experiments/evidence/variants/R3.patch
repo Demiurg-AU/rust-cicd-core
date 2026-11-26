@@ -1,0 +1,25 @@
+From e87ee63db4ba2f4b6b52cc0dd5af40567fe7545d Mon Sep 17 00:00:00 2001
+From: exp <exp@local>
+Date: Thu, 26 Nov 2026 12:30:04 +0100
+Subject: [PATCH] R3
+
+---
+ src/duration.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/duration.rs b/src/duration.rs
+index a1dade1..a1b5616 100644
+--- a/src/duration.rs
++++ b/src/duration.rs
+@@ -265,7 +265,7 @@ impl Parser<'_> {
+             Unit::Minute => (mul(n, 60)?, 0),
+             Unit::Hour => (mul(n, 3600)?, 0),
+             Unit::Day => (mul(n, 86400)?, 0),
+-            Unit::Week => (mul(n, 604_800)?, 0),
++            Unit::Week => (mul(n, 604_801)?, 0),
+             Unit::Month => (mul(n, 2_630_016)?, 0), // 30.44d
+             Unit::Year => (mul(n, 31_557_600)?, 0), // 365.25d
+         };
+-- 
+2.43.0
+

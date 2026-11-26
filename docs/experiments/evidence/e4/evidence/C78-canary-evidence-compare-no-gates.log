@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/evidence-compare.sh compare /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/evcmp/g /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/evcmp/a
+EVIDENCE no gate evidence in A

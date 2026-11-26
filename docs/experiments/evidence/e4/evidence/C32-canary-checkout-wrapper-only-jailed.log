@@ -1,0 +1,2 @@
+$ wrapper_probe /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/wrapper
+WRAPPER contained: checkout config ran code only inside the jail

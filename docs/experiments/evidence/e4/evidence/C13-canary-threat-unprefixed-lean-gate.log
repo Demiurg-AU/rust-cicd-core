@@ -1,0 +1,3 @@
+$ threat_check /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/threat/unprefixed.tsv /root/psv/pilots/semver/work/semver/evidence/20261126T141633Z/results.tsv skip
+THREAT unknown or failed gate L2x in X-3
+THREATS total=1 covered=1 partial=0 open=0 out_of_scope=0

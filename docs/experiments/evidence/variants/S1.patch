@@ -1,0 +1,60 @@
+From 63bdc95a82a7c34eca94816a693cbbcc8b36ea84 Mon Sep 17 00:00:00 2001
+From: exp <exp@local>
+Date: Thu, 26 Nov 2026 14:23:08 +0100
+Subject: [PATCH] S1
+
+---
+ src/date.rs       | 5 +++++
+ src/lib.rs        | 2 +-
+ tests/behavior.rs | 9 +++++++++
+ 3 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/src/date.rs b/src/date.rs
+index 5d34c22..d17340b 100644
+--- a/src/date.rs
++++ b/src/date.rs
+@@ -257,6 +257,11 @@ pub fn format_rfc3339_seconds(system_time: SystemTime) -> Rfc3339Timestamp {
+     Rfc3339Timestamp(system_time, Precision::Seconds)
+ }
+ 
++/// Same as [`format_rfc3339_seconds`]: an RFC3339 timestamp without fractional seconds.
++pub fn format_rfc3339_secs_only(system_time: SystemTime) -> Rfc3339Timestamp {
++    format_rfc3339_seconds(system_time)
++}
++
+ /// Format an RFC3339 timestamp `2018-02-14T00:28:07.000Z`
+ ///
+ /// This format always shows milliseconds even if millisecond value is zero.
+diff --git a/src/lib.rs b/src/lib.rs
+index 7e6da5c..b83a813 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -25,7 +25,7 @@ mod wrapper;
+ pub use self::date::Rfc3339Timestamp;
+ pub use self::date::{
+     format_rfc3339, format_rfc3339_micros, format_rfc3339_millis, format_rfc3339_nanos,
+-    format_rfc3339_seconds,
++    format_rfc3339_seconds, format_rfc3339_secs_only,
+ };
+ pub use self::date::{parse_rfc3339, parse_rfc3339_weak, Error as TimestampError};
+ pub use self::duration::{format_duration, FormattedDuration};
+diff --git a/tests/behavior.rs b/tests/behavior.rs
+index a0e7883..f32ec77 100644
+--- a/tests/behavior.rs
++++ b/tests/behavior.rs
+@@ -193,3 +193,12 @@ fn timestamp_wrapper() {
+     let parsed = Timestamp::from_str("2018-02-13 23:08:32").unwrap();
+     assert_eq!(SystemTime::from(parsed), t);
+ }
++
++#[test]
++fn secs_only_equals_seconds() {
++    let t = at(1_518_563_312, 123_456_789);
++    assert_eq!(
++        humantime::format_rfc3339_secs_only(t).to_string(),
++        "2018-02-13T23:08:32Z"
++    );
++}
+-- 
+2.43.0
+

@@ -1,0 +1,27 @@
+PILOT TMPDIR=/tmp/rcc.2ew16A
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   31G   11G  74% /
+PILOT humantime stage 3a
+  template: 1419de0a9d143d21da18778c1884dcf0f69fd961
+  crate:    /root/ht-cmp @ 0276c8d206008b44d9104a50482752fab2a5778f
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 1): 147/149 PASS
+    core            16/17 PASS
+    canaries        106/106 PASS
+    evidence/judge  15/15 PASS
+    policy          6/7 PASS
+    lean            4/4 PASS
+    NOT PASS S2d semver: FAIL -      Checked [   0.025s] 229 checks: 228 pass, 1 fail, 0 warn, 31 skip
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S2d in API-1
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /root/ps2d/pilots/cmp-S2/work/humantime/evidence/20261126T135932Z (ci-local), /root/ps2d/pilots/cmp-S2/work (spec pack logs, status.tsv)
+  log:      /root/ps2d/pilots/cmp-S2/work/ci-local.log
+PILOT 3a core (ci-local): FAIL
+exit=1

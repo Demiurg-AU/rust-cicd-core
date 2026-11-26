@@ -1,0 +1,5 @@
+  ci-local (exit 1): 145/146 PASS
+    NOT PASS S1a fmt: FAIL - (see /root/pcmp/pilots/cmp-R1/work/humantime/evidence/20261126T115211Z/S1a-fmt.log)
+TIME wall=489.24 user=13.77 sys=6.31
+exit=1
+CPU-SECONDS 768

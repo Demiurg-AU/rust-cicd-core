@@ -1,0 +1,8 @@
+$ cargo fmt --all -- --check
+Diff in /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/fmt/src/lib.rs:567:
+         self.identifier.is_empty()
+     }
+ }
+[31m-pub fn   ugly( ) {}
+[m[32m+pub fn ugly() {}
+[m 

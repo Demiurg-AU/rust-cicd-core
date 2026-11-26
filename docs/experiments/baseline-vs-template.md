@@ -40,8 +40,8 @@ acceptance run on the same crate SHA: 18/18).
 
 ## Results (runs 2026-11-26 11:44-13:14 UTC)
 
-Template main `4aca02d`, live policy (T3 MATCH). Variant commits in a local clone of the crate repository; commit
-ids below. "Wall" = seconds; "CPU" = CPU-seconds of the whole VM over the run (`/proc/stat`), nothing else running.
+Template main `4aca02d`, live policy (T3 MATCH). Variant commits: `docs/experiments/evidence/variants/` (bundle with these exact
+ids, plus one patch per variant, on crate `76af473` of branch `pilot/humantime-fixes`). "Wall" = seconds; "CPU" = CPU-seconds of the whole VM over the run (`/proc/stat`), nothing else running.
 
 | Id | Variant commit | Baseline | Wall / CPU | Template 3a (first gates not PASS) | Wall / CPU | vs pre-registration |
 |---|---|---|---|---|---|---|
@@ -72,4 +72,5 @@ VM, one run per variant, a sample designed by the template's author. The templat
 that target exactly these regression classes (mutation, panic lints, advisories, unsafe, judge forks); the sample
 says nothing about regression classes outside it.
 
-Raw lines: `/root/e1/<id>.{base,tmpl}.txt` in the agent workspace (evidence package below).
+Raw lines: `docs/experiments/evidence/e1/<id>.{base,tmpl}.txt`; harness `evidence/e1/e1-run.sh`; checksums
+`evidence/SHA256SUMS`.

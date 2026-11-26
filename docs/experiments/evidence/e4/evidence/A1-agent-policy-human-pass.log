@@ -1,0 +1,3 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/agent-pr-policy.sh /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/pr-human
+author_kind=human
+AGENT policy ok

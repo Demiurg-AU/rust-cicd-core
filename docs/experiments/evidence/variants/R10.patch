@@ -1,0 +1,25 @@
+From 8972aec51265dc1626b058ef512742ac1be828c1 Mon Sep 17 00:00:00 2001
+From: exp <exp@local>
+Date: Thu, 26 Nov 2026 15:40:50 +0100
+Subject: [PATCH] R10
+
+---
+ src/date.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/date.rs b/src/date.rs
+index 5d34c22..6f97d97 100644
+--- a/src/date.rs
++++ b/src/date.rs
+@@ -99,7 +99,7 @@ fn days_since_epoch(year: u64, month: u64, day: u64) -> Result<u64, Error> {
+         2 if leap => (31, 29),
+         2 => (31, 28),
+         3 => (59, 31),
+-        4 => (90, 30),
++        4 => (90, 31),
+         5 => (120, 31),
+         6 => (151, 30),
+         7 => (181, 31),
+-- 
+2.43.0
+

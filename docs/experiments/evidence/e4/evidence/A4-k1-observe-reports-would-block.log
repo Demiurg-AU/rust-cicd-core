@@ -1,0 +1,4 @@
+$ bash -c out=\"\$\(bash\ \"\$1\"\ \"\$2\"\)\"\ \|\|\ \{\ echo\ \"\$out\"\;\ exit\ 1\;\ \}\;\ echo\ \"\$out\"\;\ \[\[\ \"\$out\"\ ==\ \*\"K1\ observe:\ no\ signed\ approval\ \(required\ mode\ would\ BLOCK\)\"\*\ \]\] _ /root/psv/pilots/semver/work/semver/scripts/agent-pr-policy.sh /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/k1/label-only
+author_kind=human
+K1 observe: no signed approval (required mode would BLOCK)
+AGENT policy ok

@@ -1,0 +1,327 @@
+$ cargo clippy --locked -- -D warnings -F clippy::indexing_slicing -F clippy::string_slice -F clippy::arithmetic_side_effects -F clippy::unwrap_used -F clippy::expect_used -F clippy::panic -F clippy::unreachable -F clippy::todo -F clippy::unimplemented -F clippy::panic_in_result_fn
+   Compiling semver v1.0.28 (/root/psv/pilots/semver/work/semver)
+error: arithmetic operation that can potentially result in unexpected side-effects
+  --> src/display.rs:18:13
+   |
+18 | /             digits(self.major)
+19 | |                 + 1
+20 | |                 + digits(self.minor)
+21 | |                 + 1
+...  |
+25 | |                 + !self.build.is_empty() as usize
+26 | |                 + self.build.len()
+   | |__________________________________^
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+   = note: requested on the command line with `-F clippy::arithmetic-side-effects`
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/display.rs:136:19
+    |
+136 |     let padding = min_width - len;
+    |                   ^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/display.rs:140:44
+    |
+140 |         Alignment::Center => (padding / 2, (padding + 1) / 2),
+    |                                            ^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/display.rs:160:9
+    |
+160 |         1 + digits(val / 10)
+    |         ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/identifier.rs:120:28
+    |
+120 |                 let size = bytes_for_varint(unsafe { NonZeroUsize::new_unchecked(len) }) + len;
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: usage of the `unreachable!` macro
+   --> src/identifier.rs:162:17
+    |
+162 |                 unreachable!("please refrain from storing >64 petabytes of text in semver version");
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#unreachable
+    = note: requested on the command line with `-F clippy::unreachable`
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/identifier.rs:216:24
+    |
+216 |             let size = bytes_for_varint(len) + len.get();
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/identifier.rs:248:20
+    |
+248 |         let size = bytes_for_varint(len) + len.get();
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/identifier.rs:328:25
+    |
+328 |     let nonzero_bytes = 8 - zero_bits_on_string_end as usize / 8;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/identifier.rs:388:17
+    |
+388 |                 len += ((byte & 0x7f) as usize) << shift;
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/identifier.rs:389:17
+    |
+389 |                 shift += 7;
+    |                 ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/identifier.rs:409:22
+    |
+409 |     let usize_bits = mem::size_of::<usize>() * 8;
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/identifier.rs:410:20
+    |
+410 |     let len_bits = usize_bits - len.leading_zeros() as usize;
+    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/identifier.rs:411:5
+    |
+411 |     (len_bits + 6) / 7
+    |     ^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: used `unwrap()` on an `Option` value
+   --> src/parse.rs:115:30
+    |
+115 |             let unexpected = rest.chars().next().unwrap();
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#unwrap_used
+    = note: requested on the command line with `-F clippy::unwrap-used`
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:169:49
+    |
+169 |             .and_then(|value| value.checked_add((digit - b'0') as u64))
+    |                                                 ^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:174:9
+    |
+174 |         len += 1;
+    |         ^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:178:21
+    |
+178 |         Ok((value, &input[len..]))
+    |                     ^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+    = note: requested on the command line with `-F clippy::string-slice`
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:179:38
+    |
+179 |     } else if let Some(unexpected) = input[len..].chars().next() {
+    |                                      ^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:226:36
+    |
+226 |         match input.as_bytes().get(accumulated_len + segment_len) {
+    |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:228:17
+    |
+228 |                 segment_len += 1;
+    |                 ^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:232:17
+    |
+232 |                 segment_len += 1;
+    |                 ^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:245:24
+    |
+245 |                     && input[accumulated_len..].starts_with('0')
+    |                        ^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:249:17
+    |
+249 |                 accumulated_len += segment_len;
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:251:21
+    |
+251 |                     accumulated_len += 1;
+    |                     ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:265:22
+    |
+265 |         (Op::Exact, &input[1..])
+    |                      ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:268:30
+    |
+268 |             (Op::GreaterEq, &input[2..])
+    |                              ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:270:28
+    |
+270 |             (Op::Greater, &input[1..])
+    |                            ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:274:27
+    |
+274 |             (Op::LessEq, &input[2..])
+    |                           ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:276:25
+    |
+276 |             (Op::Less, &input[1..])
+    |                         ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:279:22
+    |
+279 |         (Op::Tilde, &input[1..])
+    |                      ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:281:22
+    |
+281 |         (Op::Caret, &input[1..])
+    |                      ^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:331:21
+    |
+331 |         let text = &text[1..];
+    |                     ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: indexing into a string may panic if the index is within a UTF-8 character
+   --> src/parse.rs:343:21
+    |
+343 |         let text = &text[1..];
+    |                     ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#string_slice
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:381:27
+    |
+381 |         out.reserve_exact(depth + 1);
+    |                           ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:383:19
+    |
+383 |         return Ok(depth + 1);
+    |                   ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: used `unwrap()` on an `Option` value
+   --> src/parse.rs:389:26
+    |
+389 |         let unexpected = text.chars().next().unwrap();
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: if this value is `None`, it will panic
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#unwrap_used
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:394:8
+    |
+394 |     if depth + 1 == MAX_COMPARATORS {
+    |        ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: arithmetic operation that can potentially result in unexpected side-effects
+   --> src/parse.rs:401:38
+    |
+401 |     let len = version_req(text, out, depth + 1)?;
+    |                                      ^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.100.0/index.html#arithmetic_side_effects
+
+error: could not compile `semver` (lib) due to 39 previous errors

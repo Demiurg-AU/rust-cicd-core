@@ -1,0 +1,3 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/agent-pr-policy.sh /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/k1/tampered
+author_kind=human
+AGENT PR touches pipeline without a valid owner signature (K1: signature not valid for an allowed signer): scripts/ci-local.sh 

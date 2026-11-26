@@ -39,7 +39,8 @@ Claude начинает каждый сеанс с актуальных main, PR
 
 main `bbee27a0b8fbb44517b596c80c094c0c88a52852` (после #70, squash head `fff98cab`, base `bd8454a`); CI main на этом коммите — success,
 [run 45852210102](https://github.com/Demiurg-AU/rust-cicd-core/actions/runs/45852210102) (codeql и scorecard на нём же — success). Измерения — `docs/experiments/` (E-1…E-6), у
-каждого предрегистрация отдельным коммитом до запуска; E-1…E-6 сняты на main `4aca02d`/`bd8454a`, #70 меняет только
+каждого предрегистрация отдельным коммитом до запуска; сырые журналы, варианты (bundle с точными id и патчи) и
+контрольные суммы — `docs/experiments/evidence/`; E-1…E-6 сняты на main `4aca02d`/`bd8454a`, #70 меняет только
 `docs/verify-release.md` и текст заметок релиза, ворот не трогает. PASS ниже — только по заранее названному критерию.
 
 **Проверка релиза потребителем — PASS** по критерию `docs/verify-release.md` (повторно после слияния #70,

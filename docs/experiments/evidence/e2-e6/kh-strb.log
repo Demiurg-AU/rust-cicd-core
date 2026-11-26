@@ -1,0 +1,226 @@
+Kani Rust Verifier 0.68.0 (cargo plugin)
+CBMC 6.11.0
+   Compiling humantime v2.4.0 (/root/kh)
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | #![feature(register_tool)]
+  |            ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: Found the following unsupported constructs:
+             - caller_location (1)
+             - foreign function (2)
+         
+         Verification will fail if one or more of these constructs is reachable.
+         See https://model-checking.github.io/kani/rust-feature-support.html for more details.
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.71s
+
+Kani generated automatic harnesses for 1 function(s):
++-----------+--------------------------+
+| Crate     | Selected Function        |
++======================================+
+| humantime | duration::parse_duration |
++-----------+--------------------------+
+
+Kani did not generate automatic harnesses for 75 function(s).
+If you believe that the provided reason is incorrect and Kani should have generated an automatic harness, please comment on this issue: https://github.com/model-checking/kani/issues/3832
++-----------+----------------------------------------------------------------------------------------+--------------------------------+
+| Crate     | Skipped Function                                                                       | Reason for Skipping            |
++=====================================================================================================================================+
+| humantime | <date::Error as std::clone::Clone>::clone                                              | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Error as std::cmp::PartialEq>::eq                                               | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Error as std::fmt::Debug>::fmt                                                  | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Error as std::fmt::Display>::fmt                                                | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Precision as std::clone::Clone>::clone                                          | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Precision as std::cmp::Eq>::assert_fields_are_eq                                | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Precision as std::cmp::PartialEq>::eq                                           | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Precision as std::fmt::Debug>::fmt                                              | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Rfc3339Timestamp as std::clone::Clone>::clone                                   | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Rfc3339Timestamp as std::fmt::Debug>::fmt                                       | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <date::Rfc3339Timestamp as std::fmt::Display>::fmt                                     | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::Error as std::clone::Clone>::clone                                          | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::Error as std::cmp::PartialEq>::eq                                           | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::Error as std::fmt::Debug>::fmt                                              | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::Error as std::fmt::Display>::fmt                                            | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::FormattedDuration as std::clone::Clone>::clone                              | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::FormattedDuration as std::fmt::Debug>::fmt                                  | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::FormattedDuration as std::fmt::Display>::fmt                                | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::Fraction as std::clone::Clone>::clone                                       | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::Fraction as std::fmt::Debug>::fmt                                           | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <duration::Unit as std::str::FromStr>::from_str                                        | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::clone::Clone>::clone                                        | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::cmp::Eq>::assert_fields_are_eq                              | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::cmp::Ord>::cmp                                              | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::cmp::PartialEq>::eq                                         | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::cmp::PartialOrd>::partial_cmp                               | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::convert::AsRef<std::time::Duration>>::as_ref                | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::convert::From<std::time::Duration>>::from                   | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::default::Default>::default                                  | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::fmt::Debug>::fmt                                            | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::fmt::Display>::fmt                                          | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::hash::Hash>::hash::<adler2::Adler32>                        | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::ops::Deref>::deref                                          | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Duration as std::str::FromStr>::from_str                                     | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::clone::Clone>::clone                                       | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::cmp::Eq>::assert_fields_are_eq                             | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::cmp::Ord>::cmp                                             | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::cmp::PartialEq>::eq                                        | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::cmp::PartialOrd>::partial_cmp                              | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::convert::AsRef<std::time::SystemTime>>::as_ref             | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::convert::From<std::time::SystemTime>>::from                | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::fmt::Debug>::fmt                                           | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::fmt::Display>::fmt                                         | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::hash::Hash>::hash::<adler2::Adler32>                       | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::ops::Deref>::deref                                         | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | <wrapper::Timestamp as std::str::FromStr>::from_str                                    | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::Rfc3339Timestamp::get_ref                                                        | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::civil_from_unix                                                                  | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::days_since_epoch                                                                 | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::format_rfc3339                                                                   | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::format_rfc3339_micros                                                            | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::format_rfc3339_millis                                                            | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::format_rfc3339_nanos                                                             | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::format_rfc3339_seconds                                                           | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::is_leap_year                                                                     | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::parse_rfc3339                                                                    | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::parse_rfc3339_weak                                                               | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | date::two_digits                                                                       | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::FormattedDuration::get_ref                                                   | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::Parser::<'_>::off                                                            | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::Parser::<'_>::parse                                                          | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::Parser::<'_>::parse_first_char                                               | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::Parser::<'_>::parse_fractional_part                                          | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::Parser::<'_>::parse_unit                                                     | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::add                                                                          | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::add_current                                                                  | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::digit                                                                        | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::div                                                                          | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::format_duration                                                              | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::item                                                                         | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::item_plural                                                                  | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | duration::mul                                                                          | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | wrapper::<impl std::convert::From<wrapper::Duration> for std::time::Duration>::from    | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | wrapper::<impl std::convert::From<wrapper::Timestamp> for std::time::SystemTime>::from | Did not match provided filters |
+|-----------+----------------------------------------------------------------------------------------+--------------------------------|
+| humantime | wrapper::Duration::new                                                                 | Did not match provided filters |
++-----------+----------------------------------------------------------------------------------------+--------------------------------+
+Thread 1: Autoharness: Checking function duration::parse_duration against all possible inputs (bounded for some arguments)...
+Thread 1: 
+CBMC failed
+VERIFICATION:- FAILED
+CBMC timed out. You may want to rerun your proof with a larger timeout or use stubbing to reduce the size of the code the verifier reasons about.
+
+Manual Harness Summary:
+No proof harnesses (functions with #[kani::proof]) were found to verify.
+
+Autoharness Summary:
++-----------+--------------------------+---------------------------+---------------------+
+| Crate     | Selected Function        | Kind of Automatic Harness | Verification Result |
++========================================================================================+
+| humantime | duration::parse_duration | #[kani::proof] (bounded)  | Failure             |
++-----------+--------------------------+---------------------------+---------------------+
+Note: harnesses marked "(bounded)" use bounded nondeterministic values for some arguments (--bounded-arguments);
+their verification results only hold up to the bounds, i.e., bugs that require larger input values may be missed.
+Note that `kani autoharness` sets default --harness-timeout of 60s and --default-unwind of 20.
+If verification failed because of timing out or too low of an unwinding bound, try passing larger values for these arguments (or, if possible, writing a loop contract).
+Complete - 0 successfully verified functions, 1 failures, 1 total.
+Command exited with non-zero status 1
+	Command being timed: "cargo kani autoharness -Z autoharness --bounded-arguments --include-pattern parse_duration"
+	User time (seconds): 60.89
+	System time (seconds): 1.11
+	Percent of CPU this job got: 98%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 1:02.75
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 1364708
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 88
+	Minor (reclaiming a frame) page faults: 93919
+	Voluntary context switches: 1987
+	Involuntary context switches: 215
+	Swaps: 0
+	File system inputs: 11656
+	File system outputs: 33096
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1

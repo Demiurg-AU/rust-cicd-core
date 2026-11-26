@@ -1,0 +1,3 @@
+$ registry_check /root/psv/threat-model.tsv /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/registry/res.tsv /root/psv/assumptions.tsv /root/psv/claims.tsv /root/psv/ext-controls.tsv
+REGISTRY 1 canaries, 34 ext controls, 4 claims checked
+REGISTRY orphan canary C9z: no threat row or assumption relies on it

@@ -1,0 +1,2 @@
+$ judge_despite_links
+JUDGE from base despite file and directory symlinks in the head

@@ -1,0 +1,358 @@
+$ cargo clippy --all-targets -- -F unsafe_code
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling serde_core v1.0.229
+   Compiling zerocopy v0.8.66
+   Compiling syn v2.0.119
+   Compiling syn v3.0.10
+   Compiling zerocopy-derive v0.8.66
+   Compiling zmij v1.0.23
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling serde v1.0.229
+   Compiling cc v1.11.3
+   Compiling serde_derive v1.0.229
+   Compiling serde_json v1.0.154
+    Checking cfg-if v1.0.5
+   Compiling libc v0.2.191
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+    Checking half v2.7.1
+   Compiling alloca v0.4.0
+    Checking anstyle v1.0.14
+    Checking memchr v2.8.3
+    Checking regex-syntax v0.8.12
+    Checking ciborium-io v0.2.2
+    Checking itoa v1.0.19
+    Checking either v1.19.0
+    Checking clap_lex v1.1.2
+    Checking clap_builder v4.6.10
+    Checking regex-automata v0.4.19
+    Checking itertools v0.13.0
+    Checking ciborium-ll v0.2.2
+   Compiling semver v1.0.28 (/tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/covunsafe)
+    Checking cast v0.3.0
+    Checking same-file v1.0.6
+    Checking walkdir v2.5.1
+    Checking criterion-plot v0.8.2
+    Checking page_size v0.6.0
+    Checking ciborium v0.2.2
+    Checking tinytemplate v1.2.1
+    Checking clap v4.6.10
+    Checking regex v1.13.2
+    Checking anes v0.1.6
+    Checking oorandom v11.1.5
+    Checking criterion v0.8.2
+error: usage of an `unsafe` block
+  --> src/identifier.rs:94:35
+   |
+94 |         const HEAD: NonNull<u8> = unsafe { NonNull::new_unchecked(!0 as *mut u8) };
+   |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: requested on the command line with `-F unsafe-code`
+
+error: implementation of an `unsafe` method
+   --> src/identifier.rs:104:5
+    |
+104 | /     pub(crate) unsafe fn new_unchecked(string: &str) -> Self {
+105 | |         let len = string.len();
+106 | |         debug_assert!(len <= isize::MAX as usize);
+107 | |         match len as u64 {
+...   |
+165 | |     }
+    | |_____^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:113:17
+    |
+113 |                 unsafe { ptr::copy_nonoverlapping(string.as_ptr(), bytes.as_mut_ptr(), len) };
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:116:17
+    |
+116 |                 unsafe { mem::transmute::<[u8; mem::size_of::<Identifier>()], Identifier>(bytes) }
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:120:45
+    |
+120 |                 let size = bytes_for_varint(unsafe { NonZeroUsize::new_unchecked(len) }) + len;
+    |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:137:30
+    |
+137 |                 let layout = unsafe { Layout::from_size_align_unchecked(size, align) };
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:139:27
+    |
+139 |                 let ptr = unsafe { alloc(layout) };
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:148:21
+    |
+148 |                     unsafe { ptr::write(write, varint_remaining as u8 | 0x80) };
+    |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:151:29
+    |
+151 |                     write = unsafe { write.add(1) };
+    |                             ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:155:17
+    |
+155 |                 unsafe { ptr::copy_nonoverlapping(string.as_ptr(), write, len) };
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:193:13
+    |
+193 |             unsafe { inline_as_str(self) }
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:196:13
+    |
+196 |             unsafe { ptr_as_str(&self.head) }
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:215:23
+    |
+215 |             let len = unsafe { decode_len(ptr) };
+    |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:222:26
+    |
+222 |             let layout = unsafe { Layout::from_size_align_unchecked(size, align) };
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:224:25
+    |
+224 |             let clone = unsafe { alloc(layout) };
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:231:13
+    |
+231 |             unsafe { ptr::copy_nonoverlapping(ptr, clone, size) }
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:247:19
+    |
+247 |         let len = unsafe { decode_len(ptr) };
+    |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:253:22
+    |
+253 |         let layout = unsafe { Layout::from_size_align_unchecked(size, align) };
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:256:9
+    |
+256 |         unsafe { dealloc(ptr, layout) }
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:269:13
+    |
+269 |             unsafe { ptr_as_str(&self.head) == ptr_as_str(&rhs.head) }
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: implementation of an `unsafe` trait
+   --> src/identifier.rs:274:1
+    |
+274 | unsafe impl Send for Identifier {}
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: implementation of an `unsafe` trait
+   --> src/identifier.rs:275:1
+    |
+275 | unsafe impl Sync for Identifier {}
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:292:5
+    |
+292 |     unsafe { NonNull::new_unchecked(modified) }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: declaration of an `unsafe` function
+   --> src/identifier.rs:317:1
+    |
+317 | / unsafe fn inline_len(repr: &Identifier) -> NonZeroUsize {
+...   |
+332 | |     unsafe { NonZeroUsize::new_unchecked(nonzero_bytes) }
+333 | | }
+    | |_^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:321:16
+    |
+321 |     let repr = unsafe { ptr::addr_of!(*repr).cast::<NonZeroU64>().read() };
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:332:5
+    |
+332 |     unsafe { NonZeroUsize::new_unchecked(nonzero_bytes) }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: declaration of an `unsafe` function
+   --> src/identifier.rs:337:1
+    |
+337 | / unsafe fn inline_as_str(repr: &Identifier) -> &str {
+338 | |     let ptr = ptr::addr_of!(*repr).cast::<u8>();
+339 | |     let len = unsafe { inline_len(repr) }.get();
+...   |
+346 | |     unsafe { str::from_utf8_unchecked(slice) }
+347 | | }
+    | |_^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:339:15
+    |
+339 |     let len = unsafe { inline_len(repr) }.get();
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:343:17
+    |
+343 |     let slice = unsafe { slice::from_raw_parts(ptr, len) };
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:346:5
+    |
+346 |     unsafe { str::from_utf8_unchecked(slice) }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: declaration of an `unsafe` function
+   --> src/identifier.rs:356:1
+    |
+356 | / unsafe fn decode_len(ptr: *const u8) -> NonZeroUsize {
+...   |
+393 | | }
+    | |_^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:360:27
+    |
+360 |     let [first, second] = unsafe { ptr.cast::<[u8; 2]>().read() };
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:365:9
+    |
+365 |         unsafe { NonZeroUsize::new_unchecked((first & 0x7f) as usize) }
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:367:16
+    |
+367 |         return unsafe { decode_len_cold(ptr) };
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: declaration of an `unsafe` function
+   --> src/identifier.rs:373:9
+    |
+373 | /         unsafe fn decode_len_cold(mut ptr: *const u8) -> NonZeroUsize {
+374 | |             let mut len = 0;
+375 | |             let mut shift = 0;
+376 | |             loop {
+...   |
+391 | |         }
+    | |_________^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:380:28
+    |
+380 |                 let byte = unsafe { *ptr };
+    |                            ^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:384:28
+    |
+384 |                     return unsafe { NonZeroUsize::new_unchecked(len) };
+    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:387:23
+    |
+387 |                 ptr = unsafe { ptr.add(1) };
+    |                       ^^^^^^^^^^^^^^^^^^^^^
+
+error: declaration of an `unsafe` function
+   --> src/identifier.rs:397:1
+    |
+397 | / unsafe fn ptr_as_str(repr: &NonNull<u8>) -> &str {
+398 | |     let ptr = repr_to_ptr(*repr);
+399 | |     let len = unsafe { decode_len(ptr) };
+400 | |     let header = bytes_for_varint(len);
+...   |
+404 | |     unsafe { str::from_utf8_unchecked(slice) }
+405 | | }
+    | |_^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:399:15
+    |
+399 |     let len = unsafe { decode_len(ptr) };
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:401:17
+    |
+401 |     let slice = unsafe { slice::from_raw_parts(ptr.add(header), len.get()) };
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/identifier.rs:404:5
+    |
+404 |     unsafe { str::from_utf8_unchecked(slice) }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/parse.rs:103:9
+    |
+103 |         unsafe { comparators.set_len(len) }
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/parse.rs:210:22
+    |
+210 |     let identifier = unsafe { Identifier::new_unchecked(string) };
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/parse.rs:216:22
+    |
+216 |     let identifier = unsafe { Identifier::new_unchecked(string) };
+    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/parse.rs:382:9
+    |
+382 |         unsafe { out.as_mut_ptr().add(depth).write(comparator) }
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: usage of an `unsafe` block
+   --> src/parse.rs:402:5
+    |
+402 |     unsafe { out.as_mut_ptr().add(depth).write(comparator) }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: could not compile `semver` (lib) due to 47 previous errors
+warning: build failed, waiting for other jobs to finish...

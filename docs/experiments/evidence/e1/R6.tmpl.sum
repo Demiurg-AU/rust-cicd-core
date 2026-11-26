@@ -1,0 +1,6 @@
+  ci-local (exit 1): 144/146 PASS
+    NOT PASS S2a deny: FAIL - error[unmaintained]: chrono is unmaintained
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S2a in DEP-1
+TIME wall=529.62 user=14.41 sys=6.71
+exit=1
+CPU-SECONDS 833

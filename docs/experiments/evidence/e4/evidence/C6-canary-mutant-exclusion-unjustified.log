@@ -1,0 +1,2 @@
+$ mutants_gate /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/mutexcl /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/mutants-c6
+MUTANTS exclusion without justification: canary_double

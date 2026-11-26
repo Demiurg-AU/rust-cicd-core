@@ -1,0 +1,15 @@
+     Cloning 76af4738e7ddbab884b68c46ee82a0810adc3506
+    Building humantime v2.4.0 (current)
+       Built [   0.273s] (current)
+     Parsing humantime v2.4.0 (current)
+      Parsed [   0.002s] (current)
+    Building humantime v2.4.0 (baseline)
+       Built [   0.267s] (baseline)
+     Parsing humantime v2.4.0 (baseline)
+      Parsed [   0.003s] (baseline)
+    Checking humantime v2.4.0 -> v2.4.0 (no change; assume patch)
+     Checked [   0.030s] 229 checks: 229 pass, 31 skip
+     Summary no semver update required
+    Finished [   0.832s] humantime
+TIME wall=1.02 user=0.68
+exit=0

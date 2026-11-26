@@ -1,0 +1,24 @@
+From 4e975a78e414b47b5b1823484e77607518d7d473 Mon Sep 17 00:00:00 2001
+From: exp <exp@local>
+Date: Thu, 26 Nov 2026 12:30:09 +0100
+Subject: [PATCH] R6
+
+---
+ Cargo.toml | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Cargo.toml b/Cargo.toml
+index 1ff32a6..f52219d 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -18,6 +18,7 @@ mu = []
+ [dev-dependencies]
+ bencher = "0.1.5"
+ time = { version = "0.3", features = ["formatting", "parsing"] }
++chrono = "0.4"
+ rand = "0.9"
+ 
+ [[bench]]
+-- 
+2.43.0
+

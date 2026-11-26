@@ -1,0 +1,3 @@
+$ judge_forks /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/fork-kani
+JUDGE-FORK src/lib.rs:573: #[cfg(kani)]
+JUDGE-FORK src/lib.rs:575: #[cfg(not(kani))]

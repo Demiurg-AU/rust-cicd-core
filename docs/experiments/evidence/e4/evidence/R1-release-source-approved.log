@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/release-source-check.sh refs/tags/v1.2.3 726f80a05b4d3c446de639a1a151421ffefb0680 main
+RELEASE source approved: refs/tags/v1.2.3 726f80a05b4d3c446de639a1a151421ffefb0680 on main

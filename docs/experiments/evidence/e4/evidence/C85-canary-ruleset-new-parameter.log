@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/ruleset-snapshot.sh check /root/psv/ruleset-snapshot.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/newparam.rules.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/newparam.rulesets.json
+RULESET drift: + effective_rules[required_status_checks].parameters.canary_new_policy_field = true  (snapshot -> live)

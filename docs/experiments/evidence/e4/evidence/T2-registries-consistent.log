@@ -1,0 +1,2 @@
+$ registry_check /root/psv/threat-model.tsv /root/psv/pilots/semver/work/semver/evidence/20261126T141633Z/results.tsv /root/psv/assumptions.tsv /root/psv/claims.tsv /root/psv/ext-controls.tsv
+REGISTRY 108 canaries, 34 ext controls, 4 claims checked

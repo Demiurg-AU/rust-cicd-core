@@ -1,0 +1,32 @@
+PILOT TMPDIR=/tmp/rcc.voaDzF
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   32G   11G  75% /
+PILOT semver stage 3a
+  template: 4aca02d2eb3e550dae6cd76c7e8072702759d319
+  crate:    https://github.com/dtolnay/semver @ 280ebcb6edac3aa4cdc545dbff8a26c5ac4861fe
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 1): 138/146 PASS
+    core            12/16 PASS
+    canaries        102/105 PASS
+    evidence/judge  14/14 PASS
+    policy          6/7 PASS
+    lean            4/4 PASS
+    NOT PASS S1e no-panic-lints: FAIL - error: arithmetic operation that can potentially result in unexpected side-effects
+    NOT PASS S1i no-unsafe-code: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1c test-coverage: FAIL - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS S1d mutation: FAIL - MISSED   src/lib.rs:531:9: replace Comparator::matches -> bool with true in 0s build + 0s test
+    NOT PASS C8 canary-coverage-threshold: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C66 canary-coverage-procmem: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C67 canary-coverage-extra-profile: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1e in CODE-1
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+  evidence: /root/psv/pilots/semver/work/semver/evidence/20261126T141633Z (ci-local), /root/psv/pilots/semver/work (spec pack logs, status.tsv)
+  log:      /root/psv/pilots/semver/work/ci-local.log
+PILOT 3a core (ci-local): FAIL
+Command exited with non-zero status 1
+TIME wall=855.80
+exit=1

@@ -1,0 +1,3 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/agent-pr-policy.sh /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/pr-agent-stale-label
+author_kind=agent
+AGENT PR touches pipeline without owner label (label predates the latest push (2025-12-31T00:00:00Z <= 2026-01-01T00:00:00Z)): scripts/ci-local.sh 

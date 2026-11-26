@@ -1,0 +1,3 @@
+$ t3_accepts_pr /root/psv/ruleset-snapshot.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/newrule.rules.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/newrule.rulesets.json
+RULESET base judge: the live policy is this PR's snapshot, not the base's (the PR changes the policy)
+RULESET MATCH: 4 effective rules, 1 rulesets; bypass actors compared

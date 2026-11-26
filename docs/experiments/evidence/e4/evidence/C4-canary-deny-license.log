@@ -1,0 +1,17 @@
+$ cargo deny check licenses
+2026-11-26 14:28:29 [WARN] unable to find a config path, falling back to default config
+error[rejected]: failed to satisfy license requirements
+   ┌─ /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/deny/Cargo.toml:11:12
+   │
+11 │ license = "GPL-3.0-only"
+   │            ━━━━━━━━━━━━
+   │            │
+   │            rejected: license is not explicitly allowed
+   │
+   ├ GPL-3.0-only - GNU General Public License v3.0 only:
+   ├   - OSI approved
+   ├   - FSF Free/Libre
+   ├   - Copyleft
+   ├ semver v1.0.28
+
+licenses FAILED

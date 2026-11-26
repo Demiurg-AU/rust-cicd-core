@@ -1,0 +1,2 @@
+$ env -u SANDBOX_SOCKS bash -c .\ \"\$1/sandbox.sh\"\;\ sandbox_probe_sockets\ \"\$2\" _ /root/psv/pilots/semver/work/semver/scripts /var/tmp/sbx-sock.TIGiy4
+SANDBOX no socket or network reachable (5 sockets tried)

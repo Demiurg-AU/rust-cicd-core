@@ -1,0 +1,3 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/agent-pr-policy.sh /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/k1/expired
+author_kind=human
+AGENT PR touches pipeline without a valid owner signature (K1: approval expired at 2026-11-26T13:30:41Z): scripts/ci-local.sh 

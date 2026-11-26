@@ -1,0 +1,30 @@
+PILOT TMPDIR=/tmp/rcc.Z3ZKxA
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   31G   12G  72% /
+PILOT humantime stage 3a
+  template: 4aca02d2eb3e550dae6cd76c7e8072702759d319
+  crate:    /root/ht-cmp @ 4e975a78e414b47b5b1823484e77607518d7d473
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 1): 144/146 PASS
+    core            15/16 PASS
+    canaries        105/105 PASS
+    evidence/judge  14/14 PASS
+    policy          6/7 PASS
+    lean            4/4 PASS
+    NOT PASS S2a deny: FAIL - error[unmaintained]: chrono is unmaintained
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S2a in DEP-1
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /root/pcmp/pilots/cmp-R6/work/humantime/evidence/20261126T123003Z (ci-local), /root/pcmp/pilots/cmp-R6/work (spec pack logs, status.tsv)
+  log:      /root/pcmp/pilots/cmp-R6/work/ci-local.log
+PILOT 3a core (ci-local): FAIL
+Command exited with non-zero status 1
+TIME wall=529.62 user=14.41 sys=6.71
+exit=1
+CPU-SECONDS 833

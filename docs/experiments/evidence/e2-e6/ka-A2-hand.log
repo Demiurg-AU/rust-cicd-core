@@ -1,0 +1,225 @@
+Kani Rust Verifier 0.68.0 (cargo plugin)
+CBMC 6.11.0
+   Compiling rust-cicd-core v0.1.0 (/root/ka)
+warning: trailing semicolon in macro used in expression position
+  --> src/kani_proofs.rs:14:20
+   |
+14 |         Some(s) => assert!(wide <= u64::from(u32::MAX) && u64::from(s) == wide),
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #79813 <https://github.com/rust-lang/rust/issues/79813>
+   = note: `#[warn(semicolon_in_expressions_from_non_local_macros)]` (part of `#[warn(future_incompatible)]`) on by default
+   = note: this warning originates in the macro `assert` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: trailing semicolon in macro used in expression position
+  --> src/kani_proofs.rs:15:17
+   |
+15 |         None => assert!(wide > u64::from(u32::MAX)),
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #79813 <https://github.com/rust-lang/rust/issues/79813>
+   = note: this warning originates in the macro `assert` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | #![feature(register_tool)]
+  |            ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+warning: the following packages contain code that will be rejected by a future version of Rust: rust-cicd-core v0.1.0 (/root/ka)
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+   Compiling rust-cicd-core v0.1.0 (/root/ka)
+warning: trailing semicolon in macro used in expression position
+  --> src/kani_proofs.rs:14:20
+   |
+14 |         Some(s) => assert!(wide <= u64::from(u32::MAX) && u64::from(s) == wide),
+   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #79813 <https://github.com/rust-lang/rust/issues/79813>
+   = note: `#[warn(semicolon_in_expressions_from_non_local_macros)]` (part of `#[warn(future_incompatible)]`) on by default
+   = note: this warning originates in the macro `assert` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: trailing semicolon in macro used in expression position
+  --> src/kani_proofs.rs:15:17
+   |
+15 |         None => assert!(wide > u64::from(u32::MAX)),
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
+   = note: for more information, see issue #79813 <https://github.com/rust-lang/rust/issues/79813>
+   = note: this warning originates in the macro `assert` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | #![feature(register_tool)]
+  |            ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | #![feature(register_tool)]
+  |            ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.08s
+warning: the following packages contain code that will be rejected by a future version of Rust: rust-cicd-core v0.1.0 (/root/ka)
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+Checking harness kani_proofs::kani_checked_add_matches_spec...
+CBMC 6.11.0 (cbmc-6.11.0)
+CBMC version 6.11.0 (cbmc-6.11.0) 64-bit x86_64 linux
+Reading GOTO program from file /root/ka/target/kani/x86_64-unknown-linux-gnu/debug/build/rust-cicd-core/418fdcb9873ba51d/out/rust_cicd_core-418fdcb9873ba51d__RNvNtCsbZrO8W7xKcc_14rust_cicd_core11kani_proofs29kani_checked_add_matches_spec.out
+Generating GOTO Program
+Adding CPROVER library (x86_64)
+Removal of function pointers and virtual functions
+Generic Property Instrumentation
+Running with 16 object bits, 48 offset bits (user-specified)
+Starting Bounded Model Checking
+Runtime Symex: 0.00785541s
+size of program expression: 408 steps
+slicing removed 195 assignments
+Generated 22 VCC(s), 9 remaining after simplification
+Runtime Postprocess Equation: 8.8042e-05s
+Passing problem to propositional reduction
+converting SSA
+Runtime Convert SSA: 0.000984171s
+Running propositional reduction
+Post-processing
+Runtime Post-process: 5.962e-06s
+Solving with CaDiCaL 3.0.0
+624 variables, 1651 clauses
+SAT checker: instance is SATISFIABLE
+Runtime Solver: 8.1257e-05s
+Runtime decision procedure: 0.00114275s
+Running propositional reduction
+Solving with CaDiCaL 3.0.0
+625 variables, 1652 clauses
+SAT checker: instance is SATISFIABLE
+Runtime Solver: 0.000147169s
+Runtime decision procedure: 0.000192612s
+Running propositional reduction
+Solving with CaDiCaL 3.0.0
+626 variables, 1653 clauses
+SAT checker: instance is UNSATISFIABLE
+Runtime Solver: 0.0275784s
+Runtime decision procedure: 0.0276181s
+
+RESULTS:
+Check 1: std::option::Option::<u32>::is_some.unreachable.1
+	 - Status: SUCCESS
+	 - Description: "unreachable code"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2026-08-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:633:5 in function std::option::Option::<u32>::is_some
+
+Check 2: kani_proofs::kani_checked_add_matches_spec.assertion.1
+	 - Status: SUCCESS
+	 - Description: "attempt to add with overflow"
+	 - Location: src/kani_proofs.rs:9:16 in function kani_proofs::kani_checked_add_matches_spec
+
+Check 3: kani_proofs::kani_checked_add_matches_spec.cover.1
+	 - Status: UNSATISFIABLE
+	 - Description: "overflow reached"
+	 - Location: src/kani_proofs.rs:11:5 in function kani_proofs::kani_checked_add_matches_spec
+
+Check 4: kani_proofs::kani_checked_add_matches_spec.cover.2
+	 - Status: SATISFIED
+	 - Description: "in-range reached"
+	 - Location: src/kani_proofs.rs:12:5 in function kani_proofs::kani_checked_add_matches_spec
+
+Check 5: kani_proofs::kani_checked_add_matches_spec.unreachable.1
+	 - Status: SUCCESS
+	 - Description: "unreachable code"
+	 - Location: src/kani_proofs.rs:13:11 in function kani_proofs::kani_checked_add_matches_spec
+
+Check 6: kani_proofs::kani_checked_add_matches_spec.assertion.2
+	 - Status: SUCCESS
+	 - Description: "assertion failed: wide <= u64::from(u32::MAX) && u64::from(s) == wide"
+	 - Location: src/kani_proofs.rs:14:20 in function kani_proofs::kani_checked_add_matches_spec
+
+Check 7: kani_proofs::kani_checked_add_matches_spec.assertion.3
+	 - Status: UNREACHABLE
+	 - Description: "assertion failed: wide > u64::from(u32::MAX)"
+	 - Location: src/kani_proofs.rs:15:17 in function kani_proofs::kani_checked_add_matches_spec
+
+Check 8: checked_add.assertion.1
+	 - Status: FAILURE
+	 - Description: "attempt to add with overflow"
+	 - Location: src/lib.rs:6:10 in function checked_add
+
+Check 9: std::option::Option::<u32>::is_some.pointer_dereference.1
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer NULL"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2026-08-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:634:18 in function std::option::Option::<u32>::is_some
+
+Check 10: std::option::Option::<u32>::is_some.pointer_dereference.2
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer invalid"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2026-08-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:634:18 in function std::option::Option::<u32>::is_some
+
+Check 11: std::option::Option::<u32>::is_some.pointer_dereference.3
+	 - Status: SUCCESS
+	 - Description: "dereference failure: deallocated dynamic object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2026-08-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:634:18 in function std::option::Option::<u32>::is_some
+
+Check 12: std::option::Option::<u32>::is_some.pointer_dereference.4
+	 - Status: SUCCESS
+	 - Description: "dereference failure: dead object"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2026-08-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:634:18 in function std::option::Option::<u32>::is_some
+
+Check 13: std::option::Option::<u32>::is_some.pointer_dereference.5
+	 - Status: SUCCESS
+	 - Description: "dereference failure: pointer outside object bounds"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2026-08-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:634:18 in function std::option::Option::<u32>::is_some
+
+Check 14: std::option::Option::<u32>::is_some.pointer_dereference.6
+	 - Status: SUCCESS
+	 - Description: "dereference failure: invalid integer address"
+	 - Location: ../../home/runner/.rustup/toolchains/nightly-2026-08-21-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/option.rs:634:18 in function std::option::Option::<u32>::is_some
+
+
+SUMMARY:
+ ** 1 of 12 failed (1 unreachable)
+
+ ** 1 of 2 cover properties satisfied
+
+Failed Checks: attempt to add with overflow
+ File: "src/lib.rs", line 6, in checked_add
+
+VERIFICATION:- FAILED
+Verification Time: 0.09106822s
+
+Manual Harness Summary:
+Verification failed for - kani_proofs::kani_checked_add_matches_spec
+Complete - 0 successfully verified harnesses, 1 failures, 1 total.
+Command exited with non-zero status 1
+	Command being timed: "cargo kani --harness kani_proofs::kani_checked_add_matches_spec"
+	User time (seconds): 0.31
+	System time (seconds): 0.13
+	Percent of CPU this job got: 94%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:00.48
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 123804
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 0
+	Minor (reclaiming a frame) page faults: 47804
+	Voluntary context switches: 359
+	Involuntary context switches: 76
+	Swaps: 0
+	File system inputs: 0
+	File system outputs: 2216
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 1

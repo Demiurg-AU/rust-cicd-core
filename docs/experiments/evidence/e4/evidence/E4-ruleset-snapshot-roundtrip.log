@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/ruleset-snapshot.sh check /root/psv/ruleset-snapshot.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/volatile.rules.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/volatile.rulesets.json
+RULESET MATCH: 3 effective rules, 1 rulesets; bypass actors compared

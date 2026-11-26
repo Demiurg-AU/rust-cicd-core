@@ -1,0 +1,2 @@
+$ rust_pin /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/rustpin/rust-toolchain.toml rustc\ 1.100.0\ \(0ef1bc386\ 2026-11-09\)
+RUST toolchain mismatch: pinned 1.0.0, running rustc 1.100.0 (0ef1bc386 2026-11-09)

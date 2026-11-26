@@ -1,0 +1,15 @@
+diff --git a/src/date.rs b/src/date.rs
+index 5d34c22..4c8ffa4 100644
+--- a/src/date.rs
++++ b/src/date.rs
+@@ -85,7 +85,9 @@ pub fn parse_rfc3339(s: &str) -> Result<SystemTime, Error> {
+         return Err(Error::InvalidFormat);
+     }
+     let b = s.as_bytes();
+-    if b.get(10) != Some(&b'T') || (b.last() != Some(&b'Z') && !s.ends_with("+00:00")) {
++    // SAFETY: s.len() >= 20 was checked above
++    let t10 = unsafe { *b.get_unchecked(10) };
++    if t10 != b'T' || (b.last() != Some(&b'Z') && !s.ends_with("+00:00")) {
+         return Err(Error::InvalidFormat);
+     }
+     parse_rfc3339_weak(s)

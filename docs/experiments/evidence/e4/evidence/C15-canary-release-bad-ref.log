@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/release-source-check.sh refs/tags/vbad 726f80a05b4d3c446de639a1a151421ffefb0680 main
+RELEASE ref not approved: refs/tags/vbad

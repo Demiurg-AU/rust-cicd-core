@@ -1,0 +1,6 @@
+  ci-local (exit 1): 144/146 PASS
+    NOT PASS S1e no-panic-lints: FAIL - error: used `expect()` on an `Option` value
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1e in CODE-1
+TIME wall=503.02 user=14.48 sys=6.64
+exit=1
+CPU-SECONDS 792

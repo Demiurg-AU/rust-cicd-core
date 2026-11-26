@@ -1,0 +1,31 @@
+PILOT TMPDIR=/tmp/rcc.bFhvWP
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   31G   12G  72% /
+PILOT humantime stage 3a
+  template: 4aca02d2eb3e550dae6cd76c7e8072702759d319
+  crate:    /root/ht-cmp @ 6d6c58c22b4400bc58b14407a6e5e73ae853029f
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 1): 143/146 PASS
+    core            14/16 PASS
+    canaries        105/105 PASS
+    evidence/judge  14/14 PASS
+    policy          6/7 PASS
+    lean            4/4 PASS
+    NOT PASS S1b clippy: FAIL - error: unneeded `return` statement
+    NOT PASS S1e no-panic-lints: FAIL - error: unneeded `return` statement
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1e in CODE-1
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /root/pcmp/pilots/cmp-R2/work/humantime/evidence/20261126T120025Z (ci-local), /root/pcmp/pilots/cmp-R2/work (spec pack logs, status.tsv)
+  log:      /root/pcmp/pilots/cmp-R2/work/ci-local.log
+PILOT 3a core (ci-local): FAIL
+Command exited with non-zero status 1
+TIME wall=500.83 user=13.74 sys=6.77
+exit=1
+CPU-SECONDS 788
