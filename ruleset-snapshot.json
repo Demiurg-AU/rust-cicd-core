@@ -17,28 +17,40 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "core (S0-S2 + canaries)"
+            "context": "core (S0-S2 + canaries)",
+            "integration_id": 15368
           },
           {
-            "context": "zizmor (workflow security)"
+            "context": "zizmor (workflow security)",
+            "integration_id": 15368
           },
           {
-            "context": "fixture evidence coverage"
+            "context": "fixture evidence coverage",
+            "integration_id": 15368
           },
           {
-            "context": "agent-pr-policy"
+            "context": "agent-pr-policy",
+            "integration_id": 15368
           },
           {
-            "context": "kani (proofs + canaries)"
+            "context": "kani (proofs + canaries)",
+            "integration_id": 15368
           },
           {
-            "context": "spec epoch (base spec x PR code)"
+            "context": "spec epoch (base spec x PR code)",
+            "integration_id": 15368
           },
           {
-            "context": "claims (PASS / FAIL / ABSTAIN)"
+            "context": "claims (PASS / FAIL / ABSTAIN)",
+            "integration_id": 15368
           },
           {
-            "context": "core (base judge x PR code)"
+            "context": "core (base judge x PR code)",
+            "integration_id": 15368
+          },
+          {
+            "context": "fuzz",
+            "integration_id": 15368
           }
         ],
         "strict_required_status_checks_policy": true
@@ -51,13 +63,7 @@
   ],
   "rulesets": [
     {
-      "bypass_actors": [
-        {
-          "actor_id": 5,
-          "actor_type": "RepositoryRole",
-          "bypass_mode": "pull_request"
-        }
-      ],
+      "bypass_actors": [],
       "conditions": {
         "ref_name": {
           "exclude": [],
@@ -81,28 +87,40 @@
             "do_not_enforce_on_create": false,
             "required_status_checks": [
               {
-                "context": "core (S0-S2 + canaries)"
+                "context": "core (S0-S2 + canaries)",
+                "integration_id": 15368
               },
               {
-                "context": "zizmor (workflow security)"
+                "context": "zizmor (workflow security)",
+                "integration_id": 15368
               },
               {
-                "context": "fixture evidence coverage"
+                "context": "fixture evidence coverage",
+                "integration_id": 15368
               },
               {
-                "context": "agent-pr-policy"
+                "context": "agent-pr-policy",
+                "integration_id": 15368
               },
               {
-                "context": "kani (proofs + canaries)"
+                "context": "kani (proofs + canaries)",
+                "integration_id": 15368
               },
               {
-                "context": "spec epoch (base spec x PR code)"
+                "context": "spec epoch (base spec x PR code)",
+                "integration_id": 15368
               },
               {
-                "context": "claims (PASS / FAIL / ABSTAIN)"
+                "context": "claims (PASS / FAIL / ABSTAIN)",
+                "integration_id": 15368
               },
               {
-                "context": "core (base judge x PR code)"
+                "context": "core (base judge x PR code)",
+                "integration_id": 15368
+              },
+              {
+                "context": "fuzz",
+                "integration_id": 15368
               }
             ],
             "strict_required_status_checks_policy": true
