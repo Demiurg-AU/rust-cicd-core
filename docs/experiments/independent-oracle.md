@@ -34,6 +34,22 @@ silent too. E-1 R9 was caught only because the change touched a guarded comparis
 generator to maintain; the value is in the oracle, not the generator. If D misses R10 or raises false alarms, P
 is tried with the same oracle and adopted only if it catches R10 without false alarms.
 
-## Results
+## Results (2026-11-26, 14:41-15:00 UTC)
 
-(filled in after the runs)
+R10 commit `8972aec`. Fuzz runs: nightly-2026-11-15, cargo-fuzz 0.13.2, `-max_total_time=60`, after the 3a run
+(no CPU sharing).
+
+| Run | R0 (clean) | R10 |
+|---|---|---|
+| baseline CI | PASS (E-1) | **missed**: PASS, 34 s |
+| template 3a | PASS (E-1) | **missed**: PASS 146/146, 549 s |
+| existing target `rfc3339_shape`, 60 s | PASS, 7 892 429 runs | **missed**: PASS, 7 402 838 runs |
+| D `rfc3339_vs_time`, 60 s | PASS, 6 327 950 runs, no false alarm | **caught in 0.96 s**: `FUZZ-ORACLE humantime accepts, time rejects: 6991-04-31T00:00:00Z` |
+
+**Decision (rule fixed before the runs): proptest 1.11.0 rejected for this gap.** D closes it with the template's
+existing fuzz path and a dependency the crate already has. A proptest test with the same oracle would add a
+dependency tree (cargo-vet exemptions, audit surface) and a second generator for the same property.
+
+**Change worth making:** pilot spec packs should contain at least one target with an *independent* oracle where one
+exists (here `time`), and `fuzz-targets.tsv` should say which targets have none. Not done in this round: adding D
+to the humantime pilot changes its spec pack and needs a new acceptance run.
