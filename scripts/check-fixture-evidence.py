@@ -80,6 +80,24 @@ def validate_fixture(artifact, fixture_result, discovery_result):
     return sealed_results(artifact)
 
 
+def artifact_location(artifact_root, name, fixture_count):
+    """Where download-artifact put this fixture's evidence, or None.
+
+    download-artifact >= v5 with a pattern extracts into <path>/<artifact name>/ when the pattern matches several
+    artifacts, but straight into <path> when it matches exactly one (v8.0.2 src/download-artifact.ts:
+    `artifacts.length === 1 ? resolvedPath : path.join(resolvedPath, artifact.name)`; v4.3.0 always used the
+    subdirectory). The root layout is accepted only when the inventory has exactly one fixture: only fixture jobs upload
+    under this run's prefix, one artifact per inventory id, so a single matched artifact can only be that fixture's. With
+    two or more fixtures a lone artifact at the root is not attributed to any of them (each one is reported missing).
+    """
+    artifact = artifact_root / name
+    if artifact.is_dir():
+        return artifact
+    if fixture_count == 1 and artifact_root.is_dir() and any(artifact_root.iterdir()):
+        return artifact_root
+    return None
+
+
 def write_test_evidence(artifact, gate_ids):
     artifact.mkdir(parents=True, exist_ok=True)
     (artifact / "expected-gates.txt").write_text("".join(f"{gate_id}\n" for gate_id in gate_ids))
@@ -135,6 +153,27 @@ def self_test():
             raise ValueError("checker self-test accepted a failed discovery job")
         print("checker self-test passed: failed discovery job result rejected")
 
+        # download-artifact layouts (v4: always <root>/<name>/; v8: <root>/ when exactly one artifact matched)
+        name = "fixture-evidence-1-1-fixture-0"
+        nested = root / "layout-nested"
+        write_test_evidence(nested / name, gate_ids)
+        if artifact_location(nested, name, 2) != nested / name:
+            raise ValueError("checker self-test did not find the per-name subdirectory")
+        flat = root / "layout-flat"
+        write_test_evidence(flat, gate_ids)
+        found = artifact_location(flat, name, 1)
+        if found != flat or not validate_fixture(found, "success", "success")[0]:
+            raise ValueError("checker self-test rejected one fixture's evidence extracted at the root")
+        print("checker self-test passed: one fixture, evidence at the download root accepted")
+        if artifact_location(flat, name, 2) is not None:
+            raise ValueError("checker self-test attributed a lone root artifact to one of two fixtures")
+        print("checker self-test passed: two fixtures, lone artifact at the root not attributed")
+        empty = root / "layout-empty"
+        empty.mkdir()
+        if artifact_location(empty, name, 1) is not None:
+            raise ValueError("checker self-test accepted an empty download root")
+        print("checker self-test passed: empty download root reported missing")
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -161,8 +200,8 @@ def main():
     failed = False
     for fixture in include:
         directory = fixture["dir"]
-        artifact = artifact_root / f"fixture-evidence-{run_id}-{attempt}-{fixture['id']}"
-        if not artifact.is_dir():
+        artifact = artifact_location(artifact_root, f"fixture-evidence-{run_id}-{attempt}-{fixture['id']}", len(include))
+        if artifact is None:
             print(f"FIXTURE not covered: {directory} (evidence artifact missing)", file=sys.stderr)
             failed = True
             continue
