@@ -33,6 +33,8 @@ improvement 1.
 | R8 | judge-vs-ship fork: leap-second handling only under `cfg!(debug_assertions)` | missed | caught (S1g; S1f) |
 | R9 | `parse_rfc3339` accepts minute 60 (no test, round-trip-consistent) | missed | missed (3a); 3b also expected to miss: `rfc3339_shape` checks only the round trip |
 
+| R7b | (added 2026-11-26 after R7, see Results) `#![forbid(unsafe_code)]` removed from `src/lib.rs` and the R7 `unsafe` block added | caught (clippy default: no; build passes) - expected **missed** | caught (S1i) |
+
 R9 is included to measure a known blind spot, not to be caught. 3b is run for R9 only (R0's 3b result is the
 acceptance run on the same crate SHA: 18/18).
 
