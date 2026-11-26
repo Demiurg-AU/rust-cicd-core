@@ -1,4 +1,5 @@
-# target	oracle: the independent reference this target compares the real code with
-duration_roundtrip	round trip: parse_duration(format_duration(d)) == d for secs < 10^12 (formatter vs parser, not an independent reference)
-parse_no_panic	no panic: parse_duration and parse_rfc3339_weak return Ok or Err on any UTF-8 input
-rfc3339_shape	no panic + round trip format_rfc3339_seconds/parse_rfc3339_weak on every DDDD-DD-DDTDD:DD:DDZ (formatter vs parser)
+# target	oracle: "independent:" = compared with another implementation; "not independent:" = the crate checked against itself
+duration_roundtrip	not independent: round trip: parse_duration(format_duration(d)) == d for secs < 10^12 (formatter vs parser)
+parse_no_panic	not independent: no panic: parse_duration and parse_rfc3339_weak return Ok or Err on any UTF-8 input
+rfc3339_shape	not independent: no panic + round trip format_rfc3339_seconds/parse_rfc3339_weak on every DDDD-DD-DDTDD:DD:DDZ (formatter vs parser)
+rfc3339_vs_time	independent: parse_rfc3339 vs the time crate (=0.3.55) on every DDDD-DD-DDTDD:DD:DDZ: same Unix second when humantime accepts; humantime accepts every year >= 1970 that time accepts (second 60 skipped)

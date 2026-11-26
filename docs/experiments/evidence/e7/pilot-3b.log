@@ -1,0 +1,83 @@
+Thu Nov 26 17:35:43 UTC 2026
+PILOT TMPDIR=/tmp/rcc.G80Xn5
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   33G  9.8G  77% /
+PILOT humantime stage 3b
+  template: 95f7ddb29e4c6ac41aa89b540c12277d6b9bb9d2
+  crate:    https://github.com/Demiurg-AU/rust-cicd-core @ 76af4738e7ddbab884b68c46ee82a0810adc3506
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  spec pack (verification code, 3b):
+    fuzz/Cargo.lock
+    fuzz/Cargo.toml
+    fuzz/fuzz-canaries.tsv
+    fuzz/fuzz-coverage.tsv
+    fuzz/fuzz-targets.tsv
+    fuzz/fuzz_targets/duration_roundtrip.rs
+    fuzz/fuzz_targets/parse_no_panic.rs
+    fuzz/fuzz_targets/rfc3339_shape.rs
+    fuzz/fuzz_targets/rfc3339_vs_time.rs
+    fuzz/spec-mutants.tsv
+  ci-local (exit 0): 149/149 PASS
+    core            17/17 PASS
+    canaries        106/106 PASS
+    evidence/judge  15/15 PASS
+    policy          7/7 PASS
+    lean            4/4 PASS
+  fuzz-gate canaries + run (exit 0, budget 60s per target):
+    FUZZ CANARY HF1 caught
+    FUZZ CANARY HF2 caught
+    FUZZ CANARY HF3 caught
+    FUZZ CANARY HF4 caught
+    FUZZ CANARY HF5 caught
+    FUZZ CANARY HF6 caught
+    FUZZ PASS duration_roundtrip (Done 3251874 runs, corpus 20 inputs, 60s CPU in 61s)
+    FUZZ PASS parse_no_panic (Done 3814403 runs, corpus 621 inputs, 60s CPU in 61s)
+    FUZZ PASS rfc3339_shape (Done 7221916 runs, corpus 36 inputs, 60s CPU in 62s)
+    FUZZ PASS rfc3339_vs_time (Done 6464550 runs, corpus 31 inputs, 60s CPU in 62s)
+  K5 corpus coverage, measured outside the fuzzer (cargo fuzz coverage + llvm-cov):
+    K5 PASS parse_no_panic: duration.rs lines 70.12% (min 60%)
+    K5 PASS duration_roundtrip: duration.rs lines 67.22% (min 40%)
+    K5 PASS rfc3339_shape: date.rs lines 71.69% (min 40%)
+    K5 PASS rfc3339_vs_time: date.rs lines 47.95% (min 30%)
+    K5 canary PASS: a one-empty-input corpus gives 8.30% < 60% for parse_no_panic
+  K4 spec mutants (weakened oracle -> the named code canary must escape):
+    K4 PASS SM1 (duration_roundtrip): with the oracle weakened, HF1 escaped (not caught)
+    K4 PASS SM2 (parse_no_panic): with the oracle weakened, HF2 escaped (not caught)
+    K4 PASS SM3 (rfc3339_shape): with the oracle weakened, HF5 escaped (not caught)
+    K4 PASS SM4 (rfc3339_vs_time): with the oracle weakened, HF6 escaped (not caught)
+  evidence: /root/r68/pilots/humantime/work/humantime/evidence/20261126T173545Z (ci-local), /root/r68/pilots/humantime/work (spec pack logs, status.tsv)
+  log:      /root/r68/pilots/humantime/work/ci-local.log
+PILOT 3a core (ci-local): PASS
+  3b requirements (profile: fuzz-targets fuzz-canaries k5 k4 claims; claims: H1 H2 H3 H4):
+  3b PASS fuzz:duration_roundtrip
+  3b PASS fuzz:parse_no_panic
+  3b PASS fuzz:rfc3339_shape
+  3b PASS fuzz:rfc3339_vs_time
+  3b PASS canary HF1 caught for its reason
+  3b PASS canary HF2 caught for its reason
+  3b PASS canary HF3 caught for its reason
+  3b PASS canary HF4 caught for its reason
+  3b PASS canary HF5 caught for its reason
+  3b PASS canary HF6 caught for its reason
+  3b PASS k5:parse_no_panic
+  3b PASS k5:duration_roundtrip
+  3b PASS k5:rfc3339_shape
+  3b PASS k5:rfc3339_vs_time
+  3b PASS k5:canary
+  3b PASS k4:SM1
+  3b PASS k4:SM2
+  3b PASS k4:SM3
+  3b PASS k4:SM4
+  3b PASS claim PASS H1 (bounded: fuzz 60 s, corpus replayed for coverage)
+  3b PASS claim PASS H2 (bounded: fuzz 60 s)
+  3b PASS claim PASS H3 (bounded: fuzz 60 s on any string and on the date-time shape)
+  3b PASS claim PASS H4 (bounded: fuzz 60 s on the date-time shape)
+PILOT 3b PASS
+PILOT Kani ABSTAIN: no Kani result saved (spec-kani not run: PILOT_KANI=abstain, see spec-kani/README.md)
+TIME wall=1594.98
+pilot exit=0
+Thu Nov 26 18:02:18 UTC 2026

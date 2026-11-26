@@ -4,3 +4,4 @@
 parse_no_panic	duration.rs	60
 duration_roundtrip	duration.rs	40
 rfc3339_shape	date.rs	40
+rfc3339_vs_time	date.rs	30

@@ -3,3 +3,4 @@
 H1	parse_duration returned Ok or Err on every UTF-8 input the fuzzer tried (no panic)	bounded	fuzz 60 s, corpus replayed for coverage	fuzz:parse_no_panic,k5:parse_no_panic,k4:SM2,k5:canary
 H2	format_duration then parse_duration returned the same Duration on every tried input, secs < 10^12	bounded	fuzz 60 s	fuzz:duration_roundtrip,k5:duration_roundtrip,k4:SM1,k5:canary
 H3	parse_rfc3339_weak returned Ok or Err on every tried input, and accepted times format back to themselves	bounded	fuzz 60 s on any string and on the date-time shape	fuzz:parse_no_panic,fuzz:rfc3339_shape,k5:rfc3339_shape,k4:SM3,k5:canary
+H4	parse_rfc3339 agreed with the time crate on every tried DDDD-DD-DDTDD:DD:DDZ (second 60 excluded): same instant when accepted, no year >= 1970 rejected that time accepts	bounded	fuzz 60 s on the date-time shape	fuzz:rfc3339_vs_time,k5:rfc3339_vs_time,k4:SM4,k5:canary

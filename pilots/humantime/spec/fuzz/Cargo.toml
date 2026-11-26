@@ -11,6 +11,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "=0.4.13"
 humantime = { path = ".." }
+# independent RFC 3339 implementation for target rfc3339_vs_time (E-6/E-7); fuzz workspace only
+time = { version = "=0.3.55", default-features = false, features = ["parsing"] }
 
 # Own workspace: the fuzz crate never enters the crate's build.
 [workspace]
@@ -33,6 +35,13 @@ bench = false
 [[bin]]
 name = "rfc3339_shape"
 path = "fuzz_targets/rfc3339_shape.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rfc3339_vs_time"
+path = "fuzz_targets/rfc3339_vs_time.rs"
 test = false
 doc = false
 bench = false
