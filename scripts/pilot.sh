@@ -64,7 +64,7 @@ echo "  crate:    $CRATE_URL @ $CRATE_SHA"
 echo "  overlay (configuration):"; printf '%s\n' "$overlay"
 [ -n "$spec" ] && { echo "  spec pack (verification code, 3b):"; printf '%s\n' "$spec"; }
 log="$P/work/ci-local.log"
-( cd "$W" && REQUIRE_LEAN="${REQUIRE_LEAN:-1}" bash scripts/ci-local.sh ) > "$log" 2>&1; rc=$?
+( cd "$W" && REQUIRE_LEAN="${REQUIRE_LEAN:-1}" SEMVER_BASELINE="${SEMVER_BASELINE:-}" bash scripts/ci-local.sh ) > "$log" 2>&1; rc=$?
 ev="$(sed -n 's/^evidence=//p' "$log" | tail -1)"; res="$ev/results.tsv"
 [ -f "$res" ] || { echo "PILOT ci-local produced no results (exit $rc); log: $log"; tail -5 "$log"; exit 1; }
 reason() { local f; f="$(ls "$ev/$1"-*.log 2>/dev/null | head -1)"; [ -n "$f" ] || { echo "(no log)"; return; }

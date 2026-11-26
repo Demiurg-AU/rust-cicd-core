@@ -700,6 +700,19 @@ vet_gate() { # <project dir>
 }
 run S2c vet pass - "$ROOT" vet_gate "$ROOT"
 
+# S2d (profile: published library): the public API against the last release, with cargo-semver-checks (experiment
+# E-2, docs/experiments/semver-checks.md: a removed pub fn passed every other gate). SEMVER_BASELINE is the git
+# revision of that release, set by the project (pilot.env for pilots). Unset means the project is not a published
+# library (a binary, publish = false, or no release yet): the gate says so and passes. cargo is the jailed wrapper.
+semver_gate() { # <crate dir>
+  if [ -z "${SEMVER_BASELINE:-}" ]; then
+    echo "SEMVER not applicable: SEMVER_BASELINE unset (binary, publish = false, or no release yet)"; return 0; fi
+  git -C "$1" rev-parse -q --verify "${SEMVER_BASELINE}^{commit}" >/dev/null \
+    || { echo "SEMVER baseline ${SEMVER_BASELINE} is not a commit of this repository"; return 1; }
+  ( cd "$1" && cargo semver-checks --baseline-rev "$SEMVER_BASELINE" )
+}
+run S2d semver pass - "$ROOT" semver_gate "$ROOT"
+
 # --- A8: gate self-test. Each gate must FAIL on a known-bad input, for the RIGHT reason ---
 CAN="$WORK/canaries"; mkdir -p "$CAN"
 # a canary copy is the whole crate (benches/, examples/, tests/, build.rs, ... a manifest may name them), minus what
@@ -878,6 +891,19 @@ grep -q '^\[dependencies\]' "$CAN/vetdep/Cargo.toml" || printf '\n[dependencies]
 sed -i '/^\[dependencies\]/a itoa = "=1.0.15"' "$CAN/vetdep/Cargo.toml"
 ( cd "$CAN/vetdep" && cargo fetch ) > "$CAN/vetdep.fetch.log" 2>&1 || true
 CARGO_TARGET_DIR="$CAN/vetdep/target" run C74 canary-vet-unaudited-dependency fail 'Vetting Failed|unvetted dependenc' "$CAN/vetdep" vet_gate "$CAN/vetdep"
+# C106 / E13: a fixture library at 0.1.0; removing a pub fn without a major bump must fail for function_missing,
+# adding one must pass
+SVF="$CAN/semver-fixture"; mkdir -p "$SVF/src"
+printf '[package]\nname = "svfix"\nversion = "0.1.0"\nedition = "2021"\npublish = false\n\n[lib]\npath = "src/lib.rs"\n' > "$SVF/Cargo.toml"
+printf 'pub fn kept() -> u8 {\n    1\n}\n\npub fn removed() -> u8 {\n    2\n}\n' > "$SVF/src/lib.rs"
+( cd "$SVF" && git init -q && git add -A && git -c user.name=f -c user.email=f@f commit -qm base )
+SVB="$(git -C "$SVF" rev-parse HEAD)"; sig_volatile '<semver-baseline>' "$SVB"
+cp -r "$SVF" "$CAN/semver-additive"; printf '\npub fn added() -> u8 {\n    3\n}\n' >> "$CAN/semver-additive/src/lib.rs"
+( cd "$CAN/semver-additive" && git -c user.name=f -c user.email=f@f commit -qam added )
+cp -r "$SVF" "$CAN/semver-removed"; printf 'pub fn kept() -> u8 {\n    1\n}\n' > "$CAN/semver-removed/src/lib.rs"
+( cd "$CAN/semver-removed" && git -c user.name=f -c user.email=f@f commit -qam removed )
+SEMVER_BASELINE="$SVB" run E13 semver-additive-change-passes pass - "$ROOT" semver_gate "$CAN/semver-additive"
+SEMVER_BASELINE="$SVB" run C106 canary-semver-removed-pub-fn fail 'function_missing' "$ROOT" semver_gate "$CAN/semver-removed"
 mk deny;   sed -i 's/^license = .*/license = "GPL-3.0-only"/' "$CAN/deny/Cargo.toml"
 grep -q '^license = ' "$CAN/deny/Cargo.toml" || sed -i '/^\[package\]/a license = "GPL-3.0-only"' "$CAN/deny/Cargo.toml"
 CARGO_TARGET_DIR="$CAN/deny/target" run C4 canary-deny-license fail 'GPL-3.0' "$CAN/deny" cargo deny check licenses
@@ -1751,7 +1777,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..105} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..106} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c C{1..105} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..106} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
