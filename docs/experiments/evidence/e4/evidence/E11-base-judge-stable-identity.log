@@ -1,0 +1,2 @@
+$ judge_is_stable
+JUDGE assembly commit stable across runs and names the judged head

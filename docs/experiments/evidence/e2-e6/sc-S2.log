@@ -1,0 +1,27 @@
+     Cloning 76af4738e7ddbab884b68c46ee82a0810adc3506
+    Building humantime v2.4.0 (current)
+       Built [   0.245s] (current)
+     Parsing humantime v2.4.0 (current)
+      Parsed [   0.002s] (current)
+    Building humantime v2.4.0 (baseline)
+       Built [   0.266s] (baseline)
+     Parsing humantime v2.4.0 (baseline)
+      Parsed [   0.003s] (baseline)
+    Checking humantime v2.4.0 -> v2.4.0 (no change; assume patch)
+     Checked [   0.038s] 229 checks: 228 pass, 1 fail, 0 warn, 31 skip
+
+--- failure function_missing: pub fn removed or renamed ---
+
+Description:
+A publicly-visible function cannot be imported by its prior path. A `pub use` may have been removed, or the function itself may have been renamed or removed entirely.
+        ref: https://doc.rust-lang.org/cargo/reference/semver.html#item-remove
+       impl: https://github.com/obi1kenobi/cargo-semver-checks/tree/v0.51.0/src/lints/function_missing.ron
+
+Failed in:
+  function humantime::format_rfc3339_micros, previously in file /root/sc-S2/target/semver-checks/git-76af4738e7ddbab884b68c46ee82a0810adc3506/5c7d23cce9ab17a7301fa09abda1abe7efe6d01a/src/date.rs:274
+
+     Summary semver requires new major version: 1 major and 0 minor checks failed
+    Finished [   0.837s] humantime
+Command exited with non-zero status 100
+TIME wall=1.00 user=0.63
+exit=100

@@ -1,0 +1,3 @@
+$ judge_forks /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/fork-inc
+JUDGE-FORK implementation.inc:3: #[cfg(test)]
+JUDGE-FORK implementation.inc:5: #[cfg(not(test))]

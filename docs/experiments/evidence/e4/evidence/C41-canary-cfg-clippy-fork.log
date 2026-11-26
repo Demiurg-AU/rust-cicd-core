@@ -1,0 +1,3 @@
+$ judge_forks /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/fork-clippy
+JUDGE-FORK src/lib.rs:573: #[cfg(not(clippy))]
+JUDGE-FORK src/lib.rs:575: #[cfg(clippy)]

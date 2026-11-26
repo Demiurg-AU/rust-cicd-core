@@ -1,0 +1,3 @@
+$ toolchain_check /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/toolchain
+RUST legacy toolchain file not allowed (it can name a directory): /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/toolchain/legacy/rust-toolchain
+RUST toolchain file /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/toolchain/rust-toolchain.toml: forbidden key path

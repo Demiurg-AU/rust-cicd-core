@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/evidence-compare.sh compare /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/evcmp/a /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/evcmp/i
+EVIDENCE not sealed: /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/evcmp/i/SHA256SUMS does not cover env.txt

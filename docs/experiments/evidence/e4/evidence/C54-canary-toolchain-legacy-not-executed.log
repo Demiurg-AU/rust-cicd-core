@@ -1,0 +1,2 @@
+$ toolchain_probe /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/toolchain/legacy /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/toolchain/EXECUTED
+TOOLCHAIN checkout path= ignored (RUSTUP_TOOLCHAIN=1.100.0): rustc 1.100.0 (0ef1bc386 2026-11-09)

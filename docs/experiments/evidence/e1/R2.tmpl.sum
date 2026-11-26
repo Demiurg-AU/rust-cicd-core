@@ -1,0 +1,7 @@
+  ci-local (exit 1): 143/146 PASS
+    NOT PASS S1b clippy: FAIL - error: unneeded `return` statement
+    NOT PASS S1e no-panic-lints: FAIL - error: unneeded `return` statement
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1e in CODE-1
+TIME wall=500.83 user=13.74 sys=6.77
+exit=1
+CPU-SECONDS 788

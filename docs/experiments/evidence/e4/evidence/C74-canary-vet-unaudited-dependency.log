@@ -1,0 +1,5 @@
+$ vet_gate /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/vetdep
+Vetting Failed!
+
+1 unvetted dependencies:
+  itoa:1.0.15 missing ["safe-to-deploy"]

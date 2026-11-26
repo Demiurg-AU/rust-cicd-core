@@ -1,0 +1,4 @@
+$ threat_check /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/threat/ext/strict.tsv /root/psv/pilots/semver/work/semver/evidence/20261126T141633Z/results.tsv
+THREATS total=1 covered=1 partial=0 open=0 out_of_scope=0
+THREAT ext controls witnessed=0 unchecked=0 failed=1
+THREAT ext control not in force: ext:strict: rule required_status_checks has strict_required_status_checks_policy=false, the threat model needs true

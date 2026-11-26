@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/ruleset-snapshot.sh check /root/psv/ruleset-snapshot.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/newrule.rules.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/newrule.rulesets.json
+RULESET drift: + effective_rules[required_linear_history]  (snapshot -> live)

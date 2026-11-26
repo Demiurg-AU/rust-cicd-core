@@ -1,0 +1,3 @@
+$ judge_sees_all_bytes
+warning: in the working copy of 'tests/fails.rs', LF will be replaced by CRLF the next time Git touches it
+JUDGE tree holds the head's committed bytes despite its .gitattributes

@@ -1,0 +1,112 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+     Running `target/x86_64-unknown-linux-gnu/release/duration_roundtrip -artifact_prefix=/root/fz/fuzz/artifacts/duration_roundtrip/ artifacts/duration_roundtrip/crash-4723bb578ed66904dd37539e0e22383124bc564c`
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 4202336413
+INFO: Loaded 1 modules   (1051 inline 8-bit counters): 1051 [0x56265619bfb0, 0x56265619c3cb), 
+INFO: Loaded 1 PC tables (1051 PCs): 1051 [0x56265619c3d0,0x5626561a0580), 
+target/x86_64-unknown-linux-gnu/release/duration_roundtrip: Running 1 inputs 1 time(s) each.
+Running: artifacts/duration_roundtrip/crash-4723bb578ed66904dd37539e0e22383124bc564c
+
+thread '<unnamed>' (20159) panicked at fuzz_targets/duration_roundtrip.rs:13:5:
+assertion `left == right` failed: FUZZ-ORACLE roundtrip 590766370586.294967051s -> "18720years 3months 2days 9h 55m 38s 294ms 967us 51ns"
+  left: Ok(590766370595.294967051s)
+ right: Ok(590766370586.294967051s)
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:676:5
+   1: core::panicking::panic_fmt
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/panicking.rs:80:14
+   2: core::panicking::assert_failed_inner
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/panicking.rs:447:23
+   3: core::panicking::assert_failed::<core::result::Result<core::time::Duration, humantime::duration::Error>, core::result::Result<core::time::Duration, humantime::duration::Error>>
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/panicking.rs:407:5
+   4: __libfuzzer_sys_run
+             at ./fuzz_targets/duration_roundtrip.rs:13:5
+   5: rust_fuzzer_test_input
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:363:60
+   6: {closure#0}
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:62:9
+   7: do_call<libfuzzer_sys::test_input_wrap::{closure_env#0}, i32>
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:573:43
+   8: __rust_try
+   9: catch_unwind<i32, libfuzzer_sys::test_input_wrap::{closure_env#0}>
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:541:19
+  10: catch_unwind<libfuzzer_sys::test_input_wrap::{closure_env#0}, i32>
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panic.rs:359:14
+  11: test_input_wrap
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:60:22
+  12: _ZN6fuzzer6Fuzzer15ExecuteCallbackEPKhm
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:619:15
+  13: _ZN6fuzzer10RunOneTestEPNS_6FuzzerEPKcm
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerDriver.cpp:335:21
+  14: _ZN6fuzzer12FuzzerDriverEPiPPPcPFiPKhmE
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerDriver.cpp:871:19
+  15: main
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerMain.cpp:20:30
+  16: __libc_start_call_main
+             at ./csu/../sysdeps/nptl/libc_start_call_main.h:58:16
+  17: __libc_start_main_impl
+             at ./csu/../csu/libc-start.c:360:3
+  18: _start
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+==20159== ERROR: libFuzzer: deadly signal
+    #0 0x562655ff1c91 in __sanitizer_print_stack_trace (/root/fz/fuzz/target/x86_64-unknown-linux-gnu/release/duration_roundtrip+0x12cc91) (BuildId: 36a956c239213d64bfa8c3853ddc3bcc20299130)
+    #1 0x5626560f1c9d in fuzzer::PrintStackTrace() /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerUtil.cpp:210:38
+    #2 0x56265603a005 in fuzzer::Fuzzer::CrashCallback() /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:231:18
+    #3 0x56265603a005 in fuzzer::Fuzzer::CrashCallback() /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:226:6
+    #4 0x7f39fc84532f  (/lib/x86_64-linux-gnu/libc.so.6+0x4532f) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #5 0x7f39fc89ec0b in __pthread_kill_implementation nptl/pthread_kill.c:43:17
+    #6 0x7f39fc89ec0b in __pthread_kill_internal nptl/pthread_kill.c:78:10
+    #7 0x7f39fc89ec0b in pthread_kill nptl/pthread_kill.c:89:10
+    #8 0x7f39fc84527d in raise signal/../sysdeps/posix/raise.c:26:13
+    #9 0x7f39fc8288fe in abort stdlib/abort.c:79:7
+    #10 0x56265616d1e9 in std::sys::pal::unix::abort_internal /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/sys/pal/unix/mod.rs:305:14
+    #11 0x56265616be68 in std::process::abort /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/process.rs:2637:5
+    #12 0x5626560233f4 in libfuzzer_sys::initialize::{closure#0} /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:94:9
+    #13 0x56265616c0f1 in <alloc::boxed::Box<dyn for<'a, 'b> core::ops::function::Fn<(&'a std::panic::PanicHookInfo<'b>,), Output = ()> + core::marker::Send + core::marker::Sync> as core::ops::function::Fn<(&std::panic::PanicHookInfo,)>>::call /rustc/5f4effd579500175af844241eb179e756190f1e7/library/alloc/src/boxed.rs:2480:9
+    #14 0x56265616c0f1 in std::panicking::panic_with_hook /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:819:13
+    #15 0x56265615a6f1 in std::panicking::panic_handler::{closure#0} /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:685:13
+    #16 0x562656153718 in std::sys::backtrace::__rust_end_short_backtrace::<std::panicking::panic_handler::{closure#0}, !> /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/sys/backtrace.rs:182:18
+    #17 0x56265615addc in __rustc::rust_begin_unwind /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:676:5
+    #18 0x56265617f99b in core::panicking::panic_fmt /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/panicking.rs:80:14
+    #19 0x56265617f8f2 in core::panicking::assert_failed_inner /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/panicking.rs:447:23
+    #20 0x562656018f7b in core::panicking::assert_failed::<core::result::Result<core::time::Duration, humantime::duration::Error>, core::result::Result<core::time::Duration, humantime::duration::Error>> /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/panicking.rs:407:5
+    #21 0x5626560198de in duration_roundtrip::_::__libfuzzer_sys_run /root/fz/fuzz/fuzz_targets/duration_roundtrip.rs:13:5
+    #22 0x56265601c7e4 in rust_fuzzer_test_input /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:363:60
+    #23 0x562656022fb8 in {closure#0} /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:62:9
+    #24 0x562656022fb8 in std::panicking::catch_unwind::do_call::<libfuzzer_sys::test_input_wrap::{closure#0}, i32> /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:573:43
+    #25 0x562656023a1b in __rust_try libfuzzer_sys.8c886c5a8b7bdb16-cgu.0
+    #26 0x56265602270d in catch_unwind<i32, libfuzzer_sys::test_input_wrap::{closure_env#0}> /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:541:19
+    #27 0x56265602270d in catch_unwind<libfuzzer_sys::test_input_wrap::{closure_env#0}, i32> /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panic.rs:359:14
+    #28 0x56265602270d in LLVMFuzzerTestOneInput /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:60:22
+    #29 0x56265603aebf in fuzzer::Fuzzer::ExecuteCallback(unsigned char const*, unsigned long) /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:619:15
+    #30 0x56265607b19c in fuzzer::RunOneTest(fuzzer::Fuzzer*, char const*, unsigned long) /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerDriver.cpp:335:21
+    #31 0x5626560915d8 in fuzzer::FuzzerDriver(int*, char***, int (*)(unsigned char const*, unsigned long)) /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerDriver.cpp:871:19
+    #32 0x562656140046 in main /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerMain.cpp:20:30
+    #33 0x7f39fc82a1c9 in __libc_start_call_main csu/../sysdeps/nptl/libc_start_call_main.h:58:16
+    #34 0x7f39fc82a28a in __libc_start_main csu/../csu/libc-start.c:360:3
+    #35 0x562655f53014 in _start (/root/fz/fuzz/target/x86_64-unknown-linux-gnu/release/duration_roundtrip+0x8e014) (BuildId: 36a956c239213d64bfa8c3853ddc3bcc20299130)
+
+NOTE: libFuzzer has rudimentary signal handlers.
+      Combine libFuzzer with AddressSanitizer or similar for better crash reports.
+SUMMARY: libFuzzer: deadly signal
+────────────────────────────────────────────────────────────────────────────────
+
+Error: Fuzz target exited with exit status: 77
+
+Stack backtrace:
+   0: <anyhow::Error>::msg::<alloc::string::String>
+   1: <cargo_fuzz::project::FuzzProject>::exec_fuzz
+   2: cargo_fuzz::main
+   3: std::sys::backtrace::__rust_begin_short_backtrace::<fn() -> core::result::Result<(), anyhow::Error>, core::result::Result<(), anyhow::Error>>
+   4: std::rt::lang_start::<core::result::Result<(), anyhow::Error>>::{closure#0}
+   5: std::rt::lang_start_internal
+   6: main
+   7: __libc_start_call_main
+             at ./csu/../sysdeps/nptl/libc_start_call_main.h:58:16
+   8: __libc_start_main_impl
+             at ./csu/../csu/libc-start.c:360:3
+   9: _start
+Command exited with non-zero status 1
+REPRO wall=0.47

@@ -1,0 +1,5 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/pilot-verdict.sh /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/pilotverdict/ok
+  3b PASS k4:SMx
+  3b PASS claim PASS Z1 (bounded: b)
+PILOT 3b PASS
+PILOT Kani ABSTAIN: no Kani result saved (spec-kani not run: PILOT_KANI=abstain, see spec-kani/README.md)

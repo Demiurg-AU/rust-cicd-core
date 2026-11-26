@@ -1,0 +1,4 @@
+$ judge_forks /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/fork-backslash
+JUDGE-FORK src/lib.rs:574: #[cfg(test)]
+JUDGE-FORK src/lib.rs:576: #[cfg(not(test))]
+JUDGE-FORK src/lib.rs:578: #[cfg(not(test))]

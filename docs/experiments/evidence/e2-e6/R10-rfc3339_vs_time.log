@@ -1,0 +1,189 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+     Running `target/x86_64-unknown-linux-gnu/release/rfc3339_vs_time -artifact_prefix=/root/e6/R10/fuzz/artifacts/rfc3339_vs_time/ -max_total_time=60 /root/e6/R10/fuzz/corpus/rfc3339_vs_time`
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 2882549723
+INFO: Loaded 1 modules   (1865 inline 8-bit counters): 1865 [0x560c1436cd70, 0x560c1436d4b9), 
+INFO: Loaded 1 PC tables (1865 PCs): 1865 [0x560c1436d4c0,0x560c14374950), 
+INFO:        0 files found in /root/e6/R10/fuzz/corpus/rfc3339_vs_time
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
+INFO: A corpus is not provided, starting from an empty corpus
+#2	INITED exec/s: 0 rss: 33Mb
+WARNING: no interesting inputs were found so far. Is the code instrumented for coverage?
+This may also happen if the target rejected all inputs we tried so far
+	NEW_FUNC[1/12]: 0x560c141e1f90 in rfc3339_vs_time::_::__libfuzzer_sys_run /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:368
+	NEW_FUNC[2/12]: 0x560c141e4f00 in rust_fuzzer_test_input /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:325
+#1080	NEW    cov: 118 ft: 118 corp: 2/15b lim: 14 exec/s: 0 rss: 37Mb L: 14/14 MS: 3 CopyPart-CrossOver-InsertRepeatedBytes-
+#1081	NEW    cov: 119 ft: 119 corp: 3/29b lim: 14 exec/s: 0 rss: 37Mb L: 14/14 MS: 1 ShuffleBytes-
+#1085	NEW    cov: 120 ft: 120 corp: 4/43b lim: 14 exec/s: 0 rss: 37Mb L: 14/14 MS: 4 CopyPart-CrossOver-ShuffleBytes-ChangeByte-
+#1118	NEW    cov: 121 ft: 121 corp: 5/57b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 3 ChangeBit-ChangeBinInt-ChangeBit-
+#1122	NEW    cov: 122 ft: 122 corp: 6/71b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 4 ChangeByte-CopyPart-ShuffleBytes-CopyPart-
+#1125	NEW    cov: 126 ft: 126 corp: 7/85b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 3 ChangeBit-CopyPart-ChangeBinInt-
+	NEW_FUNC[1/1]: 0x560c141e5cc0 in humantime::date::days_since_epoch /root/e6/R10/src/date.rs:95
+#1127	NEW    cov: 131 ft: 131 corp: 8/99b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 2 ChangeBit-CMP- DE: "\001\000\000\000\000\000\000\003"-
+#1188	NEW    cov: 132 ft: 132 corp: 9/113b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 CopyPart-
+#1194	NEW    cov: 133 ft: 133 corp: 10/127b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 PersAutoDict- DE: "\001\000\000\000\000\000\000\003"-
+#1214	NEW    cov: 134 ft: 134 corp: 11/141b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 5 ChangeByte-ChangeBinInt-ChangeBit-ShuffleBytes-ShuffleBytes-
+#1241	NEW    cov: 137 ft: 137 corp: 12/155b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 2 ChangeBinInt-PersAutoDict- DE: "\001\000\000\000\000\000\000\003"-
+#1325	NEW    cov: 141 ft: 141 corp: 13/169b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 4 ShuffleBytes-CrossOver-ChangeBit-InsertByte-
+#1326	NEW    cov: 142 ft: 142 corp: 14/183b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 PersAutoDict- DE: "\001\000\000\000\000\000\000\003"-
+#1340	NEW    cov: 143 ft: 143 corp: 15/197b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 4 ChangeBit-CopyPart-PersAutoDict-ChangeBit- DE: "\001\000\000\000\000\000\000\003"-
+#1371	NEW    cov: 144 ft: 144 corp: 16/211b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 ChangeBinInt-
+#1416	NEW    cov: 145 ft: 145 corp: 17/225b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 5 ChangeByte-CopyPart-CrossOver-CopyPart-ChangeBinInt-
+#1417	NEW    cov: 146 ft: 146 corp: 18/239b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 ChangeBinInt-
+#1433	NEW    cov: 147 ft: 147 corp: 19/253b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 CopyPart-
+#1450	NEW    cov: 148 ft: 148 corp: 20/267b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 2 CMP-ChangeBinInt- DE: "c\000"-
+	NEW_FUNC[1/1]: 0x560c141e58a0 in <core::time::Duration>::new /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/time.rs:276
+#1456	NEW    cov: 161 ft: 161 corp: 21/281b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 1 ChangeByte-
+#1506	NEW    cov: 162 ft: 162 corp: 22/295b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 5 CopyPart-ChangeByte-ChangeByte-ChangeByte-CopyPart-
+#1562	NEW    cov: 163 ft: 163 corp: 23/309b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 1 ChangeBinInt-
+#1627	NEW    cov: 164 ft: 164 corp: 24/323b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 5 CopyPart-ChangeBinInt-EraseBytes-CopyPart-PersAutoDict- DE: "\001\000\000\000\000\000\000\003"-
+#1659	NEW    cov: 165 ft: 165 corp: 25/337b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 2 CopyPart-ShuffleBytes-
+#1691	NEW    cov: 166 ft: 166 corp: 26/351b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 2 ShuffleBytes-ChangeBit-
+#1767	NEW    cov: 167 ft: 167 corp: 27/365b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 1 ShuffleBytes-
+#1791	NEW    cov: 168 ft: 168 corp: 28/379b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 4 ShuffleBytes-PersAutoDict-PersAutoDict-ChangeBit- DE: "c\000"-"c\000"-
+#1893	NEW    cov: 169 ft: 169 corp: 29/393b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 2 ShuffleBytes-ChangeByte-
+#2177	NEW    cov: 170 ft: 170 corp: 30/407b lim: 14 exec/s: 0 rss: 41Mb L: 14/14 MS: 4 ChangeBinInt-ShuffleBytes-ChangeBit-ChangeBit-
+#2249	NEW    cov: 171 ft: 171 corp: 31/421b lim: 14 exec/s: 0 rss: 41Mb L: 14/14 MS: 2 ChangeBit-ChangeByte-
+#3045	NEW    cov: 172 ft: 172 corp: 32/435b lim: 21 exec/s: 0 rss: 41Mb L: 14/14 MS: 1 ChangeBit-
+#4398	NEW    cov: 173 ft: 173 corp: 33/468b lim: 33 exec/s: 0 rss: 41Mb L: 33/33 MS: 3 InsertRepeatedBytes-InsertRepeatedBytes-CrossOver-
+#8379	REDUCE cov: 173 ft: 173 corp: 33/455b lim: 68 exec/s: 0 rss: 42Mb L: 20/20 MS: 1 EraseBytes-
+#9983	REDUCE cov: 173 ft: 173 corp: 33/454b lim: 80 exec/s: 0 rss: 42Mb L: 19/19 MS: 4 InsertByte-ShuffleBytes-ChangeBit-EraseBytes-
+
+thread '<unnamed>' (32521) panicked at fuzz_targets/rfc3339_vs_time.rs:24:28:
+FUZZ-ORACLE humantime accepts, time rejects: 6991-04-31T00:00:00Z
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:676:5
+   1: core::panicking::panic_fmt
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/panicking.rs:80:14
+   2: __libfuzzer_sys_run
+             at ./fuzz_targets/rfc3339_vs_time.rs:24:28
+   3: rust_fuzzer_test_input
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:363:60
+   4: {closure#0}
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:62:9
+   5: do_call<libfuzzer_sys::test_input_wrap::{closure_env#0}, i32>
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:573:43
+   6: __rust_try
+   7: catch_unwind<i32, libfuzzer_sys::test_input_wrap::{closure_env#0}>
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:541:19
+   8: catch_unwind<libfuzzer_sys::test_input_wrap::{closure_env#0}, i32>
+             at /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panic.rs:359:14
+   9: test_input_wrap
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:60:22
+  10: _ZN6fuzzer6Fuzzer15ExecuteCallbackEPKhm
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:619:15
+  11: _ZN6fuzzer6Fuzzer6RunOneEPKhmbPNS_9InputInfoEbPb
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:516:22
+  12: _ZN6fuzzer6Fuzzer16MutateAndTestOneEv
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:765:25
+  13: _ZN6fuzzer6Fuzzer4LoopERSt6vectorINS_9SizedFileESaIS2_EE
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:910:21
+  14: _ZN6fuzzer12FuzzerDriverEPiPPPcPFiPKhmE
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerDriver.cpp:923:10
+  15: main
+             at /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerMain.cpp:20:30
+  16: __libc_start_call_main
+             at ./csu/../sysdeps/nptl/libc_start_call_main.h:58:16
+  17: __libc_start_main_impl
+             at ./csu/../csu/libc-start.c:360:3
+  18: _start
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+==32521== ERROR: libFuzzer: deadly signal
+    #0 0x560c141bac51 in __sanitizer_print_stack_trace (/root/e6/R10/fuzz/target/x86_64-unknown-linux-gnu/release/rfc3339_vs_time+0x131c51) (BuildId: be8a7a7d94f091eaa2cb862c5e3269960a6907b8)
+    #1 0x560c142c2b0d in fuzzer::PrintStackTrace() /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerUtil.cpp:210:38
+    #2 0x560c1420ae75 in fuzzer::Fuzzer::CrashCallback() /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:231:18
+    #3 0x560c1420ae75 in fuzzer::Fuzzer::CrashCallback() /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:226:6
+    #4 0x7fdb2d44532f  (/lib/x86_64-linux-gnu/libc.so.6+0x4532f) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #5 0x7fdb2d49ec0b in __pthread_kill_implementation nptl/pthread_kill.c:43:17
+    #6 0x7fdb2d49ec0b in __pthread_kill_internal nptl/pthread_kill.c:78:10
+    #7 0x7fdb2d49ec0b in pthread_kill nptl/pthread_kill.c:89:10
+    #8 0x7fdb2d44527d in raise signal/../sysdeps/posix/raise.c:26:13
+    #9 0x7fdb2d4288fe in abort stdlib/abort.c:79:7
+    #10 0x560c1433de69 in std::sys::pal::unix::abort_internal /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/sys/pal/unix/mod.rs:305:14
+    #11 0x560c1433cae8 in std::process::abort /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/process.rs:2637:5
+    #12 0x560c141f4264 in libfuzzer_sys::initialize::{closure#0} /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:94:9
+    #13 0x560c1433cd71 in <alloc::boxed::Box<dyn for<'a, 'b> core::ops::function::Fn<(&'a std::panic::PanicHookInfo<'b>,), Output = ()> + core::marker::Send + core::marker::Sync> as core::ops::function::Fn<(&std::panic::PanicHookInfo,)>>::call /rustc/5f4effd579500175af844241eb179e756190f1e7/library/alloc/src/boxed.rs:2480:9
+    #14 0x560c1433cd71 in std::panicking::panic_with_hook /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:819:13
+    #15 0x560c1432b231 in std::panicking::panic_handler::{closure#0} /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:685:13
+    #16 0x560c14324258 in std::sys::backtrace::__rust_end_short_backtrace::<std::panicking::panic_handler::{closure#0}, !> /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/sys/backtrace.rs:182:18
+    #17 0x560c1432b91c in __rustc::rust_begin_unwind /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:676:5
+    #18 0x560c1435043b in core::panicking::panic_fmt /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/panicking.rs:80:14
+    #19 0x560c141e29e4 in rfc3339_vs_time::_::__libfuzzer_sys_run /root/e6/R10/fuzz/fuzz_targets/rfc3339_vs_time.rs:24:28
+    #20 0x560c141e566f in rust_fuzzer_test_input /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:363:60
+    #21 0x560c141f3e28 in {closure#0} /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:62:9
+    #22 0x560c141f3e28 in std::panicking::catch_unwind::do_call::<libfuzzer_sys::test_input_wrap::{closure#0}, i32> /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:573:43
+    #23 0x560c141f488b in __rust_try libfuzzer_sys.8c886c5a8b7bdb16-cgu.0
+    #24 0x560c141f357d in catch_unwind<i32, libfuzzer_sys::test_input_wrap::{closure_env#0}> /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panicking.rs:541:19
+    #25 0x560c141f357d in catch_unwind<libfuzzer_sys::test_input_wrap::{closure_env#0}, i32> /rustc/5f4effd579500175af844241eb179e756190f1e7/library/std/src/panic.rs:359:14
+    #26 0x560c141f357d in LLVMFuzzerTestOneInput /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:60:22
+    #27 0x560c1420bd2f in fuzzer::Fuzzer::ExecuteCallback(unsigned char const*, unsigned long) /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:619:15
+    #28 0x560c14227072 in fuzzer::Fuzzer::RunOne(unsigned char const*, unsigned long, bool, fuzzer::InputInfo*, bool, bool*) /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:516:22
+    #29 0x560c1422add4 in fuzzer::Fuzzer::MutateAndTestOne() /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:765:25
+    #30 0x560c1422f64f in fuzzer::Fuzzer::Loop(std::vector<fuzzer::SizedFile, std::allocator<fuzzer::SizedFile>>&) /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerLoop.cpp:910:21
+    #31 0x560c14263e3e in fuzzer::FuzzerDriver(int*, char***, int (*)(unsigned char const*, unsigned long)) /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerDriver.cpp:923:10
+    #32 0x560c14311056 in main /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/libfuzzer/FuzzerMain.cpp:20:30
+    #33 0x7fdb2d42a1c9 in __libc_start_call_main csu/../sysdeps/nptl/libc_start_call_main.h:58:16
+    #34 0x7fdb2d42a28a in __libc_start_main csu/../csu/libc-start.c:360:3
+    #35 0x560c1411c204 in _start (/root/e6/R10/fuzz/target/x86_64-unknown-linux-gnu/release/rfc3339_vs_time+0x93204) (BuildId: be8a7a7d94f091eaa2cb862c5e3269960a6907b8)
+
+NOTE: libFuzzer has rudimentary signal handlers.
+      Combine libFuzzer with AddressSanitizer or similar for better crash reports.
+SUMMARY: libFuzzer: deadly signal
+MS: 3 PersAutoDict-ChangeByte-ShuffleBytes- DE: "\001\000\000\000\000\000\000\003"-; base unit: a7b05b0de0d3c5187118e4dbf4b11df0ce9cc5ce
+0x6,0x63,0x63,0x1,0x0,0xe,0x21,0x1,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x3,0x0,0x0,0x0,0x3,0x63,0x1,
+\006cc\001\000\016!\001\000\000\000\000\000\000\000\003\000\000\000\003c\001
+artifact_prefix='/root/e6/R10/fuzz/artifacts/rfc3339_vs_time/'; Test unit written to /root/e6/R10/fuzz/artifacts/rfc3339_vs_time/crash-b80967450cf359fdf2472c323b8a1d95416e8c46
+Base64: BmNjAQAOIQEAAAAAAAAAAwAAAANjAQ==
+
+────────────────────────────────────────────────────────────────────────────────
+
+Failing input:
+
+	artifacts/rfc3339_vs_time/crash-b80967450cf359fdf2472c323b8a1d95416e8c46
+
+Output of `std::fmt::Debug`:
+
+	[
+	    6,
+	    99,
+	    99,
+	    1,
+	    0,
+	    14,
+	    33,
+	    1,
+	    0,
+	    0,
+	    0,
+	    0,
+	    0,
+	    0,
+	]
+
+Reproduce with:
+
+	cargo fuzz run -O rfc3339_vs_time artifacts/rfc3339_vs_time/crash-b80967450cf359fdf2472c323b8a1d95416e8c46
+
+Minimize test case with:
+
+	cargo fuzz tmin -O rfc3339_vs_time artifacts/rfc3339_vs_time/crash-b80967450cf359fdf2472c323b8a1d95416e8c46
+
+────────────────────────────────────────────────────────────────────────────────
+
+Error: Fuzz target exited with exit status: 77
+
+Stack backtrace:
+   0: <anyhow::Error>::msg::<alloc::string::String>
+   1: <cargo_fuzz::project::FuzzProject>::exec_fuzz
+   2: cargo_fuzz::main
+   3: std::sys::backtrace::__rust_begin_short_backtrace::<fn() -> core::result::Result<(), anyhow::Error>, core::result::Result<(), anyhow::Error>>
+   4: std::rt::lang_start::<core::result::Result<(), anyhow::Error>>::{closure#0}
+   5: std::rt::lang_start_internal
+   6: main
+   7: __libc_start_call_main
+             at ./csu/../sysdeps/nptl/libc_start_call_main.h:58:16
+   8: __libc_start_main_impl
+             at ./csu/../csu/libc-start.c:360:3
+   9: _start

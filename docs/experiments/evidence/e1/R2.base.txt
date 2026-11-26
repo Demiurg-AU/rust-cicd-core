@@ -1,0 +1,5 @@
+BASE FIRST-FAIL clippy
+Command exited with non-zero status 1
+TIME wall=4.10 user=6.64 sys=0.92
+exit=1
+CPU-SECONDS 7

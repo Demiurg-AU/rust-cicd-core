@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/release-source-check.sh refs/tags/v1.2.3 daace9211300da7eb5cf519b254a5d79ad154059 main
+RELEASE tag does not point at built commit: refs/tags/v1.2.3

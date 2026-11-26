@@ -1,0 +1,3 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/agent-pr-policy.sh /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/k1/other-policy
+author_kind=human
+AGENT PR touches pipeline without a valid owner signature (K1: policy does not match (signed '5555555555555555555555555555555555555555', live 'db8f399a7cd76bb0d37de2c2a013b177316b98c1')): scripts/ci-local.sh 

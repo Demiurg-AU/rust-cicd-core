@@ -1,0 +1,12 @@
+  ci-local (exit 1): 115/146 PASS
+    NOT PASS S0a build: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1b clippy: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1e no-panic-lints: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1f release-clean-env-tests: FAIL - RELEASE-TESTS build failed
+    NOT PASS S1g no-judge-forks: FAIL - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS S1i no-unsafe-code: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1c test-coverage: FAIL - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS S1d mutation: FAIL - FAILED   Unmutated baseline in 4s build
+    NOT PASS S1h neutral-mutant: FAIL - error: usage of an `unsafe` block
+    NOT PASS C36 canary-env-fork-release: FAIL_WRONG_REASON - RELEASE-TESTS build failed
+    NOT PASS C37 canary-cfg-test-fork: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)

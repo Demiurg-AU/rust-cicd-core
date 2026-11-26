@@ -1,0 +1,6 @@
+  ci-local (exit 1): 144/146 PASS
+    NOT PASS S1d mutation: FAIL - MISSED   src/date.rs:43:9: replace <impl fmt::Display for Error>::fmt -> fmt::Result with Ok(Default::default()) in 0s build + 1s test
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1d in CI-3
+TIME wall=484.60 user=13.88 sys=6.29
+exit=1
+CPU-SECONDS 738

@@ -1,0 +1,133 @@
+$ mutants_gate /root/psv/pilots/semver/work/semver /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/mutants-root
+Found 365 mutants to test
+ok       Unmutated baseline in 20s build + 0s test
+ INFO Auto-set test timeout to 20s
+MISSED   src/lib.rs:531:9: replace Comparator::matches -> bool with true in 0s build + 0s test
+MISSED   src/lib.rs:531:9: replace Comparator::matches -> bool with false in 0s build + 0s test
+MISSED   src/display.rs:26:17: replace + with - in <impl Display for Version>::fmt in 0s build + 0s test
+MISSED   src/display.rs:26:17: replace + with * in <impl Display for Version>::fmt in 0s build + 0s test
+MISSED   src/display.rs:25:17: replace + with - in <impl Display for Version>::fmt in 0s build + 0s test
+MISSED   src/display.rs:93:9: replace <impl Debug for Version>::fmt -> fmt::Result with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/display.rs:98:12: delete ! in <impl Debug for Version>::fmt in 0s build + 0s test
+MISSED   src/display.rs:101:12: delete ! in <impl Debug for Version>::fmt in 0s build + 0s test
+MISSED   src/display.rs:110:9: replace <impl Debug for Prerelease>::fmt -> fmt::Result with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/display.rs:116:9: replace <impl Debug for BuildMetadata>::fmt -> fmt::Result with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/display.rs:157:5: replace digits -> usize with 1 in 0s build + 0s test
+MISSED   src/display.rs:157:12: replace < with <= in digits in 0s build + 0s test
+MISSED   src/display.rs:160:11: replace + with - in digits in 0s build + 0s test
+MISSED   src/display.rs:160:11: replace + with * in digits in 0s build + 0s test
+MISSED   src/display.rs:160:24: replace / with % in digits in 0s build + 0s test
+MISSED   src/display.rs:160:24: replace / with * in digits in 0s build + 0s test
+MISSED   src/error.rs:106:9: replace <impl Debug for Error>::fmt -> fmt::Result with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/eval.rs:27:5: replace matches_comparator -> bool with true in 0s build + 0s test
+MISSED   src/eval.rs:27:5: replace matches_comparator -> bool with false in 0s build + 0s test
+MISSED   src/eval.rs:27:28: replace && with || in matches_comparator in 0s build + 0s test
+MISSED   src/eval.rs:27:51: replace || with && in matches_comparator in 0s build + 0s test
+MISSED   src/eval.rs:64:26: replace > with >= in matches_greater in 0s build + 0s test
+MISSED   src/eval.rs:71:34: replace > with == in matches_greater in 0s build + 0s test
+MISSED   src/eval.rs:71:34: replace > with >= in matches_greater in 0s build + 0s test
+MISSED   src/eval.rs:80:34: replace > with >= in matches_greater in 0s build + 0s test
+MISSED   src/eval.rs:85:13: replace > with >= in matches_greater in 0s build + 0s test
+MISSED   src/eval.rs:90:26: replace < with <= in matches_less in 0s build + 0s test
+MISSED   src/eval.rs:97:34: replace < with <= in matches_less in 0s build + 0s test
+MISSED   src/eval.rs:106:34: replace < with == in matches_less in 0s build + 0s test
+MISSED   src/eval.rs:106:34: replace < with <= in matches_less in 0s build + 0s test
+MISSED   src/eval.rs:127:30: replace > with >= in matches_tilde in 0s build + 0s test
+MISSED   src/eval.rs:153:30: replace > with >= in matches_caret in 0s build + 0s test
+MISSED   src/eval.rs:155:30: replace > with >= in matches_caret in 0s build + 0s test
+MISSED   src/eval.rs:157:21: replace > with >= in matches_caret in 0s build + 0s test
+MISSED   src/eval.rs:161:30: replace > with >= in matches_caret in 0s build + 0s test
+MISSED   src/identifier.rs:81:56: replace - with + in 0s build + 0s test
+MISSED   src/identifier.rs:81:56: replace - with / in 0s build + 0s test
+MISSED   src/identifier.rs:81:29: replace * with + in 0s build + 0s test
+MISSED   src/identifier.rs:81:42: replace < with == in 0s build + 0s test
+MISSED   src/identifier.rs:81:42: replace < with > in 0s build + 0s test
+MISSED   src/identifier.rs:81:42: replace < with <= in 0s build + 0s test
+MISSED   src/identifier.rs:81:81: replace < with > in 0s build + 0s test
+MISSED   src/identifier.rs:99:20: delete ! in Identifier::empty in 0s build + 0s test
+MISSED   src/identifier.rs:242:9: replace <impl Drop for Identifier>::drop with () in 0s build + 0s test
+MISSED   src/identifier.rs:248:42: replace + with * in <impl Drop for Identifier>::drop in 0s build + 0s test
+MISSED   src/identifier.rs:284:39: replace | with ^ in ptr_to_repr in 0s build + 0s test
+MISSED   src/impls.rs:18:9: replace <impl Hash for Identifier>::hash with () in 0s build + 0s test
+MISSED   src/impls.rs:46:9: replace <impl PartialOrd for BuildMetadata>::partial_cmp -> Option<Ordering> with None in 0s build + 0s test
+MISSED   src/impls.rs:157:9: replace <impl FromIterator<Comparator> for VersionReq>::from_iter -> Self with Default::default() in 0s build + 0s test
+TIMEOUT  src/parse.rs:226:52: replace + with * in identifier in 0s build + 20s test
+TIMEOUT  src/parse.rs:228:29: replace += with *= in identifier in 0s build + 20s test
+TIMEOUT  src/parse.rs:232:29: replace += with *= in identifier in 0s build + 20s test
+MISSED   src/parse.rs:236:45: replace && with || in identifier in 0s build + 0s test
+TIMEOUT  src/parse.rs:251:37: replace += with -= in identifier in 0s build + 20s test
+MISSED   src/serde.rs:11:9: replace <impl Serialize for Version>::serialize -> Result<S::Ok, S::Error> with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:20:9: replace <impl Serialize for VersionReq>::serialize -> Result<S::Ok, S::Error> with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:29:9: replace <impl Serialize for Comparator>::serialize -> Result<S::Ok, S::Error> with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:38:9: replace <impl Deserialize<'de> for Version>::deserialize -> Result<Self, D::Error> with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:44:17: replace <impl Deserialize<'de> for Version>::deserialize::<impl Visitor<'de> for VersionVisitor>::expecting -> fmt::Result with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:51:17: replace <impl Deserialize<'de> for Version>::deserialize::<impl Visitor<'de> for VersionVisitor>::visit_str -> Result<Self::Value, E> with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:64:9: replace <impl Deserialize<'de> for VersionReq>::deserialize -> Result<Self, D::Error> with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:70:17: replace <impl Deserialize<'de> for VersionReq>::deserialize::<impl Visitor<'de> for VersionReqVisitor>::expecting -> fmt::Result with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:77:17: replace <impl Deserialize<'de> for VersionReq>::deserialize::<impl Visitor<'de> for VersionReqVisitor>::visit_str -> Result<Self::Value, E> with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:90:9: replace <impl Deserialize<'de> for Comparator>::deserialize -> Result<Self, D::Error> with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:96:17: replace <impl Deserialize<'de> for Comparator>::deserialize::<impl Visitor<'de> for ComparatorVisitor>::expecting -> fmt::Result with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/serde.rs:103:17: replace <impl Deserialize<'de> for Comparator>::deserialize::<impl Visitor<'de> for ComparatorVisitor>::visit_str -> Result<Self::Value, E> with Ok(Default::default()) in 0s build + 0s test
+365 mutants tested in 7m: 62 missed, 267 caught, 32 unviable, 4 timeouts
+MISSED src/lib.rs:531:9: replace Comparator::matches -> bool with true
+MISSED src/lib.rs:531:9: replace Comparator::matches -> bool with false
+MISSED src/display.rs:26:17: replace + with - in <impl Display for Version>::fmt
+MISSED src/display.rs:26:17: replace + with * in <impl Display for Version>::fmt
+MISSED src/display.rs:25:17: replace + with - in <impl Display for Version>::fmt
+MISSED src/display.rs:93:9: replace <impl Debug for Version>::fmt -> fmt::Result with Ok(Default::default())
+MISSED src/display.rs:98:12: delete ! in <impl Debug for Version>::fmt
+MISSED src/display.rs:101:12: delete ! in <impl Debug for Version>::fmt
+MISSED src/display.rs:110:9: replace <impl Debug for Prerelease>::fmt -> fmt::Result with Ok(Default::default())
+MISSED src/display.rs:116:9: replace <impl Debug for BuildMetadata>::fmt -> fmt::Result with Ok(Default::default())
+MISSED src/display.rs:157:5: replace digits -> usize with 1
+MISSED src/display.rs:157:12: replace < with <= in digits
+MISSED src/display.rs:160:11: replace + with - in digits
+MISSED src/display.rs:160:11: replace + with * in digits
+MISSED src/display.rs:160:24: replace / with % in digits
+MISSED src/display.rs:160:24: replace / with * in digits
+MISSED src/error.rs:106:9: replace <impl Debug for Error>::fmt -> fmt::Result with Ok(Default::default())
+MISSED src/eval.rs:27:5: replace matches_comparator -> bool with true
+MISSED src/eval.rs:27:5: replace matches_comparator -> bool with false
+MISSED src/eval.rs:27:28: replace && with || in matches_comparator
+MISSED src/eval.rs:27:51: replace || with && in matches_comparator
+MISSED src/eval.rs:64:26: replace > with >= in matches_greater
+MISSED src/eval.rs:71:34: replace > with == in matches_greater
+MISSED src/eval.rs:71:34: replace > with >= in matches_greater
+MISSED src/eval.rs:80:34: replace > with >= in matches_greater
+MISSED src/eval.rs:85:13: replace > with >= in matches_greater
+MISSED src/eval.rs:90:26: replace < with <= in matches_less
+MISSED src/eval.rs:97:34: replace < with <= in matches_less
+MISSED src/eval.rs:106:34: replace < with == in matches_less
+MISSED src/eval.rs:106:34: replace < with <= in matches_less
+MISSED src/eval.rs:127:30: replace > with >= in matches_tilde
+MISSED src/eval.rs:153:30: replace > with >= in matches_caret
+MISSED src/eval.rs:155:30: replace > with >= in matches_caret
+MISSED src/eval.rs:157:21: replace > with >= in matches_caret
+MISSED src/eval.rs:161:30: replace > with >= in matches_caret
+MISSED src/identifier.rs:81:56: replace - with +
+MISSED src/identifier.rs:81:56: replace - with /
+MISSED src/identifier.rs:81:29: replace * with +
+MISSED src/identifier.rs:81:42: replace < with ==
+MISSED src/identifier.rs:81:42: replace < with >
+MISSED src/identifier.rs:81:42: replace < with <=
+MISSED src/identifier.rs:81:81: replace < with >
+MISSED src/identifier.rs:99:20: delete ! in Identifier::empty
+MISSED src/identifier.rs:242:9: replace <impl Drop for Identifier>::drop with ()
+MISSED src/identifier.rs:248:42: replace + with * in <impl Drop for Identifier>::drop
+MISSED src/identifier.rs:284:39: replace | with ^ in ptr_to_repr
+MISSED src/impls.rs:18:9: replace <impl Hash for Identifier>::hash with ()
+MISSED src/impls.rs:46:9: replace <impl PartialOrd for BuildMetadata>::partial_cmp -> Option<Ordering> with None
+MISSED src/impls.rs:157:9: replace <impl FromIterator<Comparator> for VersionReq>::from_iter -> Self with Default::default()
+MISSED src/parse.rs:236:45: replace && with || in identifier
+MISSED src/serde.rs:11:9: replace <impl Serialize for Version>::serialize -> Result<S::Ok, S::Error> with Ok(Default::default())
+MISSED src/serde.rs:20:9: replace <impl Serialize for VersionReq>::serialize -> Result<S::Ok, S::Error> with Ok(Default::default())
+MISSED src/serde.rs:29:9: replace <impl Serialize for Comparator>::serialize -> Result<S::Ok, S::Error> with Ok(Default::default())
+MISSED src/serde.rs:38:9: replace <impl Deserialize<'de> for Version>::deserialize -> Result<Self, D::Error> with Ok(Default::default())
+MISSED src/serde.rs:44:17: replace <impl Deserialize<'de> for Version>::deserialize::<impl Visitor<'de> for VersionVisitor>::expecting -> fmt::Result with Ok(Default::default())
+MISSED src/serde.rs:51:17: replace <impl Deserialize<'de> for Version>::deserialize::<impl Visitor<'de> for VersionVisitor>::visit_str -> Result<Self::Value, E> with Ok(Default::default())
+MISSED src/serde.rs:64:9: replace <impl Deserialize<'de> for VersionReq>::deserialize -> Result<Self, D::Error> with Ok(Default::default())
+MISSED src/serde.rs:70:17: replace <impl Deserialize<'de> for VersionReq>::deserialize::<impl Visitor<'de> for VersionReqVisitor>::expecting -> fmt::Result with Ok(Default::default())
+MISSED src/serde.rs:77:17: replace <impl Deserialize<'de> for VersionReq>::deserialize::<impl Visitor<'de> for VersionReqVisitor>::visit_str -> Result<Self::Value, E> with Ok(Default::default())
+MISSED src/serde.rs:90:9: replace <impl Deserialize<'de> for Comparator>::deserialize -> Result<Self, D::Error> with Ok(Default::default())
+MISSED src/serde.rs:96:17: replace <impl Deserialize<'de> for Comparator>::deserialize::<impl Visitor<'de> for ComparatorVisitor>::expecting -> fmt::Result with Ok(Default::default())
+MISSED src/serde.rs:103:17: replace <impl Deserialize<'de> for Comparator>::deserialize::<impl Visitor<'de> for ComparatorVisitor>::visit_str -> Result<Self::Value, E> with Ok(Default::default())

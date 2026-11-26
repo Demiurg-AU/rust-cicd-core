@@ -1,0 +1,99 @@
+$ cargo nextest run
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling serde_core v1.0.229
+   Compiling zerocopy v0.8.66
+   Compiling syn v2.0.119
+   Compiling syn v3.0.10
+   Compiling zerocopy-derive v0.8.66
+   Compiling serde v1.0.229
+   Compiling shlex v2.0.1
+   Compiling zmij v1.0.23
+   Compiling find-msvc-tools v0.1.15
+   Compiling cc v1.11.3
+   Compiling serde_derive v1.0.229
+   Compiling cfg-if v1.0.5
+   Compiling serde_json v1.0.154
+   Compiling libc v0.2.191
+   Compiling autocfg v1.5.1
+   Compiling num-traits v0.2.19
+   Compiling half v2.7.1
+   Compiling alloca v0.4.0
+   Compiling itoa v1.0.19
+   Compiling ciborium-io v0.2.2
+   Compiling either v1.19.0
+   Compiling clap_lex v1.1.2
+   Compiling anstyle v1.0.14
+   Compiling memchr v2.8.3
+   Compiling regex-syntax v0.8.12
+   Compiling regex-automata v0.4.19
+   Compiling clap_builder v4.6.10
+   Compiling itertools v0.13.0
+   Compiling ciborium-ll v0.2.2
+   Compiling semver v1.0.28 (/tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/test)
+   Compiling same-file v1.0.6
+   Compiling cast v0.3.0
+   Compiling criterion-plot v0.8.2
+   Compiling page_size v0.6.0
+   Compiling walkdir v2.5.1
+   Compiling ciborium v0.2.2
+   Compiling clap v4.6.10
+   Compiling regex v1.13.2
+   Compiling tinytemplate v1.2.1
+   Compiling oorandom v11.1.5
+   Compiling anes v0.1.6
+   Compiling criterion v0.8.2
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.63s
+────────────
+ Nextest run ID 3ad09387-d404-47a0-b331-362230d12fd9 with nextest profile: default
+    Starting 35 tests across 5 binaries
+        PASS [   0.011s] ( 1/35) semver::test_autotrait test
+        PASS [   0.012s] ( 2/35) semver::test_identifier test_eq
+        PASS [   0.056s] ( 3/35) semver::test_identifier test_new
+        PASS [   0.005s] ( 4/35) semver::test_identifier test_prerelease
+        FAIL [   0.088s] ( 5/35) semver canary_fails
+  stdout ───
+
+    running 1 test
+    test canary_fails ... FAILED
+
+    failures:
+
+    failures:
+        canary_fails
+
+    test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+  stderr ───
+
+    thread 'canary_fails' (1060) panicked at src/lib.rs:572:21:
+    assertion `left == right` failed
+      left: 2
+     right: 3
+    stack backtrace:
+       0: __rustc::rust_begin_unwind
+                 at /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/std/src/panicking.rs:676:5
+       1: core::panicking::panic_fmt
+                 at /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/core/src/panicking.rs:80:14
+       2: core::panicking::assert_failed_inner
+                 at /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/core/src/panicking.rs:452:17
+       3: core::panicking::assert_failed::<i32, i32>
+                 at /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/core/src/panicking.rs:407:5
+       4: semver::canary_fails
+                 at ./src/lib.rs:572:21
+       5: semver::canary_fails::{closure#0}
+                 at ./src/lib.rs:572:18
+       6: <semver::canary_fails::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+                 at /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/core/src/ops/function.rs:250:5
+       7: <fn() -> core::result::Result<(), alloc::string::String> as core::ops::function::FnOnce<()>>::call_once
+                 at /rustc/0ef1bc386059596dada8fb65b50425aab2ea637a/library/core/src/ops/function.rs:250:5
+    note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+  Cancelling due to test failure: 1 test still running
+        PASS [   0.006s] ( 6/35) semver::test_version test_align
+────────────
+     Summary [   0.090s] 6/35 tests run: 5 passed, 1 failed, 0 skipped
+        FAIL [   0.088s] ( 5/35) semver canary_fails
+warning: 29/35 tests were not run due to test failure (run with --no-fail-fast to run all tests, or run with --max-fail)
+error: test run failed

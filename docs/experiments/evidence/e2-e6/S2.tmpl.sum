@@ -1,0 +1,4 @@
+  ci-local (exit 0): 146/146 PASS
+TIME wall=535.99 user=14.81 sys=6.84
+exit=0
+CPU-SECONDS 841

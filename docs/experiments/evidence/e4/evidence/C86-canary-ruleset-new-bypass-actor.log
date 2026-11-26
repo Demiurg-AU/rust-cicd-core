@@ -1,0 +1,2 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/ruleset-snapshot.sh check /root/psv/ruleset-snapshot.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/bypass.rules.json /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/ruleset/bypass.rulesets.json
+RULESET drift: ~ rulesets[main-protection].bypass_actors: [] -> [{"actor_id": 1, "actor_type": "Integration", "bypass_mode": "always"}]  (snapshot -> live)

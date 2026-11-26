@@ -1,0 +1,34 @@
+PILOT TMPDIR=/tmp/rcc.cJWQlC
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   31G   12G  72% /
+PILOT humantime stage 3a
+  template: 4aca02d2eb3e550dae6cd76c7e8072702759d319
+  crate:    /root/ht-cmp @ b3ccc0317f38fff07832a20d91e781a4956a9383
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 1): 140/146 PASS
+    core            14/16 PASS
+    canaries        102/105 PASS
+    evidence/judge  14/14 PASS
+    policy          6/7 PASS
+    lean            4/4 PASS
+    NOT PASS S1i no-unsafe-code: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1c test-coverage: FAIL - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C8 canary-coverage-threshold: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C66 canary-coverage-procmem: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C67 canary-coverage-extra-profile: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate C8 in CI-1
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /root/pcmp/pilots/cmp-R7b/work/humantime/evidence/20261126T130520Z (ci-local), /root/pcmp/pilots/cmp-R7b/work (spec pack logs, status.tsv)
+  log:      /root/pcmp/pilots/cmp-R7b/work/ci-local.log
+PILOT 3a core (ci-local): FAIL
+Command exited with non-zero status 1
+TIME wall=511.41 user=14.10 sys=8.06
+exit=1
+CPU-SECONDS 784

@@ -1,0 +1,30 @@
+PILOT TMPDIR=/tmp/rcc.0xYr89
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   31G   12G  72% /
+PILOT humantime stage 3a
+  template: 4aca02d2eb3e550dae6cd76c7e8072702759d319
+  crate:    /root/ht-cmp @ c92cfb69abfee39d6109d71ae7afe7fd21d4f2ac
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 1): 144/146 PASS
+    core            15/16 PASS
+    canaries        105/105 PASS
+    evidence/judge  14/14 PASS
+    policy          6/7 PASS
+    lean            4/4 PASS
+    NOT PASS S1d mutation: FAIL - MISSED   src/date.rs:172:43: replace > with >= in parse_rfc3339_weak in 0s build + 1s test
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1d in CI-3
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /root/pcmp/pilots/cmp-R9/work/humantime/evidence/20261126T125114Z (ci-local), /root/pcmp/pilots/cmp-R9/work (spec pack logs, status.tsv)
+  log:      /root/pcmp/pilots/cmp-R9/work/ci-local.log
+PILOT 3a core (ci-local): FAIL
+Command exited with non-zero status 1
+TIME wall=512.11 user=14.81 sys=7.03
+exit=1
+CPU-SECONDS 807

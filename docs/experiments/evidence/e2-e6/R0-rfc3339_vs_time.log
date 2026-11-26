@@ -1,0 +1,57 @@
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+     Running `target/x86_64-unknown-linux-gnu/release/rfc3339_vs_time -artifact_prefix=/root/e6/R0/fuzz/artifacts/rfc3339_vs_time/ -max_total_time=60 /root/e6/R0/fuzz/corpus/rfc3339_vs_time`
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 2862130936
+INFO: Loaded 1 modules   (1865 inline 8-bit counters): 1865 [0x561291748d70, 0x5612917494b9), 
+INFO: Loaded 1 PC tables (1865 PCs): 1865 [0x5612917494c0,0x561291750950), 
+INFO:        0 files found in /root/e6/R0/fuzz/corpus/rfc3339_vs_time
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
+INFO: A corpus is not provided, starting from an empty corpus
+#2	INITED exec/s: 0 rss: 33Mb
+WARNING: no interesting inputs were found so far. Is the code instrumented for coverage?
+This may also happen if the target rejected all inputs we tried so far
+	NEW_FUNC[1/12]: 0x5612915bdf90 in rfc3339_vs_time::_::__libfuzzer_sys_run /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:368
+	NEW_FUNC[2/12]: 0x5612915c0f00 in rust_fuzzer_test_input /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:325
+#1037	NEW    cov: 105 ft: 105 corp: 2/15b lim: 14 exec/s: 0 rss: 37Mb L: 14/14 MS: 5 InsertRepeatedBytes-ChangeByte-ChangeBit-ChangeBinInt-CrossOver-
+#1038	NEW    cov: 106 ft: 106 corp: 3/29b lim: 14 exec/s: 0 rss: 37Mb L: 14/14 MS: 1 CrossOver-
+#1044	NEW    cov: 123 ft: 123 corp: 4/43b lim: 14 exec/s: 0 rss: 37Mb L: 14/14 MS: 1 ShuffleBytes-
+#1047	NEW    cov: 124 ft: 124 corp: 5/57b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 3 ShuffleBytes-ChangeBit-ShuffleBytes-
+#1048	NEW    cov: 128 ft: 128 corp: 6/71b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 1 CopyPart-
+#1055	NEW    cov: 134 ft: 134 corp: 7/85b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 2 ShuffleBytes-ShuffleBytes-
+#1056	NEW    cov: 135 ft: 135 corp: 8/99b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 1 ChangeByte-
+#1058	NEW    cov: 136 ft: 136 corp: 9/113b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 2 ShuffleBytes-ShuffleBytes-
+	NEW_FUNC[1/1]: 0x5612915c1cc0 in humantime::date::days_since_epoch /root/e6/R0/src/date.rs:95
+#1102	NEW    cov: 141 ft: 141 corp: 10/127b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 4 CopyPart-ChangeBit-CopyPart-ChangeByte-
+#1174	NEW    cov: 142 ft: 142 corp: 11/141b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 2 ShuffleBytes-ChangeByte-
+#1216	NEW    cov: 143 ft: 143 corp: 12/155b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 2 ChangeByte-ChangeBinInt-
+#1219	NEW    cov: 147 ft: 147 corp: 13/169b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 3 ChangeByte-CrossOver-ShuffleBytes-
+#1315	NEW    cov: 148 ft: 148 corp: 14/183b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 ChangeByte-
+	NEW_FUNC[1/1]: 0x5612915c18a0 in <core::time::Duration>::new /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/time.rs:276
+#1319	NEW    cov: 157 ft: 157 corp: 15/197b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 4 ChangeBinInt-CopyPart-ShuffleBytes-ChangeByte-
+#1418	NEW    cov: 158 ft: 158 corp: 16/211b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 4 ShuffleBytes-EraseBytes-ChangeBinInt-CopyPart-
+#1439	NEW    cov: 160 ft: 160 corp: 17/225b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 1 ChangeBit-
+#1445	NEW    cov: 162 ft: 162 corp: 18/239b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 1 CMP- DE: "\014\000\000\000\000\000\000\000"-
+#1454	NEW    cov: 163 ft: 163 corp: 19/253b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 4 PersAutoDict-CopyPart-CrossOver-ChangeBit- DE: "\014\000\000\000\000\000\000\000"-
+#1481	NEW    cov: 164 ft: 164 corp: 20/267b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 2 ChangeByte-ShuffleBytes-
+#1503	NEW    cov: 165 ft: 165 corp: 21/281b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 2 CopyPart-ChangeBit-
+#1504	NEW    cov: 166 ft: 166 corp: 22/295b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 1 ChangeByte-
+#1528	NEW    cov: 167 ft: 167 corp: 23/309b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 4 CopyPart-ShuffleBytes-ChangeBinInt-ChangeBit-
+#1614	NEW    cov: 168 ft: 168 corp: 24/323b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 1 CMP- DE: "\023\000\000\000\000\000\000\000"-
+#1684	NEW    cov: 169 ft: 169 corp: 25/337b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 5 CopyPart-CrossOver-ChangeByte-CopyPart-ChangeBit-
+#1723	NEW    cov: 170 ft: 170 corp: 26/351b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 4 CopyPart-ShuffleBytes-EraseBytes-InsertRepeatedBytes-
+#1844	NEW    cov: 171 ft: 171 corp: 27/365b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 1 ChangeBinInt-
+#2006	NEW    cov: 172 ft: 172 corp: 28/379b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 2 ChangeBit-CopyPart-
+#2619	NEW    cov: 173 ft: 173 corp: 29/394b lim: 17 exec/s: 0 rss: 41Mb L: 15/15 MS: 3 ChangeBinInt-ChangeBinInt-InsertByte-
+#7490	REDUCE cov: 173 ft: 173 corp: 29/393b lim: 63 exec/s: 0 rss: 42Mb L: 14/14 MS: 1 EraseBytes-
+#262144	pulse  cov: 173 ft: 173 corp: 29/393b lim: 2589 exec/s: 87381 rss: 64Mb
+#524288	pulse  cov: 173 ft: 173 corp: 29/393b lim: 4096 exec/s: 87381 rss: 87Mb
+#1048576	pulse  cov: 173 ft: 173 corp: 29/393b lim: 4096 exec/s: 104857 rss: 132Mb
+#2097152	pulse  cov: 173 ft: 173 corp: 29/393b lim: 4096 exec/s: 99864 rss: 223Mb
+#4194304	pulse  cov: 173 ft: 173 corp: 29/393b lim: 4096 exec/s: 104857 rss: 404Mb
+#6327950	DONE   cov: 173 ft: 173 corp: 29/393b lim: 4096 exec/s: 103736 rss: 509Mb
+###### Recommended dictionary. ######
+"\014\000\000\000\000\000\000\000" # Uses: 295416
+"\023\000\000\000\000\000\000\000" # Uses: 296334
+###### End of recommended dictionary. ######
+Done 6327950 runs in 61 second(s)

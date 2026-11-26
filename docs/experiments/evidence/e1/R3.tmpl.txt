@@ -1,0 +1,38 @@
+PILOT TMPDIR=/tmp/rcc.Khn7Wx
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   31G   12G  72% /
+PILOT humantime stage 3a
+  template: 4aca02d2eb3e550dae6cd76c7e8072702759d319
+  crate:    /root/ht-cmp @ e87ee63db4ba2f4b6b52cc0dd5af40567fe7545d
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 1): 136/146 PASS
+    core            12/16 PASS
+    canaries        100/105 PASS
+    evidence/judge  14/14 PASS
+    policy          6/7 PASS
+    lean            4/4 PASS
+    NOT PASS S1f release-clean-env-tests: FAIL - week_month_year_lengths --- FAILED
+    NOT PASS S1c test-coverage: FAIL - week_month_year_lengths --- FAILED
+    NOT PASS S1d mutation: FAIL - FAILED   Unmutated baseline in 5s build + 1s test
+    NOT PASS S1h neutral-mutant: FAIL - failures:
+    NOT PASS C29 canary-test-cannot-touch-evidence: FAIL_WRONG_REASON - week_month_year_lengths --- FAILED
+    NOT PASS C5 canary-mutant-survives: FAIL_WRONG_REASON - FAILED   Unmutated baseline in 6s build + 1s test
+    NOT PASS C8 canary-coverage-threshold: FAIL_WRONG_REASON - week_month_year_lengths --- FAILED
+    NOT PASS C66 canary-coverage-procmem: FAIL_WRONG_REASON - week_month_year_lengths --- FAILED
+    NOT PASS C67 canary-coverage-extra-profile: FAIL_WRONG_REASON - week_month_year_lengths --- FAILED
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1f in CODE-2
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /root/pcmp/pilots/cmp-R3/work/humantime/evidence/20261126T120857Z (ci-local), /root/pcmp/pilots/cmp-R3/work (spec pack logs, status.tsv)
+  log:      /root/pcmp/pilots/cmp-R3/work/ci-local.log
+PILOT 3a core (ci-local): FAIL
+Command exited with non-zero status 1
+TIME wall=144.10 user=13.88 sys=6.39
+exit=1
+CPU-SECONDS 233

@@ -1,0 +1,7 @@
+  ci-local (exit 1): 143/146 PASS
+    NOT PASS S1f release-clean-env-tests: FAIL - test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+    NOT PASS S1g no-judge-forks: FAIL - (see /root/pcmp/pilots/cmp-R8/work/humantime/evidence/20261126T124145Z/S1g-no-judge-forks.log)
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1f in CODE-2
+TIME wall=525.38 user=14.78 sys=6.79
+exit=1
+CPU-SECONDS 823

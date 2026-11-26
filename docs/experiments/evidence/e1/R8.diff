@@ -1,0 +1,13 @@
+diff --git a/src/date.rs b/src/date.rs
+index 5d34c22..0d0200c 100644
+--- a/src/date.rs
++++ b/src/date.rs
+@@ -173,7 +173,7 @@ pub fn parse_rfc3339_weak(s: &str) -> Result<SystemTime, Error> {
+         return Err(Error::OutOfRange);
+     }
+     // TODO(tailhook) should we check that leaps second is only on midnight ?
+-    if second == 60 {
++    if second == 60 && cfg!(debug_assertions) {
+         second = 59;
+     }
+ 

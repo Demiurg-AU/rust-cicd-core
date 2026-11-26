@@ -1,0 +1,4 @@
+$ threat_check /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/threat/ext/del.tsv /root/psv/pilots/semver/work/semver/evidence/20261126T141633Z/results.tsv run
+THREATS total=1 covered=1 partial=0 open=0 out_of_scope=0
+THREAT ext controls witnessed=0 unchecked=0 failed=1
+THREAT ext control not in force: ext:del: ruleset rules unavailable (EXT_RULES unset or fetch failed; EXT_OFFLINE=1 to record as unchecked)

@@ -1,0 +1,3 @@
+$ rust_pin_strict /root/psv/rust-toolchain.toml rustc\ 1.100.0\ \(0ef1bc386\ 2026-11-09\)
+RUST toolchain files plain (1)
+rust ok: 1.100.0

@@ -1,0 +1,13 @@
+diff --git a/src/duration.rs b/src/duration.rs
+index a1dade1..a1b5616 100644
+--- a/src/duration.rs
++++ b/src/duration.rs
+@@ -265,7 +265,7 @@ impl Parser<'_> {
+             Unit::Minute => (mul(n, 60)?, 0),
+             Unit::Hour => (mul(n, 3600)?, 0),
+             Unit::Day => (mul(n, 86400)?, 0),
+-            Unit::Week => (mul(n, 604_800)?, 0),
++            Unit::Week => (mul(n, 604_801)?, 0),
+             Unit::Month => (mul(n, 2_630_016)?, 0), // 30.44d
+             Unit::Year => (mul(n, 31_557_600)?, 0), // 365.25d
+         };

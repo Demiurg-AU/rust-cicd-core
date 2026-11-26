@@ -1,0 +1,10 @@
+  ci-local (exit 1): 140/146 PASS
+    NOT PASS S1i no-unsafe-code: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1c test-coverage: FAIL - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C8 canary-coverage-threshold: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C66 canary-coverage-procmem: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C67 canary-coverage-extra-profile: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate C8 in CI-1
+TIME wall=511.41 user=14.10 sys=8.06
+exit=1
+CPU-SECONDS 784

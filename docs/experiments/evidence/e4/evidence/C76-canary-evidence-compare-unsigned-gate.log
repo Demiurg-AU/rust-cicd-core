@@ -1,0 +1,4 @@
+$ bash /root/psv/pilots/semver/work/semver/scripts/evidence-compare.sh compare /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/evcmp/a /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/evcmp/f
+EVIDENCE unsigned gate C1: no check signature in B
+EVIDENCE unsigned gate S1a: no check signature in B
+EVIDENCE MISMATCH 0/2 common gates

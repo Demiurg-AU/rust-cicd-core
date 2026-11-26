@@ -1,0 +1,52 @@
+From e812b8dfbfa441af380821806a9dcc6e7aa5facd Mon Sep 17 00:00:00 2001
+From: exp <exp@local>
+Date: Thu, 26 Nov 2026 12:30:04 +0100
+Subject: [PATCH 1/2] R7
+
+---
+ src/date.rs | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/date.rs b/src/date.rs
+index 5d34c22..4c8ffa4 100644
+--- a/src/date.rs
++++ b/src/date.rs
+@@ -85,7 +85,9 @@ pub fn parse_rfc3339(s: &str) -> Result<SystemTime, Error> {
+         return Err(Error::InvalidFormat);
+     }
+     let b = s.as_bytes();
+-    if b.get(10) != Some(&b'T') || (b.last() != Some(&b'Z') && !s.ends_with("+00:00")) {
++    // SAFETY: s.len() >= 20 was checked above
++    let t10 = unsafe { *b.get_unchecked(10) };
++    if t10 != b'T' || (b.last() != Some(&b'Z') && !s.ends_with("+00:00")) {
+         return Err(Error::InvalidFormat);
+     }
+     parse_rfc3339_weak(s)
+-- 
+2.43.0
+
+
+From b3ccc0317f38fff07832a20d91e781a4956a9383 Mon Sep 17 00:00:00 2001
+From: exp <exp@local>
+Date: Thu, 26 Nov 2026 14:04:26 +0100
+Subject: [PATCH 2/2] R7b
+
+---
+ src/lib.rs | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/src/lib.rs b/src/lib.rs
+index 7e6da5c..6e24ff0 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -15,7 +15,6 @@
+ //! [serde-humantime]: https://docs.rs/serde-humantime/0.1.1/serde_humantime/
+ //! [humantime-serde]: https://docs.rs/humantime-serde
+ 
+-#![forbid(unsafe_code)]
+ #![warn(missing_debug_implementations, missing_docs, unreachable_pub)]
+ 
+ mod date;
+-- 
+2.43.0
+

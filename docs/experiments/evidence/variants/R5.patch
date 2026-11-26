@@ -1,0 +1,25 @@
+From dc6f16371c931496e0fbcda813b7855deca192eb Mon Sep 17 00:00:00 2001
+From: exp <exp@local>
+Date: Thu, 26 Nov 2026 12:30:04 +0100
+Subject: [PATCH] R5
+
+---
+ src/date.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/date.rs b/src/date.rs
+index 5d34c22..916a191 100644
+--- a/src/date.rs
++++ b/src/date.rs
+@@ -363,7 +363,7 @@ impl fmt::Display for Rfc3339Timestamp {
+             return Err(fmt::Error);
+         }
+ 
+-        let (year, mon, mday, secs_of_day) = civil_from_unix(secs_since_epoch).ok_or(fmt::Error)?;
++        let (year, mon, mday, secs_of_day) = civil_from_unix(secs_since_epoch).expect("in range");
+         write!(
+             f,
+             "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
+-- 
+2.43.0
+

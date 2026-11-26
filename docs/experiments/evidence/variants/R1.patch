@@ -1,0 +1,25 @@
+From 77a78236ce04b785124ce0a5ab9170aa5d8ccce2 Mon Sep 17 00:00:00 2001
+From: exp <exp@local>
+Date: Thu, 26 Nov 2026 12:30:03 +0100
+Subject: [PATCH] R1
+
+---
+ src/lib.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/lib.rs b/src/lib.rs
+index 7e6da5c..95286ed 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -22,7 +22,7 @@ mod date;
+ mod duration;
+ mod wrapper;
+ 
+-pub use self::date::Rfc3339Timestamp;
++pub    use self::date::Rfc3339Timestamp;
+ pub use self::date::{
+     format_rfc3339, format_rfc3339_micros, format_rfc3339_millis, format_rfc3339_nanos,
+     format_rfc3339_seconds,
+-- 
+2.43.0
+

@@ -1,0 +1,12 @@
+$ threat_check /root/psv/threat-model.tsv /root/psv/pilots/semver/work/semver/evidence/20261126T141633Z/results.tsv skip
+THREAT unknown or failed gate S1e in CODE-1
+THREAT unknown or failed gate C8 in CI-1
+THREAT unknown or failed gate S1c in CI-3
+THREAT unknown or failed gate S1d in CI-3
+THREAT unknown or failed gate S1i in CI-3
+THREAT unknown or failed gate C8 in CI-3
+THREAT unknown or failed gate C66 in CI-3
+THREAT unknown or failed gate C67 in CI-3
+THREAT unknown or failed gate S1d in CI-8
+THREATS total=34 covered=13 partial=18 open=0 out_of_scope=3
+THREAT ext controls witnessed=40 unchecked=0 failed=0

@@ -1,0 +1,25 @@
+PILOT TMPDIR=/tmp/rcc.TwrDlZ
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   31G   11G  74% /
+PILOT humantime stage 3a
+  template: 1419de0a9d143d21da18778c1884dcf0f69fd961
+  crate:    https://github.com/Demiurg-AU/rust-cicd-core @ 76af4738e7ddbab884b68c46ee82a0810adc3506
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 0): 149/149 PASS
+    core            17/17 PASS
+    canaries        106/106 PASS
+    evidence/judge  15/15 PASS
+    policy          7/7 PASS
+    lean            4/4 PASS
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /root/ps2d/pilots/humantime/work/humantime/evidence/20261126T135100Z (ci-local), /root/ps2d/pilots/humantime/work (spec pack logs, status.tsv)
+  log:      /root/ps2d/pilots/humantime/work/ci-local.log
+PILOT 3a core (ci-local): PASS
+exit=0

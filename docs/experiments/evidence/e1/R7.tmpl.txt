@@ -1,0 +1,59 @@
+PILOT TMPDIR=/tmp/rcc.wSB5WA
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda        252G   31G   12G  72% /
+PILOT humantime stage 3a
+  template: 4aca02d2eb3e550dae6cd76c7e8072702759d319
+  crate:    /root/ht-cmp @ e812b8dfbfa441af380821806a9dcc6e7aa5facd
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 1): 115/146 PASS
+    core            7/16 PASS
+    canaries        85/105 PASS
+    evidence/judge  13/14 PASS
+    policy          6/7 PASS
+    lean            4/4 PASS
+    NOT PASS S0a build: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1b clippy: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1e no-panic-lints: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1f release-clean-env-tests: FAIL - RELEASE-TESTS build failed
+    NOT PASS S1g no-judge-forks: FAIL - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS S1i no-unsafe-code: FAIL - error: usage of an `unsafe` block
+    NOT PASS S1c test-coverage: FAIL - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS S1d mutation: FAIL - FAILED   Unmutated baseline in 4s build
+    NOT PASS S1h neutral-mutant: FAIL - error: usage of an `unsafe` block
+    NOT PASS C36 canary-env-fork-release: FAIL_WRONG_REASON - RELEASE-TESTS build failed
+    NOT PASS C37 canary-cfg-test-fork: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C38 canary-debug-assertions-fork: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C39 canary-debug-assertions-fork-release: FAIL_WRONG_REASON - RELEASE-TESTS build failed
+    NOT PASS C40 canary-cfg-kani-fork: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C41 canary-cfg-clippy-fork: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C42 canary-multiline-cfg-fork: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C43 canary-fork-after-char-literal: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C44 canary-fork-comment-paren: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C45 canary-fork-after-backslash-char: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C46 canary-fork-in-path-module: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C47 canary-cfg-bang-other-delimiters: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C48 canary-fork-in-included-file: FAIL_WRONG_REASON - JUDGE-FORK shipped build failed (cannot list the compiled sources)
+    NOT PASS C29 canary-test-cannot-touch-evidence: FAIL_WRONG_REASON - RELEASE-TESTS build failed
+    NOT PASS C3 canary-test: FAIL_WRONG_REASON - error: usage of an `unsafe` block
+    NOT PASS C5 canary-mutant-survives: FAIL_WRONG_REASON - FAILED   Unmutated baseline in 4s build
+    NOT PASS C8 canary-coverage-threshold: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C66 canary-coverage-procmem: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS C67 canary-coverage-extra-profile: FAIL_WRONG_REASON - COVERAGE build error: usage of an `unsafe` block
+    NOT PASS M1 gate-parser-mutants: FAIL - PARSER honest threat_check input did not pass
+    NOT PASS C89 canary-parser-mutants-catch-weak-parser: FAIL_WRONG_REASON - PARSER honest threat_check input did not pass
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1e in CODE-1
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /root/pcmp/pilots/cmp-R7/work/humantime/evidence/20261126T123857Z (ci-local), /root/pcmp/pilots/cmp-R7/work (spec pack logs, status.tsv)
+  log:      /root/pcmp/pilots/cmp-R7/work/ci-local.log
+PILOT 3a core (ci-local): FAIL
+Command exited with non-zero status 1
+TIME wall=122.10 user=13.41 sys=6.40
+exit=1
+CPU-SECONDS 197

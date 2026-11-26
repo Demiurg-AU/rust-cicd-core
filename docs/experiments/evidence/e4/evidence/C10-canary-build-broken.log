@@ -1,0 +1,11 @@
+$ cargo build --locked
+   Compiling semver v1.0.28 (/tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/build)
+error: this file contains an unclosed delimiter
+   --> src/lib.rs:571:26
+    |
+571 | pub fn canary_broken( {}
+    |                     -   ^
+    |                     |
+    |                     unclosed delimiter
+
+error: could not compile `semver` (lib) due to 1 previous error

@@ -1,0 +1,5 @@
+$ cargo audit
+    Fetching advisory database from `https://github.com/RustSec/advisory-db.git`
+      Loaded 1568 security advisories (from /root/.cargo/advisory-db)
+    Updating crates.io index
+    Scanning /root/psv/pilots/semver/work/semver/Cargo.lock for vulnerabilities (53 crate dependencies)

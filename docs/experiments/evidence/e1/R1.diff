@@ -1,0 +1,13 @@
+diff --git a/src/lib.rs b/src/lib.rs
+index 7e6da5c..95286ed 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -22,7 +22,7 @@ mod date;
+ mod duration;
+ mod wrapper;
+ 
+-pub use self::date::Rfc3339Timestamp;
++pub    use self::date::Rfc3339Timestamp;
+ pub use self::date::{
+     format_rfc3339, format_rfc3339_micros, format_rfc3339_millis, format_rfc3339_nanos,
+     format_rfc3339_seconds,

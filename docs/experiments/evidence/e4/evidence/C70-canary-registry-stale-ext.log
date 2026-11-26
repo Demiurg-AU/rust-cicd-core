@@ -1,0 +1,3 @@
+$ registry_check /root/psv/threat-model.tsv /root/psv/pilots/semver/work/semver/evidence/20261126T141633Z/results.tsv /root/psv/assumptions.tsv /root/psv/claims.tsv /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/registry/ext.tsv
+REGISTRY 106 canaries, 35 ext controls, 4 claims checked
+REGISTRY stale ext control ext:nobody-names-me: no threat row names it

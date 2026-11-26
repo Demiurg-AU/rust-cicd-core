@@ -1,0 +1,4 @@
+BASE PASS
+TIME wall=40.54 user=46.64 sys=2.60
+exit=0
+CPU-SECONDS 49

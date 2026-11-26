@@ -1,0 +1,2 @@
+$ judge_forks /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/fork-debug
+JUDGE-FORK src/lib.rs:573: if cfg!(debug_assertions) { 1 } else { 2 }

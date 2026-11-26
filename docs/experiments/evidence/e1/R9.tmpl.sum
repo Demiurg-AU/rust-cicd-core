@@ -1,0 +1,6 @@
+  ci-local (exit 1): 144/146 PASS
+    NOT PASS S1d mutation: FAIL - MISSED   src/date.rs:172:43: replace > with >= in parse_rfc3339_weak in 0s build + 1s test
+    NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1d in CI-3
+TIME wall=512.11 user=14.81 sys=7.03
+exit=1
+CPU-SECONDS 807

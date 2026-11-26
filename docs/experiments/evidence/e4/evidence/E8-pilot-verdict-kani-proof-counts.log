@@ -1,0 +1,5 @@
+$ bash -c out=\"\$\(bash\ \"\$1\"\ \"\$2\"\)\"\ \|\|\ \{\ echo\ \"\$out\"\;\ exit\ 1\;\ \}\;\ echo\ \"\$out\"\;\ grep\ -q\ \"\^PILOT\ Kani\ PASS\"\ \<\<\<\ \"\$out\" _ /root/psv/pilots/semver/work/semver/scripts/pilot-verdict.sh /tmp/rcc.voaDzF/rust-cicd-core.JKQbrT/canaries/pilotverdict/kani
+  3b PASS k4:SMx
+  3b PASS claim PASS Z1 (bounded: b)
+PILOT 3b PASS
+PILOT Kani PASS: every harness proved, every Kani canary caught
