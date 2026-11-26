@@ -1,0 +1,76 @@
+   Compiling libc v0.2.191
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling arbitrary v1.5.0
+   Compiling jobserver v0.1.35
+   Compiling cc v1.11.3
+   Compiling deranged v0.5.9
+   Compiling num-conv v0.2.2
+   Compiling powerfmt v0.2.1
+   Compiling time-core v0.1.9
+   Compiling time v0.3.55
+   Compiling libfuzzer-sys v0.4.13
+   Compiling humantime v2.4.0 (/tmp/rcc.G80Xn5/fuzz-gate.Dpnu1V/canary.E2V0RT)
+   Compiling humantime-pilot-fuzz v0.0.0 (/tmp/rcc.G80Xn5/fuzz-gate.Dpnu1V/canary.E2V0RT/fuzz)
+    Finished `release` profile [optimized + debuginfo] target(s) in 31.63s
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+     Running `/tmp/rcc.G80Xn5/fuzz-gate.Dpnu1V/target/x86_64-unknown-linux-gnu/release/rfc3339_vs_time -artifact_prefix=/tmp/rcc.G80Xn5/fuzz-gate.Dpnu1V/canary.E2V0RT/fuzz/artifacts/rfc3339_vs_time/ -seed=1 -max_total_time=60 /tmp/rcc.G80Xn5/fuzz-gate.Dpnu1V/canary.E2V0RT/fuzz/corpus/rfc3339_vs_time`
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 1
+INFO: Loaded 1 modules   (2062 inline 8-bit counters): 2062 [0x555fb7dcaef0, 0x555fb7dcb6fe), 
+INFO: Loaded 1 PC tables (2062 PCs): 2062 [0x555fb7dcb700,0x555fb7dd37e0), 
+INFO:        0 files found in /tmp/rcc.G80Xn5/fuzz-gate.Dpnu1V/canary.E2V0RT/fuzz/corpus/rfc3339_vs_time
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
+INFO: A corpus is not provided, starting from an empty corpus
+#2	INITED exec/s: 0 rss: 32Mb
+WARNING: no interesting inputs were found so far. Is the code instrumented for coverage?
+This may also happen if the target rejected all inputs we tried so far
+	NEW_FUNC[1/12]: 0x555fb7c3cd60 in rfc3339_vs_time::_::__libfuzzer_sys_run /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:368
+	NEW_FUNC[2/12]: 0x555fb7c40310 in rust_fuzzer_test_input /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libfuzzer-sys-0.4.13/src/lib.rs:325
+#1036	NEW    cov: 118 ft: 118 corp: 2/15b lim: 14 exec/s: 0 rss: 37Mb L: 14/14 MS: 4 CopyPart-InsertRepeatedBytes-ShuffleBytes-InsertByte-
+#1042	NEW    cov: 119 ft: 119 corp: 3/29b lim: 14 exec/s: 0 rss: 37Mb L: 14/14 MS: 1 ChangeByte-
+	NEW_FUNC[1/1]: 0x555fb7c411d0 in humantime::date::days_since_epoch /tmp/rcc.G80Xn5/fuzz-gate.Dpnu1V/canary.E2V0RT/src/date.rs:95
+#1051	NEW    cov: 127 ft: 127 corp: 4/43b lim: 14 exec/s: 0 rss: 37Mb L: 14/14 MS: 4 ShuffleBytes-ShuffleBytes-CopyPart-ChangeBinInt-
+#1063	NEW    cov: 128 ft: 128 corp: 5/57b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 2 ChangeBinInt-ShuffleBytes-
+#1069	NEW    cov: 129 ft: 129 corp: 6/71b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 1 ChangeBinInt-
+	NEW_FUNC[1/1]: 0x555fb7c40db0 in <core::time::Duration>::new /rustc/5f4effd579500175af844241eb179e756190f1e7/library/core/src/time.rs:276
+#1090	NEW    cov: 145 ft: 145 corp: 7/85b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 1 ChangeBinInt-
+#1107	NEW    cov: 147 ft: 147 corp: 8/99b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 2 ChangeByte-CMP- DE: "\214\323jA\371\003\000\000"-
+#1126	NEW    cov: 148 ft: 148 corp: 9/113b lim: 14 exec/s: 0 rss: 38Mb L: 14/14 MS: 4 ChangeASCIIInt-ChangeBit-ChangeASCIIInt-ShuffleBytes-
+#1177	NEW    cov: 150 ft: 150 corp: 10/127b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 ChangeByte-
+#1200	NEW    cov: 154 ft: 154 corp: 11/141b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 3 ChangeBinInt-ShuffleBytes-CopyPart-
+#1246	NEW    cov: 156 ft: 156 corp: 12/155b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 CrossOver-
+#1333	NEW    cov: 157 ft: 157 corp: 13/169b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 2 PersAutoDict-CopyPart- DE: "\214\323jA\371\003\000\000"-
+#1400	NEW    cov: 158 ft: 158 corp: 14/183b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 2 ChangeBit-ChangeByte-
+#1404	NEW    cov: 159 ft: 159 corp: 15/197b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 4 CMP-CopyPart-ShuffleBytes-ChangeByte- DE: "\016\302"-
+#1435	NEW    cov: 160 ft: 160 corp: 16/211b lim: 14 exec/s: 0 rss: 39Mb L: 14/14 MS: 1 ChangeByte-
+#1482	NEW    cov: 161 ft: 161 corp: 17/225b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 2 ChangeASCIIInt-ChangeBinInt-
+#1499	NEW    cov: 162 ft: 162 corp: 18/239b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 2 PersAutoDict-ChangeByte- DE: "\016\302"-
+#1619	NEW    cov: 163 ft: 163 corp: 19/253b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 5 ChangeByte-CopyPart-CrossOver-ChangeBinInt-ChangeByte-
+#1706	NEW    cov: 164 ft: 164 corp: 20/267b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 2 ChangeASCIIInt-ChangeByte-
+#1897	NEW    cov: 165 ft: 165 corp: 21/281b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 1 ChangeBinInt-
+#1962	NEW    cov: 166 ft: 166 corp: 22/295b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 5 ShuffleBytes-CopyPart-ChangeBinInt-CrossOver-InsertByte-
+#2106	NEW    cov: 167 ft: 167 corp: 23/309b lim: 14 exec/s: 0 rss: 40Mb L: 14/14 MS: 4 PersAutoDict-PersAutoDict-ShuffleBytes-CrossOver- DE: "\016\302"-"\016\302"-
+#2351	NEW    cov: 169 ft: 169 corp: 24/323b lim: 14 exec/s: 0 rss: 41Mb L: 14/14 MS: 5 ShuffleBytes-PersAutoDict-CrossOver-ShuffleBytes-ChangeBit- DE: "\214\323jA\371\003\000\000"-
+#2358	NEW    cov: 170 ft: 170 corp: 25/337b lim: 14 exec/s: 0 rss: 41Mb L: 14/14 MS: 2 CopyPart-ChangeBinInt-
+#2403	NEW    cov: 171 ft: 171 corp: 26/351b lim: 14 exec/s: 0 rss: 41Mb L: 14/14 MS: 5 CrossOver-ShuffleBytes-ChangeBit-ChangeBit-ChangeByte-
+#2622	NEW    cov: 172 ft: 172 corp: 27/365b lim: 14 exec/s: 0 rss: 41Mb L: 14/14 MS: 4 ChangeBinInt-ChangeByte-ChangeByte-ChangeBit-
+#3135	NEW    cov: 173 ft: 173 corp: 28/381b lim: 17 exec/s: 0 rss: 41Mb L: 16/16 MS: 3 InsertByte-CrossOver-ChangeBit-
+#6985	NEW    cov: 174 ft: 174 corp: 29/405b lim: 53 exec/s: 0 rss: 42Mb L: 24/24 MS: 5 ChangeBit-ChangeByte-PersAutoDict-ChangeByte-CMP- DE: "\016\302"-"\001\000\000\000\000\000\000\001"-
+#7689	REDUCE cov: 174 ft: 174 corp: 29/396b lim: 58 exec/s: 0 rss: 42Mb L: 15/16 MS: 4 ChangeBinInt-ChangeBit-ChangeBinInt-EraseBytes-
+#15810	REDUCE cov: 174 ft: 174 corp: 29/394b lim: 135 exec/s: 0 rss: 42Mb L: 14/15 MS: 1 EraseBytes-
+#16448	NEW    cov: 175 ft: 175 corp: 30/408b lim: 135 exec/s: 0 rss: 42Mb L: 14/15 MS: 3 ShuffleBytes-ChangeBit-CMP- DE: "\003\000\000\000\000\000\000\000"-
+#37889	REDUCE cov: 175 ft: 175 corp: 30/407b lim: 341 exec/s: 0 rss: 44Mb L: 14/14 MS: 1 EraseBytes-
+#262144	pulse  cov: 175 ft: 175 corp: 30/407b lim: 2567 exec/s: 131072 rss: 64Mb
+#524288	pulse  cov: 175 ft: 175 corp: 30/407b lim: 4096 exec/s: 104857 rss: 87Mb
+#1048576	pulse  cov: 175 ft: 175 corp: 30/407b lim: 4096 exec/s: 104857 rss: 132Mb
+#2097152	pulse  cov: 175 ft: 175 corp: 30/407b lim: 4096 exec/s: 104857 rss: 222Mb
+#4194304	pulse  cov: 175 ft: 175 corp: 30/407b lim: 4096 exec/s: 102300 rss: 401Mb
+#6256209	DONE   cov: 175 ft: 175 corp: 30/407b lim: 4096 exec/s: 102560 rss: 510Mb
+###### Recommended dictionary. ######
+"\214\323jA\371\003\000\000" # Uses: 145006
+"\016\302" # Uses: 145970
+"\001\000\000\000\000\000\000\001" # Uses: 144919
+"\003\000\000\000\000\000\000\000" # Uses: 145128
+###### End of recommended dictionary. ######
+Done 6256209 runs in 61 second(s)
