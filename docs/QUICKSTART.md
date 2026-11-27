@@ -3,11 +3,11 @@
 Run the rust-cicd-core checks on a pinned Rust crate on your own Linux machine and get a report. Your crate is not
 modified, and you need no GitHub account.
 
-Checked twice on 2026-11-27, each time with a fresh `$HOME`, no tokens or `gh`, `PATH=/usr/bin:/bin` and public
-downloads only, on Ubuntu 26.04 under WSL2 (16 vCPU, 15 GB). The second session had only this page. Times are the
-range of the two runs.
+Checked three times on 2026-11-27, each time as a user with a fresh `$HOME`, no tokens or `gh`, `PATH=/usr/bin:/bin`
+and public downloads only: twice on Ubuntu 26.04 under WSL2 (16 vCPU, 15 GB; the second session had only this page),
+once in an Ubuntu 24.04 container (4 vCPU, 15 GB). Times are the range of the runs.
 
-## 1. Install (once, 13–18 min)
+## 1. Install (once, 12–18 min)
 
 ```sh
 # system packages (needs sudo; this is the only step that does)
@@ -58,9 +58,9 @@ and the checks of your crate run in full.
 **Expected result** (exit 0, 265–420 s):
 
 ```
-  ci-local (exit 0): 150/150 PASS
+  ci-local (exit 0): 151/151 PASS
     core            17/17 PASS
-    canaries        107/107 PASS
+    canaries        108/108 PASS
     evidence/judge  15/15 PASS
     policy          7/7 PASS
     lean            4/4 PASS
@@ -84,7 +84,7 @@ The run prints `evidence: <dir>`, which is `pilots/humantime/work/humantime/evid
 | `summary.txt` | `PROGRESS=<passed>/<total>`, the evidence path and the temporary build directory (already deleted) |
 | `SHA256SUMS` | checksums of all of the above, written only when every check passed |
 
-## 4. See a check fail (5–6 min)
+## 4. See a check fail (4–6 min)
 
 This applies a safe test regression to a local copy of the crate. The patch weakens the tests, and the crate still
 builds and its tests pass, so a plain `cargo fmt && cargo clippy && cargo test` CI does not notice it (experiment
@@ -100,12 +100,12 @@ sed -i "s#^CRATE_URL=.*#CRATE_URL=$(cd ../humantime-r4 && pwd)#; s#^CRATE_SHA=.*
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime-r4 3a; echo "exit=$?"
 ```
 
-**Expected result** (exit 1, 284–348 s):
+**Expected result** (exit 1, 263–348 s):
 
 ```
-  ci-local (exit 1): 148/150 PASS
+  ci-local (exit 1): 149/151 PASS
     core            16/17 PASS
-    canaries        107/107 PASS
+    canaries        108/108 PASS
     evidence/judge  15/15 PASS
     policy          6/7 PASS
     lean            4/4 PASS
@@ -116,7 +116,8 @@ PILOT 3a core (ci-local): FAIL
 
 S1d is mutation testing. It changed the code (here, made `Display for Error` return nothing) and no test noticed.
 T1 fails because the threat model counts S1d as a control. One real failure, reported twice. The summary line shows
-the first surviving mutant; `S1d-mutation.log` lists all 15 (3 in `date.rs`, 4 in `duration.rs`, 8 in `wrapper.rs`).
+the first surviving mutant; `S1d-mutation.log` lists all of them: 16 on 2026-11-27 (4 in `date.rs`, 5 in
+`duration.rs`, 7 in `wrapper.rs`).
 
 ## 5. Re-run a failed check
 
@@ -125,11 +126,12 @@ used, `pilots/<name>/work/<crate>/`. Example for S1d:
 
 ```sh
 cd pilots/humantime-r4/work/humantime
-cargo mutants --test-tool nextest --file src/date.rs    # 87–96 s, exit 2 (mutants missed): the 3 MISSED lines of src/date.rs
+cargo mutants --test-tool nextest --file src/date.rs    # 87–97 s, exit 2 (mutants missed): 3 MISSED in src/date.rs
 ```
 
 A direct run like this skips the sandbox and `mutants-exclusions.tsv`. Only the full pilot run counts as the
-verdict. If the first log line names a template function (`mutants_gate`, `coverage_gate`, ...), its definition in
+verdict. Results can differ between the two: on 2026-11-27 the direct run caught `src/date.rs:311:16` (`<` to `<=`
+in `civil_from_unix`), which the full run listed as MISSED, so it showed 3 of the 4 `date.rs` lines. If the first log line names a template function (`mutants_gate`, `coverage_gate`, ...), its definition in
 `scripts/ci-local.sh` shows the tool command.
 
 ## Your own crate
