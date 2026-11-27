@@ -895,7 +895,9 @@ mk wrapper; CARGO_TARGET_DIR="$CAN/wrapper/target" run C32 canary-checkout-wrapp
 mk test;   printf '\n#[test]\nfn canary_fails() { assert_eq!(1 + 1, 3); }\n' >> "$CAN/test/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/test/target" run C3 canary-test fail 'canary_fails' "$CAN/test" cargo nextest run
 # C74: a crates.io dependency nobody audited must fail S2c (fetched here, outside the jail, like S0f)
-mk vetdep; cp -r "$ROOT/supply-chain" "$CAN/vetdep/"
+# a crate without supply-chain/ (no `cargo vet init` yet) must still get a report: S2c fails with that reason, and
+# so does this canary (its guard cannot run), instead of aborting the whole run here under set -e
+mk vetdep; if [ -d "$ROOT/supply-chain" ]; then cp -r "$ROOT/supply-chain" "$CAN/vetdep/"; fi
 # a crate without a [dependencies] table gets one (humantime has only dev-dependencies: pilot, T6)
 grep -q '^\[dependencies\]' "$CAN/vetdep/Cargo.toml" || printf '\n[dependencies]\n' >> "$CAN/vetdep/Cargo.toml"
 sed -i '/^\[dependencies\]/a itoa = "=1.0.15"' "$CAN/vetdep/Cargo.toml"
