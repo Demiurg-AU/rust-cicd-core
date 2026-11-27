@@ -1,7 +1,7 @@
 # rust-cicd-core — что сделано и что осталось до цели
 
-Состояние на 2026-11-24, main `6b45eb09688480fb2da27759134997826fa5d91b` (раздел «Критерии на 2026-11-24»;
-остальные разделы — история с 2026-11-18). Статусы: VERIFIED_PRIMARY — свидетельство CI или прогона;
+Текущее состояние — раздел «Релиз v0.2.0» (main `c2ac27a`, релиз опубликован и проверен, 2026-11-27). Раздел
+«Критерии на 2026-11-24» (main `6b45eb0`) и ниже — история с 2026-11-18. Статусы: VERIFIED_PRIMARY — свидетельство CI или прогона;
 PLAUSIBLE_UNVERIFIED — правдоподобно, но не проверено; UNDERDETERMINED — данных не хватает.
 
 ## План исполнения для Claude Code — 26 ноября 2026
@@ -54,6 +54,29 @@ exit 0, ожидаемые отказы (байт, чужой workflow, чужо
 | semver-крейт вне профиля (`unsafe`) | нет: граница переносимости, заявлена | отложено до отдельного профиля |
 | Стоимость базового CI на GitHub, повторяемость E-1 | нет: измерение, не возможность | отложено |
 | Приёмка пилота | да | действует: скрипты пилота и ядра не менялись после `95f7ddb` (E-7: 3a 149/149, 3b 23/23); #73 изменил только workflow и проверку фикстур — подтверждено CI main `bd53ca2` |
+
+**Результат — PASS** (выпуск 2026-11-26 20:04Z, [запись в #63](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7202293941);
+независимо повторено 2026-11-27 из новой сессии агента, чистый каталог, ассеты по REST API).
+
+| Пункт критерия | Свидетельство | Итог |
+|---|---|---|
+| Тег → коммит | `v0.2.0` → аннотированный тег `b03fcb0` → `c2ac27a2f5a7c00dcdcf19d6092557ace1cfe6d1` | совпадает с main |
+| CI main на коммите | [run 45886218829](https://github.com/Demiurg-AU/rust-cicd-core/actions/runs/45886218829) | success |
+| Release workflow | [run 45888238383](https://github.com/Demiurg-AU/rust-cicd-core/actions/runs/45888238383): свидетельство ворот, build + attest, независимая пересборка, проверка до публикации, публикация | 5/5 success |
+| Дайджест | `sha256sum -c SHA256SUMS` — бинарник и SBOM `OK`; бинарник `sha256:956edf0e35047a44c40ae77b08f1a328129505aa1ef3ec653d293914be4fe5b6` = digest ассета GitHub | OK |
+| Provenance | `gh attestation verify … --signer-workflow …/build-reusable.yml --source-ref refs/tags/v0.2.0 --deny-self-hosted-runners` — exit 0; сертификат: источник `c2ac27a`, ref `refs/tags/v0.2.0`, подписант `build-reusable.yml@refs/tags/v0.2.0`, run 45888238383, github-hosted, предикат `slsa.dev/provenance/v1` | exit 0 |
+| SBOM-аттестация | тот же вызов с `--predicate-type https://cyclonedx.org/bom` | exit 0 |
+| Отказы | дописанный байт (`e043cafb…`) → `verifying with issuer "sigstore.dev"`; подписант `ci.yml` → то же; `--source-ref refs/tags/v0.1.0` → «expected … v0.1.0, got refs/tags/v0.2.0» | exit 1 ×3 |
+| Запуск | `./rust-cicd-core-x86_64-unknown-linux-gnu` → `5` | exit 0 |
+
+Повтор 2026-11-27 шёл с `--custom-trusted-root`: в сессии закрыт `tuf-repo-cdn.sigstore.dev`, без него gh
+отказывает до проверки (`no valid Sigstore verifiers could be initialized`, exit 1 — отказ, не ложный PASS). Способ
+записан в `docs/verify-release.md`. Уровень SLSA не заявляется.
+
+**Следующий этап по #63** (решение [7199309784](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7199309784)): отдельная учётная запись агента (write, без admin) до
+интеграции в Алису. Проверка 2026-11-27 из этой сессии: `gh api user` → `Demiurg-AU`; права в репозитории
+`admin: true` — **свидетельства нет, #63 не закрывается**. Действие владельца: подключить сессии агента другой
+логин с ролью write; агент повторит обе команды из новой сессии и приложит вывод к #63.
 
 ## Итоговый инженерный вердикт — 2026-11-26
 
