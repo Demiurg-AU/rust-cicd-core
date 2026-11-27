@@ -854,6 +854,11 @@ run C31 canary-sandbox-no-sockets-no-network fail '^SANDBOX no socket or network
 SOCKV="$(mktemp -d /var/tmp/sbx-sock.XXXXXX)"; sig_volatile '<socket-probe-dir-var>' "$SOCKV"
 run C97 canary-sandbox-sockets-without-enable fail '^SANDBOX no socket or network reachable' "$ROOT" \
   env -u SANDBOX_SOCKS bash -c '. "$1/sandbox.sh"; sandbox_probe_sockets "$2"' _ "$SD" "$SOCKV"
+# C107: a host drive mount (WSL /mnt/c ...) is pruned from every find / and hidden in the jail by an empty tmpfs; the
+# decoy sits on such a "mount" (SANDBOX_HOST_MOUNTS, outside /tmp /run $HOME), so only that tmpfs can keep it unreachable
+SOCKH="$(mktemp -d /var/tmp/sbx-hostmnt.XXXXXX)"; sig_volatile '<socket-probe-dir-hostmnt>' "$SOCKH"
+run C107 canary-sandbox-hides-host-drive-mounts fail '^SANDBOX no socket or network reachable' "$ROOT" \
+  env -u SANDBOX_SOCKS SANDBOX_HOST_MOUNTS="$SOCKH" bash -c '. "$1/sandbox.sh"; sandbox_probe_sockets "$2"' _ "$SD" "$SOCKH"
 # C34: a writable path that is (or passes through) a symlink - e.g. a committed fuzz/artifacts/<t> -> $RUNNER_TEMP -
 # would re-mount the link's target writable; the jail must refuse to start.
 mkdir "$HOST/c34-target"; mkdir "$CAN/c34"; ln -s "$HOST/c34-target" "$CAN/c34/artifacts"

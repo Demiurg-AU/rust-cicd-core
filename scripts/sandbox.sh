@@ -90,6 +90,10 @@ sandbox() {
   # Docker Desktop publishes host-service sockets under this WSL mount. Hide the
   # shared mount after all host binds, including sockets created after discovery.
   if [ -d /mnt/wsl ]; then args+=(--tmpfs /mnt/wsl); fi
+  # WSL Windows drives (/mnt/c ...): hidden too, unless a path the command needs lives on one
+  local -a keep=("$cwd" "${SANDBOX_WORK:-}" "${CARGO_TARGET_DIR:-}" "${GITHUB_WORKSPACE:-}" "${rw[@]}")
+  if [ -n "${SANDBOX_RO:-}" ]; then IFS=: read -ra p <<< "$SANDBOX_RO"; keep+=("${p[@]}"); fi
+  while IFS= read -r p; do [ -d "$p" ] && args+=(--tmpfs "$p"); done < <(sandbox_hidden_mounts "${keep[@]}")
   args+=(--setenv TMPDIR "$tmp" --chdir "$cwd")
   "$SANDBOX_BWRAP" "${args[@]}" -- "$@"; rc=$?
   rm -rf "$tmp"; return "$rc"
@@ -140,9 +144,26 @@ jail_armed() { # are bare cargo/elan still the jail wrappers? (a test mock or `u
   [[ "$(declare -f cargo 2>/dev/null)" == *sandbox_cargo* && "$(declare -f elan 2>/dev/null)" == *sandbox_elan* ]]
 }
 
+sandbox_hidden_mounts() { # <paths the jail must keep...> - host drive mounts the jail hides with an empty tmpfs:
+  # WSL Windows drives (9p aname=drvfs, or drvfs) and SANDBOX_HOST_MOUNTS (colon list; adds, never removes).
+  # Walking them made every find / take minutes to hours on WSL. A mount holding a kept path stays visible.
+  local m k skip
+  { awk '$3 == "drvfs" || ($3 == "9p" && $4 ~ /(^|,)aname=drvfs(;|,|$)/) {print $2}' /proc/self/mounts 2>/dev/null | sed 's/\\040/ /g'
+    [ -z "${SANDBOX_HOST_MOUNTS:-}" ] || tr ':' '\n' <<< "$SANDBOX_HOST_MOUNTS"; } | awk 'NF && !seen[$0]++' |
+  while IFS= read -r m; do
+    skip=0; for k in "$@"; do [ -n "$k" ] && [[ "$k/" == "$m/"* ]] && skip=1; done
+    [ "$skip" = 1 ] || printf '%s\n' "$m"
+  done
+}
+
+sandbox_prune_hidden() { # find(1) prune terms for the hidden mounts (they are tmpfs inside the jail: nothing to find)
+  local m; while IFS= read -r m; do [ -n "$m" ] && printf '%s\0%s\0%s\0' -o -path "$m"; done < <(sandbox_hidden_mounts "$(pwd -P)")
+}
+
 sandbox_sockets() { # every unix socket outside /proc /sys /dev /run /tmp (those are hidden by tmpfs anyway);
   # /usr /opt /snap skipped for speed - the C31 probe searches everything and fails if one is reachable
-  find / \( -path /proc -o -path /sys -o -path /dev -o -path /run -o -path /tmp -o -path /usr -o -path /opt -o -path /snap \) -prune \
+  local -a hp=(); mapfile -d '' -t hp < <(sandbox_prune_hidden)
+  find / \( -path /proc -o -path /sys -o -path /dev -o -path /run -o -path /tmp -o -path /usr -o -path /opt -o -path /snap "${hp[@]}" \) -prune \
        -o -type s -print 2>/dev/null || true   # unreadable dirs make find exit 1; callers may run under set -e
 }
 
@@ -179,7 +200,8 @@ sandbox_probe_sockets() { # <dir for the decoy socket: outside SANDBOX_WORK, e.g
   decoy="$dir/decoy.sock"; rm -f "$decoy"
   python3 -c 'import socket,sys,time; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); s.listen(8); time.sleep(120)' "$decoy" &
   local spid=$!; local i; for i in 1 2 3 4 5 6 7 8 9 10; do [ -S "$decoy" ] && break; sleep 0.2; done
-  socks="$( { echo "$decoy"; find / \( -path /proc -o -path /sys -o -path /dev \) -prune -o -type s -print 2>/dev/null || true; } | sort -u )"
+  local -a hp=(); mapfile -d '' -t hp < <(sandbox_prune_hidden)
+  socks="$( { echo "$decoy"; find / \( -path /proc -o -path /sys -o -path /dev "${hp[@]}" \) -prune -o -type s -print 2>/dev/null || true; } | sort -u )"
   out="$(printf '%s\n' "$socks" | sandbox python3 -c '
 import socket, sys
 reached = []
