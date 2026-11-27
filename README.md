@@ -23,7 +23,7 @@ this release, on a 16-vCPU machine.
 
 ## Quick start
 
-Install the tools once ([full steps](docs/QUICKSTART.md#1-install-once-about-13-min)), then:
+Install the tools once, in 13–18 minutes ([full steps](docs/QUICKSTART.md#1-install-once-1318-min)), then:
 
 ```sh
 git clone --branch v0.3.0 https://github.com/Demiurg-AU/rust-cicd-core
@@ -31,12 +31,12 @@ cd rust-cicd-core
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
 ```
 
-**Expected:** `PILOT 3a core (ci-local): PASS`, `150/150 PASS`, exit 0, about 5 minutes.
+**Expected:** `PILOT 3a core (ci-local): PASS`, `150/150 PASS`, exit 0, in 4–7 minutes.
 
 **Report:** the `evidence:` directory the run prints. It holds `results.tsv`, one row per check, and one log per
 check whose first line is the command that ran.
 
-**A failing example and how to re-run one check:** [Quick Start, steps 4–5](docs/QUICKSTART.md#4-see-a-check-fail-about-5-min).
+**A failing example and how to re-run one check:** [Quick Start, steps 4–5](docs/QUICKSTART.md#4-see-a-check-fail-56-min).
 **Your own crate:** copy `pilots/humantime` and set the crate URL and commit ([how](docs/QUICKSTART.md#your-own-crate)).
 
 **The demo binary** (`src/main.rs`, prints `5`) is the crate this repository tests itself on. It also exercises the

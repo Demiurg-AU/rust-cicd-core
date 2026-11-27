@@ -11,7 +11,7 @@ in a bubblewrap sandbox. It needs no GitHub account, and it writes a per-check r
 
 | # | Claim | Evidence | How to check it yourself |
 |---|---|---|---|
-| 1 | One command takes a pinned external crate (humantime 2.4.0 + 4 fixes) to a PASS report: 150/150 checks, exit 0, 265 s on 16 vCPU | Quick Start run, 2026-11-27, fresh `$HOME` | [Quick Start](QUICKSTART.md), steps 1–3 |
+| 1 | One command takes a pinned external crate (humantime 2.4.0 + 4 fixes) to a PASS report: 150/150 checks, exit 0, 265–420 s on 16 vCPU | two Quick Start runs, 2026-11-27, each in a fresh `$HOME`; the second session had only the public page | [Quick Start](QUICKSTART.md), steps 1–3 |
 | 2 | A safe regression that a plain `fmt + clippy + test` CI misses is blocked: S1d names `src/date.rs:43:9`, exit 1 | same session; E-1 variant R4 | Quick Start, step 4 |
 | 3 | On 9 seeded regressions in humantime, these checks caught 9 and `fmt + clippy + test` caught 3; no false block on the clean crate | E-1, [baseline-vs-template.md](experiments/baseline-vs-template.md), raw logs in `experiments/evidence/e1/` | rerun with `experiments/evidence/e1/e1-run.sh` |
 | 4 | The price is about 10x the wall time and 13x the CPU of plain CI (E-1: 499 s against 50 s wall on 2 vCPU) | E-1 | same |
@@ -31,7 +31,7 @@ in a bubblewrap sandbox. It needs no GitHub account, and it writes a per-check r
   they are unproven.
 - **The sample was designed by the author.** E-1's regressions target the classes these checks are built for. It
   says nothing about other regression classes.
-- **Install takes about 13 minutes**, most of it compiling seven cargo tools.
+- **Install takes 13–18 minutes**, most of it compiling seven cargo tools.
 
 ## Demo (2 commands after install, about 10 minutes)
 

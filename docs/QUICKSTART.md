@@ -3,10 +3,11 @@
 Run the rust-cicd-core checks on a pinned Rust crate on your own Linux machine and get a report. Your crate is not
 modified, and you need no GitHub account.
 
-Checked on 2026-11-27 with a fresh `$HOME`, no tokens or `gh`, `PATH=/usr/bin:/bin` and public downloads only, on
-Ubuntu 26.04 under WSL2 (16 vCPU, 15 GB). The times below are from that run.
+Checked twice on 2026-11-27, each time with a fresh `$HOME`, no tokens or `gh`, `PATH=/usr/bin:/bin` and public
+downloads only, on Ubuntu 26.04 under WSL2 (16 vCPU, 15 GB). The second session had only this page. Times are the
+range of the two runs.
 
-## 1. Install (once, about 13 min)
+## 1. Install (once, 13–18 min)
 
 ```sh
 # system packages (needs sudo; this is the only step that does)
@@ -14,13 +15,16 @@ sudo apt-get install -y git curl build-essential cmake pkg-config libssl-dev pyt
 # Ubuntu 24.04+ only, if `bwrap --ro-bind / / true` prints "setting up uid map: Permission denied":
 #   sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-# Rust 1.100.0 (90 s)
+cd "$(mktemp -d)"    # downloads and installers land here; delete it afterwards
+
+# Rust 1.100.0 (90–200 s). If a system Rust exists, rustup prints "error: cannot install while Rust is installed"
+# and then continues: with -y that is a warning, not a failure.
 curl -sSfL -o rustup-init https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init
 echo "$(curl -sSfL https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init.sha256 | cut -d' ' -f1)  rustup-init" | sha256sum -c -
 chmod +x rustup-init && ./rustup-init -y --profile minimal --default-toolchain 1.100.0 --component clippy,rustfmt,llvm-tools-preview
 export PATH="$HOME/.cargo/bin:$PATH"
 
-# the tools the checks call (640 s: they are compiled from source)
+# the tools the checks call (640–880 s: they are compiled from source)
 cargo install --locked cargo-nextest@0.9.152 cargo-llvm-cov@0.9.1 cargo-deny@0.20.2 cargo-audit@0.23.0 \
   cargo-mutants@27.1.0 cargo-vet@0.10.3 cargo-semver-checks@0.51.0
 
@@ -31,7 +35,10 @@ tar xzf elan-x86_64-unknown-linux-gnu.tar.gz && ./elan-init -y --default-toolcha
 export PATH="$HOME/.elan/bin:$PATH"
 ```
 
-## 2. Run the example (about 5 min)
+In every new shell, put both tool directories on `PATH` again before the next steps:
+`export PATH="$HOME/.cargo/bin:$HOME/.elan/bin:$PATH"`.
+
+## 2. Run the example (4–7 min)
 
 The example crate is humantime 2.4.0 with four small fixes, pinned at commit `76af473`
 (`pilots/humantime/pilot.env`).
@@ -46,7 +53,7 @@ EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
 T3 fails with `RULESET live policy unavailable`. With it, the ruleset checks are recorded as "unchecked: offline"
 and the checks of your crate run in full.
 
-**Expected result** (exit 0, 265 s):
+**Expected result** (exit 0, 265–420 s):
 
 ```
   ci-local (exit 0): 150/150 PASS
@@ -72,15 +79,16 @@ The run prints `evidence: <dir>`, which is `pilots/humantime/work/humantime/evid
 |---|---|
 | `results.tsv` | one row per check: id, name, expected (`pass` or `fail` for canaries), exit code, reason match, verdict |
 | `<ID>-<name>.log` | that check's full output; the first line, `$ ...`, is the command that ran |
-| `summary.txt` | `PROGRESS=<passed>/<total>` and the evidence path |
+| `summary.txt` | `PROGRESS=<passed>/<total>`, the evidence path and the temporary build directory (already deleted) |
 | `SHA256SUMS` | checksums of all of the above, written only when every check passed |
 
-## 4. See a check fail (about 5 min)
+## 4. See a check fail (5–6 min)
 
 This applies a safe test regression to a local copy of the crate. The patch weakens the tests, and the crate still
 builds and its tests pass, so a plain `cargo fmt && cargo clippy && cargo test` CI does not notice it (experiment
 E-1, `docs/experiments/baseline-vs-template.md`, variant R4). This is also how you point the checks at your own crate:
-copy a pilot and change two lines.
+copy a pilot and change two lines. (`CRATE_NAME` stays `humantime` here, so the output still says
+`PILOT humantime` and the copy is in `work/humantime`.)
 
 ```sh
 git clone --single-branch -b pilot/humantime-fixes https://github.com/Demiurg-AU/rust-cicd-core ../humantime-r4
@@ -90,19 +98,23 @@ sed -i "s#^CRATE_URL=.*#CRATE_URL=$(cd ../humantime-r4 && pwd)#; s#^CRATE_SHA=.*
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime-r4 3a; echo "exit=$?"
 ```
 
-**Expected result** (exit 1, 284 s):
+**Expected result** (exit 1, 284–348 s):
 
 ```
   ci-local (exit 1): 148/150 PASS
     core            16/17 PASS
-    ...
+    canaries        107/107 PASS
+    evidence/judge  15/15 PASS
+    policy          6/7 PASS
+    lean            4/4 PASS
     NOT PASS S1d mutation: FAIL - MISSED   src/date.rs:43:9: replace <impl fmt::Display for Error>::fmt -> fmt::Result with Ok(Default::default()) ...
     NOT PASS T1 threat-model: FAIL - THREAT unknown or failed gate S1d in CI-3
 PILOT 3a core (ci-local): FAIL
 ```
 
 S1d is mutation testing. It changed the code (here, made `Display for Error` return nothing) and no test noticed.
-T1 fails because the threat model counts S1d as a control. One real failure, reported twice.
+T1 fails because the threat model counts S1d as a control. One real failure, reported twice. The summary line shows
+the first surviving mutant; `S1d-mutation.log` lists all 15 (3 in `date.rs`, 4 in `duration.rs`, 8 in `wrapper.rs`).
 
 ## 5. Re-run a failed check
 
@@ -111,7 +123,7 @@ used, `pilots/<name>/work/<crate>/`. Example for S1d:
 
 ```sh
 cd pilots/humantime-r4/work/humantime
-cargo mutants --test-tool nextest --file src/date.rs    # 87 s: the same 3 MISSED lines in src/date.rs
+cargo mutants --test-tool nextest --file src/date.rs    # 87–96 s, exit 2 (mutants missed): the 3 MISSED lines of src/date.rs
 ```
 
 A direct run like this skips the sandbox and `mutants-exclusions.tsv`. Only the full pilot run counts as the
