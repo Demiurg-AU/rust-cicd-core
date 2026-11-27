@@ -19,9 +19,11 @@ cd "$(mktemp -d)"    # downloads and installers land here; delete it afterwards
 
 # Rust 1.100.0 (90–200 s). If a system Rust exists, rustup prints "error: cannot install while Rust is installed"
 # and then continues: with -y that is a warning, not a failure.
-curl -sSfL -o rustup-init https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init
-echo "$(curl -sSfL https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init.sha256 | cut -d' ' -f1)  rustup-init" | sha256sum -c -
-chmod +x rustup-init && ./rustup-init -y --profile minimal --default-toolchain 1.100.0 --component clippy,rustfmt,llvm-tools-preview
+# Each download, its check and the install are one && chain: a wrong SHA-256 (or a failed download) stops it
+# before anything runs or is unpacked.
+curl -sSfL -o rustup-init https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init &&
+  echo "$(curl -sSfL https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init.sha256 | cut -d' ' -f1)  rustup-init" | sha256sum -c - &&
+  chmod +x rustup-init && ./rustup-init -y --profile minimal --default-toolchain 1.100.0 --component clippy,rustfmt,llvm-tools-preview
 export PATH="$HOME/.cargo/bin:$PATH"
 
 # the tools the checks call (640–880 s: they are compiled from source)
@@ -29,9 +31,9 @@ cargo install --locked cargo-nextest@0.9.152 cargo-llvm-cov@0.9.1 cargo-deny@0.2
   cargo-mutants@27.1.0 cargo-vet@0.10.3 cargo-semver-checks@0.51.0
 
 # elan for the Lean stage (2 s)
-curl -sSfLO https://github.com/leanprover/elan/releases/download/v4.2.4/elan-x86_64-unknown-linux-gnu.tar.gz
-echo "42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63  elan-x86_64-unknown-linux-gnu.tar.gz" | sha256sum -c -
-tar xzf elan-x86_64-unknown-linux-gnu.tar.gz && ./elan-init -y --default-toolchain leanprover/lean4:v4.35.0
+curl -sSfLO https://github.com/leanprover/elan/releases/download/v4.2.4/elan-x86_64-unknown-linux-gnu.tar.gz &&
+  echo "42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63  elan-x86_64-unknown-linux-gnu.tar.gz" | sha256sum -c - &&
+  tar xzf elan-x86_64-unknown-linux-gnu.tar.gz && ./elan-init -y --default-toolchain leanprover/lean4:v4.35.0
 export PATH="$HOME/.elan/bin:$PATH"
 ```
 
