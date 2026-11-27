@@ -6,6 +6,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # helper scripts live next to this file; resolve BEFORE any cd (a relative $0/BASH_SOURCE breaks afterwards)
 SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
+# one run per user at a time: the socket canaries (C31, C97, C107, C108, C109) open decoy sockets outside /tmp, and a
+# concurrent run's decoy is a socket the jail can reach - two runs side by side failed C108 on a good crate (2026-11-27)
+# The lock is held by flock(1) itself (-o: the script and its children never get the descriptor, so a stray child
+# cannot keep it after the run). RCC_LOCKED marks the re-executed script.
+if [ -z "${RCC_LOCKED:-}" ] && command -v flock >/dev/null; then
+  RCC_LOCK="${RCC_LOCK:-${XDG_RUNTIME_DIR:-$HOME/.cache}/rust-cicd-core.lock}"; mkdir -p "$(dirname "$RCC_LOCK")"
+  flock -n "$RCC_LOCK" true || echo "LOCK another rust-cicd-core run holds $RCC_LOCK; waiting"
+  RCC_LOCKED=1 exec flock -o "$RCC_LOCK" bash "$SD/$(basename "$0")" "$@"
+fi
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 EV="$ROOT/evidence/$STAMP"
 mkdir -p "$ROOT/evidence"
@@ -854,6 +863,23 @@ run C31 canary-sandbox-no-sockets-no-network fail '^SANDBOX no socket or network
 SOCKV="$(mktemp -d /var/tmp/sbx-sock.XXXXXX)"; sig_volatile '<socket-probe-dir-var>' "$SOCKV"
 run C97 canary-sandbox-sockets-without-enable fail '^SANDBOX no socket or network reachable' "$ROOT" \
   env -u SANDBOX_SOCKS bash -c '. "$1/sandbox.sh"; sandbox_probe_sockets "$2"' _ "$SD" "$SOCKV"
+# C107: a host drive mount (WSL /mnt/c ...) is pruned from every find / and hidden in the jail by an empty tmpfs; the
+# decoy sits on such a "mount" (SANDBOX_HOST_MOUNTS, outside /tmp /run $HOME), so only that tmpfs can keep it unreachable
+SOCKH="$(mktemp -d /var/tmp/sbx-hostmnt.XXXXXX)"; sig_volatile '<socket-probe-dir-hostmnt>' "$SOCKH"
+run C107 canary-sandbox-hides-host-drive-mounts fail '^SANDBOX no socket or network reachable' "$ROOT" \
+  env -u SANDBOX_SOCKS SANDBOX_HOST_MOUNTS="$SOCKH" bash -c '. "$1/sandbox.sh"; sandbox_probe_sockets "$2"' _ "$SD" "$SOCKH"
+# C108: the same mount, but the probe runs INSIDE it (a project on a Windows drive): the mount stays visible and socket
+# discovery (taken first, from $ROOT, where that mount is pruned) never saw the decoy; sandbox() must mask it itself
+SOCKK="$(mktemp -d /var/tmp/sbx-hostkeep.XXXXXX)"; sig_volatile '<socket-probe-dir-hostkeep>' "$SOCKK"
+run C108 canary-sandbox-masks-sockets-on-kept-host-mount fail '^SANDBOX no socket or network reachable' "$ROOT" \
+  env SANDBOX_HOST_MOUNTS="$SOCKK" bash -c '. "$1/sandbox.sh"; SANDBOX_SOCKS="$(sandbox_sockets)"; cd "$2" && sandbox_probe_sockets "$2"' _ "$SD" "$SOCKK"
+# C109: the C107 mount, but reached the way the gates reach the jail - a `bash -c` child of sandbox_enable (the L2
+# Lean audit runs elan like this). The child sees only what sandbox_enable exports; a helper it did not export left
+# the hidden-mount list empty there (Codex P1 on #77)
+SOCKC="$(mktemp -d /var/tmp/sbx-hostchild.XXXXXX)"; sig_volatile '<socket-probe-dir-hostchild>' "$SOCKC"
+C109_CHILD='. "$1/sandbox.sh"; sandbox_enable; bash -c "$(declare -f sandbox_probe_sockets); sandbox_probe_sockets \"\$1\"" _ "$2"'
+run C109 canary-sandbox-hides-host-drive-mounts-in-child-shell fail '^SANDBOX no socket or network reachable' "$ROOT" \
+  env -u SANDBOX_SOCKS SANDBOX_HOST_MOUNTS="$SOCKC" bash -c "$C109_CHILD" _ "$SD" "$SOCKC"
 # C34: a writable path that is (or passes through) a symlink - e.g. a committed fuzz/artifacts/<t> -> $RUNNER_TEMP -
 # would re-mount the link's target writable; the jail must refuse to start.
 mkdir "$HOST/c34-target"; mkdir "$CAN/c34"; ln -s "$HOST/c34-target" "$CAN/c34/artifacts"
@@ -885,7 +911,9 @@ mk wrapper; CARGO_TARGET_DIR="$CAN/wrapper/target" run C32 canary-checkout-wrapp
 mk test;   printf '\n#[test]\nfn canary_fails() { assert_eq!(1 + 1, 3); }\n' >> "$CAN/test/src/lib.rs"
 CARGO_TARGET_DIR="$CAN/test/target" run C3 canary-test fail 'canary_fails' "$CAN/test" cargo nextest run
 # C74: a crates.io dependency nobody audited must fail S2c (fetched here, outside the jail, like S0f)
-mk vetdep; cp -r "$ROOT/supply-chain" "$CAN/vetdep/"
+# a crate without supply-chain/ (no `cargo vet init` yet) must still get a report: S2c fails with that reason, and
+# so does this canary (its guard cannot run), instead of aborting the whole run here under set -e
+mk vetdep; if [ -d "$ROOT/supply-chain" ]; then cp -r "$ROOT/supply-chain" "$CAN/vetdep/"; fi
 # a crate without a [dependencies] table gets one (humantime has only dev-dependencies: pilot, T6)
 grep -q '^\[dependencies\]' "$CAN/vetdep/Cargo.toml" || printf '\n[dependencies]\n' >> "$CAN/vetdep/Cargo.toml"
 sed -i '/^\[dependencies\]/a itoa = "=1.0.15"' "$CAN/vetdep/Cargo.toml"
@@ -1360,7 +1388,14 @@ for b in bad: print(b)
 sys.exit(1 if bad else 0)
 PY
 }
-TM_DIR="$ROOT"; while [ "$TM_DIR" != / ] && [ ! -f "$TM_DIR/threat-model.tsv" ]; do TM_DIR="$(dirname "$TM_DIR")"; done
+# the judge's registries (threat model, ext controls, ruleset snapshot, assumptions, claims). A pilot names the
+# template's own directory (RCC_REGISTRY_DIR): a crate under test must not bring a threat-model.tsv of its own that
+# T1/T2/T3 would then judge it by (seen 2026-11-27 on a crate that vendors an older copy of these files)
+if [ -n "${RCC_REGISTRY_DIR:-}" ]; then
+  TM_DIR="$RCC_REGISTRY_DIR"; [ -f "$TM_DIR/threat-model.tsv" ] || { echo "RCC_REGISTRY_DIR has no threat-model.tsv: $TM_DIR"; exit 1; }
+else
+  TM_DIR="$ROOT"; while [ "$TM_DIR" != / ] && [ ! -f "$TM_DIR/threat-model.tsv" ]; do TM_DIR="$(dirname "$TM_DIR")"; done
+fi
 export EXT_CONTROLS="${EXT_CONTROLS:-${TM_DIR%/}/ext-controls.tsv}" EXT_ROOT="${EXT_ROOT:-${TM_DIR%/}}"
 if [ -z "${EXT_RULES:-}" ] && [ "${EXT_OFFLINE:-0}" != 1 ]; then
   # the repository: GITHUB_REPOSITORY in CI, else the origin remote; anonymous read works for public repositories
@@ -1777,7 +1812,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..106} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..109} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..106} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..109} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

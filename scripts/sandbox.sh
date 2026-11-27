@@ -25,6 +25,8 @@ SANDBOX_BWRAP="${SANDBOX_BWRAP:-bwrap}"
 
 sandbox() {
   local p a cwd tmp rc s; cwd="$(pwd -P)"
+  # fail closed: without these helpers the host-drive lists come out empty and the jail would start without them
+  declare -F sandbox_hidden_mounts sandbox_sockets > /dev/null || { echo "SANDBOX helper functions missing (sandbox_hidden_mounts / sandbox_sockets)" >&2; return 125; }
   # SANDBOX_NOPROC=1: no procfs at all - /proc/self/mem would let safe code rewrite its own memory (coverage
   # counters, #45 item 7); used for running test binaries, not for cargo/rustc (rustup needs /proc)
   local procfs=(--proc /proc); [ "${SANDBOX_NOPROC:-0}" = 1 ] && procfs=(--tmpfs /proc)
@@ -58,8 +60,9 @@ sandbox() {
   [ -d /run ] && args+=(--tmpfs /run)
   args+=(--tmpfs /tmp)
   # linked toolchains (elan/rustup `toolchain link` to e.g. $RUNNER_TEMP/lean-tc) point outside the hidden $HOME
+  local -a linked=()
   for p in "${HOME:-/nonexistent}"/.elan/toolchains/* "${HOME:-/nonexistent}"/.rustup/toolchains/*; do
-    [ -L "$p" ] && [ -e "$p" ] && args+=(--ro-bind "$(realpath -- "$p")" "$(realpath -- "$p")")
+    [ -L "$p" ] && [ -e "$p" ] && { linked+=("$(realpath -- "$p")"); args+=(--ro-bind "${linked[-1]}" "${linked[-1]}"); }
   done
   if [ -n "${SANDBOX_WORK:-}" ]; then args+=(--ro-bind "$SANDBOX_WORK" "$SANDBOX_WORK"); fi
   [ -n "${CARGO_TARGET_DIR:-}" ] && [ -e "$CARGO_TARGET_DIR" ] && args+=(--ro-bind "$CARGO_TARGET_DIR" "$CARGO_TARGET_DIR")
@@ -90,6 +93,20 @@ sandbox() {
   # Docker Desktop publishes host-service sockets under this WSL mount. Hide the
   # shared mount after all host binds, including sockets created after discovery.
   if [ -d /mnt/wsl ]; then args+=(--tmpfs /mnt/wsl); fi
+  # WSLg: /mnt/wslg/run/user/<uid> is a runtime dir (Wayland, PulseAudio, session sockets created at any time; C31 reached
+  # one on 2026-11-27 that appeared after discovery). Nothing a build needs lives under /mnt/wslg.
+  if [ -d /mnt/wslg ]; then args+=(--tmpfs /mnt/wslg); fi
+  # WSL Windows drives (/mnt/c ...): hidden too, unless a path the command needs lives on one
+  # linked toolchain targets too: a toolchain linked to a Windows drive must not be hidden again (Codex P2 on #77)
+  local -a keep=("$cwd" "${SANDBOX_WORK:-}" "${CARGO_TARGET_DIR:-}" "${GITHUB_WORKSPACE:-}" "${rw[@]}" "${linked[@]}")
+  if [ -n "${SANDBOX_RO:-}" ]; then IFS=: read -ra p <<< "$SANDBOX_RO"; keep+=("${p[@]}"); fi
+  while IFS= read -r p; do [ -d "$p" ] && args+=(--tmpfs "$p"); done < <(sandbox_hidden_mounts "${keep[@]}")
+  # a host drive mount that stays visible (the command needs a path on it) was pruned from discovery when discovery ran
+  # elsewhere: mask its sockets here, at the cost of one walk of that mount (C108)
+  local hm; while IFS= read -r hm; do
+    [ -d "$hm" ] || continue
+    while IFS= read -r s; do [ -n "$s" ] && [ -S "$s" ] && args+=(--ro-bind /dev/null "$s"); done < <(find "$hm" -type s -print 2>/dev/null || true)
+  done < <(comm -23 <(sandbox_hidden_mounts | sort) <(sandbox_hidden_mounts "${keep[@]}" | sort))
   args+=(--setenv TMPDIR "$tmp" --chdir "$cwd")
   "$SANDBOX_BWRAP" "${args[@]}" -- "$@"; rc=$?
   rm -rf "$tmp"; return "$rc"
@@ -140,9 +157,26 @@ jail_armed() { # are bare cargo/elan still the jail wrappers? (a test mock or `u
   [[ "$(declare -f cargo 2>/dev/null)" == *sandbox_cargo* && "$(declare -f elan 2>/dev/null)" == *sandbox_elan* ]]
 }
 
+sandbox_hidden_mounts() { # <paths the jail must keep...> - host drive mounts the jail hides with an empty tmpfs:
+  # WSL Windows drives (9p aname=drvfs, or drvfs) and SANDBOX_HOST_MOUNTS (colon list; adds, never removes).
+  # Walking them made every find / take minutes to hours on WSL. A mount holding a kept path stays visible.
+  local m k skip
+  { awk '$3 == "drvfs" || ($3 == "9p" && $4 ~ /(^|,)aname=drvfs(;|,|$)/) {print $2}' /proc/self/mounts 2>/dev/null | sed 's/\\040/ /g'
+    [ -z "${SANDBOX_HOST_MOUNTS:-}" ] || tr ':' '\n' <<< "$SANDBOX_HOST_MOUNTS"; } | awk 'NF && !seen[$0]++' |
+  while IFS= read -r m; do
+    skip=0; for k in "$@"; do [ -n "$k" ] && [[ "$k/" == "$m/"* ]] && skip=1; done
+    [ "$skip" = 1 ] || printf '%s\n' "$m"
+  done
+}
+
+sandbox_prune_hidden() { # find(1) prune terms for the hidden mounts (they are tmpfs inside the jail: nothing to find)
+  local m; while IFS= read -r m; do [ -n "$m" ] && printf '%s\0%s\0%s\0' -o -path "$m"; done < <(sandbox_hidden_mounts "$(pwd -P)")
+}
+
 sandbox_sockets() { # every unix socket outside /proc /sys /dev /run /tmp (those are hidden by tmpfs anyway);
   # /usr /opt /snap skipped for speed - the C31 probe searches everything and fails if one is reachable
-  find / \( -path /proc -o -path /sys -o -path /dev -o -path /run -o -path /tmp -o -path /usr -o -path /opt -o -path /snap \) -prune \
+  local -a hp=(); mapfile -d '' -t hp < <(sandbox_prune_hidden)
+  find / \( -path /proc -o -path /sys -o -path /dev -o -path /run -o -path /tmp -o -path /usr -o -path /opt -o -path /snap "${hp[@]}" \) -prune \
        -o -type s -print 2>/dev/null || true   # unreadable dirs make find exit 1; callers may run under set -e
 }
 
@@ -152,7 +186,10 @@ sandbox_enable() { # turn bare `cargo` and `elan` into jailed calls, also inside
   export SANDBOX_SOCKS SANDBOX_NEUTRAL
   cargo() { sandbox_cargo "$@"; }
   elan() { sandbox_elan "$@"; }
-  export -f sandbox sandbox_cargo sandbox_cargo_neutral sandbox_elan cargo elan jail_armed
+  # the helpers sandbox() calls go too: in a `bash -c` child they were missing, the hidden-mount lists came out empty
+  # and the jail started without hiding the host drives (Codex P1 on #77, C109)
+  export -f sandbox sandbox_cargo sandbox_cargo_neutral sandbox_elan cargo elan jail_armed \
+    sandbox_hidden_mounts sandbox_prune_hidden sandbox_sockets
   export SANDBOX_BWRAP
 }
 
@@ -179,7 +216,8 @@ sandbox_probe_sockets() { # <dir for the decoy socket: outside SANDBOX_WORK, e.g
   decoy="$dir/decoy.sock"; rm -f "$decoy"
   python3 -c 'import socket,sys,time; s=socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); s.listen(8); time.sleep(120)' "$decoy" &
   local spid=$!; local i; for i in 1 2 3 4 5 6 7 8 9 10; do [ -S "$decoy" ] && break; sleep 0.2; done
-  socks="$( { echo "$decoy"; find / \( -path /proc -o -path /sys -o -path /dev \) -prune -o -type s -print 2>/dev/null || true; } | sort -u )"
+  local -a hp=(); mapfile -d '' -t hp < <(sandbox_prune_hidden)
+  socks="$( { echo "$decoy"; find / \( -path /proc -o -path /sys -o -path /dev "${hp[@]}" \) -prune -o -type s -print 2>/dev/null || true; } | sort -u )"
   out="$(printf '%s\n' "$socks" | sandbox python3 -c '
 import socket, sys
 reached = []

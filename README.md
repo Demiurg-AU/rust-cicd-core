@@ -1,4 +1,54 @@
-# rust-cicd-core — минимальное ядро CI (S0–S2) + самопроверка гейтов
+# rust-cicd-core
+
+Strict checks for a Rust crate, run on your machine from one command. 109 planted-bug tests ("canaries") check that
+the checks themselves still catch what they are meant to catch: a check that has stopped catching anything fails too.
+The result is a per-check report.
+
+**For:** maintainers of small, pure-Rust libraries who want more than `fmt + clippy + test`, on Linux (or WSL2)
+x86_64. **Not yet for:** crates with `unsafe` (the profile forbids it), large workspaces, or a ready-made GitHub
+Actions setup in your own repository (see [limits](docs/QUICKSTART.md#what-you-need-and-what-you-do-not)).
+
+**What it adds to a plain CI**, measured on one crate (humantime, experiment E-1,
+[results](docs/experiments/baseline-vs-template.md)):
+- **Regressions caught:** 9 of 9 seeded regressions, against 3 of 9 for `fmt + clippy + test`. The extra catches
+  come from mutation testing, no-panic lints, advisory checks, a no-`unsafe` gate and a check for code that differs
+  between test and release builds.
+- **False blocks:** none on the clean crate.
+- **Cost:** about 10x the wall time and 13x the CPU time: 499 s against 50 s wall, 781 against 59 CPU-seconds, for one
+  run on a 2-vCPU VM.
+
+E-1 ran on template commit `4aca02d`. Since then three changes were added: S2d (semver, #69), a pilot fix (#72) and
+the WSL sandbox fixes in this release. The clean pass and the R4 failure in the Quick Start were measured again on
+this release, on a 16-vCPU machine.
+
+## Quick start
+
+Install the tools once, in 12–18 minutes ([full steps](docs/QUICKSTART.md#1-install-once-1218-min)), then:
+
+```sh
+git clone --branch v0.3.0 https://github.com/Demiurg-AU/rust-cicd-core
+cd rust-cicd-core
+EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
+```
+
+**Expected:** `PILOT 3a core (ci-local): PASS`, `152/152 PASS`, exit 0, in 4–7 minutes.
+
+**Report:** the `evidence:` directory the run prints. It holds `results.tsv`, one row per check, and one log per
+check whose first line is the command that ran.
+
+**A failing example and how to re-run one check:** [Quick Start, steps 4–5](docs/QUICKSTART.md#4-see-a-check-fail-56-min).
+**Your own crate:** copy `pilots/humantime` and set the crate URL and commit ([how](docs/QUICKSTART.md#your-own-crate)).
+
+**The demo binary** (`src/main.rs`, prints `5`) is the crate this repository tests itself on. It also exercises the
+signed-release path ([verify a release](docs/verify-release.md)). You do not need it.
+
+Product summary and verifiable claims: [docs/ANNOUNCE.md](docs/ANNOUNCE.md). Project status: [docs/ROADMAP.md](docs/ROADMAP.md).
+
+---
+
+## Project log (Russian; the original notes)
+
+### Минимальное ядро CI (S0–S2) + самопроверка гейтов
 
 **Статус и что осталось до цели:** [docs/ROADMAP.md](docs/ROADMAP.md).
 
