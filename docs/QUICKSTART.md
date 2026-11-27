@@ -146,6 +146,12 @@ Expect failures the first time. Upstream humantime 2.4.0 needed four commits bef
 - a bench dependency with an advisory, RUSTSEC-2026-0543 (S2a);
 - rustfmt.
 
+## One run at a time
+
+Runs on one machine wait for each other (`LOCK another rust-cicd-core run holds ...; waiting`). The sandbox canaries
+open decoy sockets, and a second run in parallel can reach the first one's decoy, so C108 or C97 would fail on a good
+crate. Set `RCC_LOCK` to choose the lock file.
+
 ## What you need, and what you do not
 
 | Where | Needs | Does not need |

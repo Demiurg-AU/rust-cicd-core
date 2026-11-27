@@ -6,6 +6,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # helper scripts live next to this file; resolve BEFORE any cd (a relative $0/BASH_SOURCE breaks afterwards)
 SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
+# one run per user at a time: the socket canaries (C31, C97, C107, C108) open decoy sockets outside /tmp, and a
+# concurrent run's decoy is a socket the jail can reach - two runs side by side failed C108 on a good crate (2026-11-27)
+# The lock is held by flock(1) itself (-o: the script and its children never get the descriptor, so a stray child
+# cannot keep it after the run). RCC_LOCKED marks the re-executed script.
+if [ -z "${RCC_LOCKED:-}" ] && command -v flock >/dev/null; then
+  RCC_LOCK="${RCC_LOCK:-${XDG_RUNTIME_DIR:-$HOME/.cache}/rust-cicd-core.lock}"; mkdir -p "$(dirname "$RCC_LOCK")"
+  flock -n "$RCC_LOCK" true || echo "LOCK another rust-cicd-core run holds $RCC_LOCK; waiting"
+  RCC_LOCKED=1 exec flock -o "$RCC_LOCK" bash "$SD/$(basename "$0")" "$@"
+fi
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 EV="$ROOT/evidence/$STAMP"
 mkdir -p "$ROOT/evidence"
