@@ -45,3 +45,29 @@ repository's workflow", not "the artifact of this release". The notes now pin `-
 `--deny-self-hosted-runners`.
 
 No SLSA level is claimed: the build-track requirements have not each been checked against this workflow.
+
+## When the Sigstore trust root cannot be fetched
+
+`gh attestation verify` first downloads the Sigstore trust root over TUF from `tuf-repo-cdn.sigstore.dev`. If that
+host is blocked (a proxy that allows only GitHub), gh stops before it verifies anything:
+`error creating Sigstore verifier: no valid Sigstore verifiers could be initialized`, exit 1. This is a refusal, not a
+pass. Seen on 2026-11-27 while repeating the `v0.2.0` check.
+
+Workaround used then: take the public-good trust root that ships inside the `sigstore` Python package (4.6.0, from
+PyPI). gh wants it as JSON Lines, so put it on one line, then add `--custom-trusted-root` to the same command. The
+venv's own interpreter finds the file through the installed package, so the path does not depend on the Python
+version. If the file is missing, Python fails and writes nothing, and `test -s` stops before gh runs:
+
+```
+python3 -m venv venv && venv/bin/pip install sigstore==4.6.0
+venv/bin/python -c 'import json, pathlib, sigstore
+p = pathlib.Path(sigstore.__file__).parent / "_store" / "https%3A%2F%2Ftuf-repo-cdn.sigstore.dev" / "trusted_root.json"
+root = json.dumps(json.loads(p.read_text()), separators=(",", ":"))
+pathlib.Path("trusted_root.jsonl").write_text(root + "\n")'
+test -s trusted_root.jsonl
+gh attestation verify … --custom-trusted-root trusted_root.jsonl
+```
+
+With it, `v0.2.0` gave exit 0, and the three expected refusals above each gave exit 1. The commands were checked
+under Python 3.13 and 3.14. This root is only as fresh as
+the package release: if Sigstore rotates its keys after that release, use the TUF-fetched root instead.
