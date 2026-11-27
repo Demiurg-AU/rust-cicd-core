@@ -137,7 +137,14 @@ Make a copy of `pilots/humantime`:
   Delete `SEMVER_BASELINE` if the crate is not a published library with a previous release. Set `REQUIRE_LEAN=0`
   if it has no Lean project.
 - In `overlay/`, keep only what your crate needs, and nothing but configuration: `Cargo.lock`, `deny.toml`,
-  `mutants-exclusions.tsv`, `supply-chain/*`. Run `cargo vet init` in the crate to create `supply-chain/`.
+  `mutants-exclusions.tsv`, `supply-chain/*`. Run `cargo vet init` in the crate to create `supply-chain/`. Without it,
+  S2c fails with `no supply-chain/ store (cargo vet init)`.
+- The checks always use this repository's registries (`threat-model.tsv`, `ext-controls.tsv`,
+  `ruleset-snapshot.json`). Files with those names in your crate are ignored, so a crate cannot bring a weaker
+  threat model.
+- Code that swaps types or modules under `cfg(kani)`, `cfg(test)` or other check-only cfgs fails S1g
+  (`JUDGE-FORK ...`): the checks would judge different code from what ships. Only a whole module under `#[cfg(test)]`
+  or `#[cfg(kani)]` is allowed.
 
 Expect failures the first time. Upstream humantime 2.4.0 needed four commits before it passed (`git log
 997ff566..76af473` on branch `pilot/humantime-fixes`):

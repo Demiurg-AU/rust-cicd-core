@@ -23,6 +23,8 @@ in a bubblewrap sandbox. It needs no GitHub account, and it writes a per-check r
 - **One crate passes end to end:** humantime, a small pure-Rust library. The second crate tried, `semver` (E-4),
   fails the profile because it uses `unsafe`. That is by design, but it means the profile has been shown on one
   crate only.
+- **Strict by design.** Swapping types under `cfg(kani)` or `cfg(test)` fails S1g. The ALISA Authority Firewall crate
+  does this for its Kani proofs, and it needed a lab change to pass. Runs on one machine wait for each other.
 - **Linux x86_64 only.** Tested on Ubuntu 26.04 under WSL2, and on GitHub's `ubuntu-24.04` runners for this
   repository's own CI. Not tested on a fresh OS image. The package list in the Quick Start is what the test machine
   had.
