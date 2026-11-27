@@ -38,11 +38,18 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Refuse a template ref that is not a full commit SHA
+      - name: Refuse a privileged trigger and a template ref that is not a full commit SHA
         env:
           TEMPLATE_SHA: ${{ inputs.template-sha }}
+          EVENT: ${{ github.event_name }}
         run: |
           set -euo pipefail
+          # pull_request_target / workflow_run run with the base repository's privileges; there checkout gives the
+          # base commit, so the job would test the wrong code (CodeQL actions/untrusted-checkout on #80)
+          case "$EVENT" in
+            pull_request_target|workflow_run)
+              echo "::error::RCC refuses the '$EVENT' trigger: call this workflow from 'pull_request' or 'push'"; exit 2 ;;
+          esac
           if [[ ! "$TEMPLATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
             echo "::error::RCC template-sha must be a full 40-hex commit SHA (got '$TEMPLATE_SHA'); branch and tag names are not supported"
             exit 2
