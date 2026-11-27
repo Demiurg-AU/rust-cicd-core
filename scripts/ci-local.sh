@@ -1782,7 +1782,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..106} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..107} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..106} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..107} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi
