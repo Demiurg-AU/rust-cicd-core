@@ -49,7 +49,7 @@ exit 0, ожидаемые отказы (байт, чужой workflow, чужо
 | Открытый пункт | Влияет на заявленное в релизе? | Решение |
 |---|---|---|
 | Критерий 1 | да (модель угроз — часть заявки) | **PASS**: решения есть по всем 35 строкам ([7198034118](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7198034118), [7199309784](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7199309784)) |
-| CI-7 (учётная запись агента = владелец, `admin: true`) и зависящие CI-12, CI-14 | да | PARTIAL, остаток принят на этот релиз; **обязательство:** после проверки релиза и до интеграции в Алису — отдельная учётная запись агента (write, без admin) и свидетельство из сессии в #63 |
+| CI-7 (учётная запись агента = владелец, `admin: true`) и зависящие CI-12, CI-14 | да | PARTIAL, остаток принят на этот релиз; обязательство (отдельная учётная запись агента, write, без admin, свидетельство из сессии в #63) **выполнено 2026-11-27**: [свидетельство 7214049953](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7214049953) |
 | Kani для humantime — ABSTAIN | нет: свойство пилота, не возможность шаблона | отложено (`spec-kani/README.md`) |
 | semver-крейт вне профиля (`unsafe`) | нет: граница переносимости, заявлена | отложено до отдельного профиля |
 | Стоимость базового CI на GitHub, повторяемость E-1 | нет: измерение, не возможность | отложено |
@@ -73,10 +73,10 @@ exit 0, ожидаемые отказы (байт, чужой workflow, чужо
 отказывает до проверки (`no valid Sigstore verifiers could be initialized`, exit 1 — отказ, не ложный PASS). Способ
 записан в `docs/verify-release.md`. Уровень SLSA не заявляется.
 
-**Следующий этап по #63** (решение [7199309784](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7199309784)): отдельная учётная запись агента (write, без admin) до
-интеграции в Алису. Проверка 2026-11-27 из этой сессии: `gh api user` → `Demiurg-AU`; права в репозитории
-`admin: true` — **свидетельства нет, #63 не закрывается**. Действие владельца: подключить сессии агента другой
-логин с ролью write; агент повторит обе команды из новой сессии и приложит вывод к #63.
+**Этап по #63 выполнен** (решение [7199309784](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7199309784)): отдельная учётная запись агента до
+интеграции в Алису. Проверка 2026-11-27 из рабочей сессии агента ([свидетельство 7214049953](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7214049953)): `gh api user` →
+`demiurg-au-rcc-agent`; права в репозитории `push: true`, `maintain: false`, `admin: false`; роль `write`. #63 закрыт.
+Не засвидетельствовано сессией: что токен владельца недоступен с машины агента — проверяет владелец.
 
 ## Итоговый инженерный вердикт — 2026-11-26
 
@@ -144,9 +144,10 @@ E-1, выборка из 9 регрессий: базовый CI (fmt, clippy, �
 
 - **Критерий 1 — PASS** (main `bd53ca2`, 13 COVERED / 19 PARTIAL / 3 OUT_OF_SCOPE): у каждой PARTIAL-строки
   письменно принятый остаток — 16 строк и API-1 ACCEPT, CI-8 ACCEPT остатка времени поиска ([7198034118](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7198034118)),
-  CI-7 и зависящие CI-12/CI-14 — остаток принят на текущий релиз ([7199309784](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7199309784)). Остаток CI-7:
-  [проверка сессии](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7198099312) — `Demiurg-AU`, `admin: true`, технически может менять ruleset. Пересмотр прав (отдельная
-  учётная запись агента) — после проверки релиза и до интеграции в Алису.
+  CI-7 и зависящие CI-12/CI-14 — остаток принят на текущий релиз ([7199309784](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7199309784)). Пересмотр прав
+  выполнен 2026-11-27: агент — `demiurg-au-rcc-agent`, роль write, `admin: false` ([свидетельство 7214049953](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7214049953)).
+  Остаток CI-7: любой workflow репозитория может опубликовать контекст (правка workflow требует K1); admin-токен
+  владельца может менять ruleset (T3 видит это при следующем прогоне).
 - **Kani для humantime — ABSTAIN** (ручной харнесс: нехватка памяти; autoharness на `&str`: тайм-аут).
 - **semver — FAIL 3a** по S1i/S1c/S1e: крейты с `unsafe` вне профиля, пока нет отдельного профиля.
 - **Пробел E-6 закрыт (E-7)**: в пакете спецификаций humantime цель `rfc3339_vs_time` со сверкой по крейту `time`
@@ -166,7 +167,7 @@ main `4aca02d2eb3e550dae6cd76c7e8072702759d319`, CI [run 45809819383](https://gi
 
 | # | Утверждение | Область действия | SHA | Свидетельство | Вердикт | Остаток |
 |---|---|---|---|---|---|---|
-| 1 | Каждая строка threat-model — COVERED / OUT_OF_SCOPE / PARTIAL с письменно принятым остатком | 35 строк `threat-model.tsv` | `a64acc3` | 13 COVERED, 19 PARTIAL, 3 OUT_OF_SCOPE; [решение владельца](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7198034118): ACCEPT для 16 строк, API-1 и ограниченного времени поиска CI-8; REJECT для слияния без fuzz и для CI-7. Обязательный fuzz действует (#66, #67) | **PASS** (обновлено после [7199309784](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7199309784): CI-7 остаётся PARTIAL с остатком, принятым на текущий релиз) | CI-7, CI-12, CI-14: отдельная учётная запись агента — после проверки релиза, до интеграции в Алису |
+| 1 | Каждая строка threat-model — COVERED / OUT_OF_SCOPE / PARTIAL с письменно принятым остатком | 35 строк `threat-model.tsv` | `a64acc3` | 13 COVERED, 19 PARTIAL, 3 OUT_OF_SCOPE; [решение владельца](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7198034118): ACCEPT для 16 строк, API-1 и ограниченного времени поиска CI-8; REJECT для слияния без fuzz и для CI-7. Обязательный fuzz действует (#66, #67) | **PASS** (обновлено после [7199309784](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7199309784): CI-7 остаётся PARTIAL с остатком, принятым на текущий релиз) | CI-7, CI-12, CI-14: отдельная учётная запись агента — выполнено 2026-11-27 ([свидетельство 7214049953](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7214049953)); статус PARTIAL |
 | 2 | Контроли P1–P6 работают в шаблоне, у каждого есть канарейка | шаблон `rust-cicd-core` | `4aca02d` | P1 Kani-gate KC1–KC3, P2 spec epoch SE1–SE5, P3 claims (7 канареек), P4 S1e C26/C33, P5 fuzz-gate FC1–FC4, P6 памятка; все 9 проверок обязательны и привязаны к GitHub Actions (15368) | **PASS** | Фаззинг — поиск в пределах измеренного бюджета (владелец: ACCEPT) |
 | 3a | Внешний крейт подключается только конфигурацией, ядро PASS | humantime `76af473` (upstream `997ff566` + 4 коммита крейта) | шаблон `738cb1c` = дерево `6b45eb0` | приёмочный пилот: pilot exit 0, ci-local 146/146 | **PASS** | После `6b45eb0` менялись `fuzz.yml` (#66), `ruleset-snapshot.json`, `threat-model.tsv` (#65, #67) — скрипты пилота и ядра не менялись; T1/T3 на новой модели и политике подтверждены CI main |
 | 3b | Пакет спецификаций humantime PASS | тот же | тот же | 18/18: fuzz 3/3, HF1–HF5, K5 3/3 + канарейка, K4 SM1–SM3, H1–H3 | **PASS** | Утверждения H1–H3 — bounded (фаззинг) |
@@ -180,6 +181,7 @@ main `4aca02d2eb3e550dae6cd76c7e8072702759d319`, CI [run 45809819383](https://gi
 - GitHub засчитал commit status `agent-pr-policy` от `github-actions[bot]` при привязке к 15368: #67 был `unstable`, а не `blocked`, и слился.
 - Кто может опубликовать `agent-pr-policy`. Каждый workflow задаёт `permissions: {}`; `statuses: write` есть только у job `agent-pr-policy.yml` (публикует статус). Любой другой workflow, получивший `statuses: write`, — это правка pipeline-файла, а она требует подписи K1.
 - Полномочия учётной записи агента: [свидетельство сессии около 16:50Z](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7198099312) — `Demiurg-AU` (User), права в репозитории `admin: true`. Bypass в ruleset убран, поэтому этот доступ не позволяет слить PR в обход проверок. Изменить ruleset или настройки этим доступом может; в той среде прокси отклонял такие запросы (403), но это свойство среды, а не прав. **Остаток принят на текущий релиз** ([7199309784](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7199309784)); отдельная учётная запись агента без admin и свидетельство из новой сессии — после проверки релиза, до интеграции в Алису (#63).
+- **2026-11-27:** агент работает как `demiurg-au-rcc-agent`, роль write: `push: true`, `maintain: false`, `admin: false` ([свидетельство 7214049953](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7214049953)). Агент работает под отдельным GitHub-логином с ролью write и `admin: false`. Политика требует подписи владельца K1. Доступность приватного ключа из среды агента не проверялась. Остаток CI-7 — workflow репозитория (через K1) и admin-токен владельца (T3).
 
 ## Критерии на 2026-11-24
 
@@ -224,8 +226,8 @@ base `bf5ed58`): метка без подписи → `agent-pr-policy = failure
   ruleset к GitHub Actions (`integration_id` 15368) — остаток CI-7 сузится до правки workflow, которая требует K1.
 - Отдельная учётная запись агента: облачная сессия действует от имени подключённого аккаунта GitHub
   (Claude GitHub App или токен `gh` через `/web-setup`); собственную GitHub App подключить к сессии нельзя.
-  Вариант — отдельный аккаунт GitHub с ролью Write, подключённый к отдельному аккаунту claude.ai. Статус: открыт
-  до проверки фактических прав новой сессии.
+  Вариант — отдельный аккаунт GitHub с ролью Write, подключённый к отдельному аккаунту claude.ai. Статус:
+  **выполнено 2026-11-27** — `demiurg-au-rcc-agent`, write, `admin: false` ([свидетельство 7214049953](https://github.com/Demiurg-AU/rust-cicd-core/issues/63#issuecomment-7214049953)).
 
 ## Цель и критерий готовности
 
