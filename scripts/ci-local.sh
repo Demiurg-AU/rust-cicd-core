@@ -859,6 +859,11 @@ run C97 canary-sandbox-sockets-without-enable fail '^SANDBOX no socket or networ
 SOCKH="$(mktemp -d /var/tmp/sbx-hostmnt.XXXXXX)"; sig_volatile '<socket-probe-dir-hostmnt>' "$SOCKH"
 run C107 canary-sandbox-hides-host-drive-mounts fail '^SANDBOX no socket or network reachable' "$ROOT" \
   env -u SANDBOX_SOCKS SANDBOX_HOST_MOUNTS="$SOCKH" bash -c '. "$1/sandbox.sh"; sandbox_probe_sockets "$2"' _ "$SD" "$SOCKH"
+# C108: the same mount, but the probe runs INSIDE it (a project on a Windows drive): the mount stays visible and socket
+# discovery (taken first, from $ROOT, where that mount is pruned) never saw the decoy; sandbox() must mask it itself
+SOCKK="$(mktemp -d /var/tmp/sbx-hostkeep.XXXXXX)"; sig_volatile '<socket-probe-dir-hostkeep>' "$SOCKK"
+run C108 canary-sandbox-masks-sockets-on-kept-host-mount fail '^SANDBOX no socket or network reachable' "$ROOT" \
+  env SANDBOX_HOST_MOUNTS="$SOCKK" bash -c '. "$1/sandbox.sh"; SANDBOX_SOCKS="$(sandbox_sockets)"; cd "$2" && sandbox_probe_sockets "$2"' _ "$SD" "$SOCKK"
 # C34: a writable path that is (or passes through) a symlink - e.g. a committed fuzz/artifacts/<t> -> $RUNNER_TEMP -
 # would re-mount the link's target writable; the jail must refuse to start.
 mkdir "$HOST/c34-target"; mkdir "$CAN/c34"; ln -s "$HOST/c34-target" "$CAN/c34/artifacts"
@@ -1782,7 +1787,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..107} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..108} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..107} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..108} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

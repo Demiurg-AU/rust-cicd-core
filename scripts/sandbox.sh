@@ -97,6 +97,12 @@ sandbox() {
   local -a keep=("$cwd" "${SANDBOX_WORK:-}" "${CARGO_TARGET_DIR:-}" "${GITHUB_WORKSPACE:-}" "${rw[@]}")
   if [ -n "${SANDBOX_RO:-}" ]; then IFS=: read -ra p <<< "$SANDBOX_RO"; keep+=("${p[@]}"); fi
   while IFS= read -r p; do [ -d "$p" ] && args+=(--tmpfs "$p"); done < <(sandbox_hidden_mounts "${keep[@]}")
+  # a host drive mount that stays visible (the command needs a path on it) was pruned from discovery when discovery ran
+  # elsewhere: mask its sockets here, at the cost of one walk of that mount (C108)
+  local hm; while IFS= read -r hm; do
+    [ -d "$hm" ] || continue
+    while IFS= read -r s; do [ -n "$s" ] && [ -S "$s" ] && args+=(--ro-bind /dev/null "$s"); done < <(find "$hm" -type s -print 2>/dev/null || true)
+  done < <(comm -23 <(sandbox_hidden_mounts | sort) <(sandbox_hidden_mounts "${keep[@]}" | sort))
   args+=(--setenv TMPDIR "$tmp" --chdir "$cwd")
   "$SANDBOX_BWRAP" "${args[@]}" -- "$@"; rc=$?
   rm -rf "$tmp"; return "$rc"
