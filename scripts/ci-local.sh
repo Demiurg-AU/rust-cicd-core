@@ -1372,7 +1372,14 @@ for b in bad: print(b)
 sys.exit(1 if bad else 0)
 PY
 }
-TM_DIR="$ROOT"; while [ "$TM_DIR" != / ] && [ ! -f "$TM_DIR/threat-model.tsv" ]; do TM_DIR="$(dirname "$TM_DIR")"; done
+# the judge's registries (threat model, ext controls, ruleset snapshot, assumptions, claims). A pilot names the
+# template's own directory (RCC_REGISTRY_DIR): a crate under test must not bring a threat-model.tsv of its own that
+# T1/T2/T3 would then judge it by (seen 2026-11-27 on a crate that vendors an older copy of these files)
+if [ -n "${RCC_REGISTRY_DIR:-}" ]; then
+  TM_DIR="$RCC_REGISTRY_DIR"; [ -f "$TM_DIR/threat-model.tsv" ] || { echo "RCC_REGISTRY_DIR has no threat-model.tsv: $TM_DIR"; exit 1; }
+else
+  TM_DIR="$ROOT"; while [ "$TM_DIR" != / ] && [ ! -f "$TM_DIR/threat-model.tsv" ]; do TM_DIR="$(dirname "$TM_DIR")"; done
+fi
 export EXT_CONTROLS="${EXT_CONTROLS:-${TM_DIR%/}/ext-controls.tsv}" EXT_ROOT="${EXT_ROOT:-${TM_DIR%/}}"
 if [ -z "${EXT_RULES:-}" ] && [ "${EXT_OFFLINE:-0}" != 1 ]; then
   # the repository: GITHUB_REPOSITORY in CI, else the origin remote; anonymous read works for public repositories
