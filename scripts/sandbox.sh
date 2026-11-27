@@ -25,6 +25,8 @@ SANDBOX_BWRAP="${SANDBOX_BWRAP:-bwrap}"
 
 sandbox() {
   local p a cwd tmp rc s; cwd="$(pwd -P)"
+  # fail closed: without these helpers the host-drive lists come out empty and the jail would start without them
+  declare -F sandbox_hidden_mounts sandbox_sockets > /dev/null || { echo "SANDBOX helper functions missing (sandbox_hidden_mounts / sandbox_sockets)" >&2; return 125; }
   # SANDBOX_NOPROC=1: no procfs at all - /proc/self/mem would let safe code rewrite its own memory (coverage
   # counters, #45 item 7); used for running test binaries, not for cargo/rustc (rustup needs /proc)
   local procfs=(--proc /proc); [ "${SANDBOX_NOPROC:-0}" = 1 ] && procfs=(--tmpfs /proc)
@@ -58,8 +60,9 @@ sandbox() {
   [ -d /run ] && args+=(--tmpfs /run)
   args+=(--tmpfs /tmp)
   # linked toolchains (elan/rustup `toolchain link` to e.g. $RUNNER_TEMP/lean-tc) point outside the hidden $HOME
+  local -a linked=()
   for p in "${HOME:-/nonexistent}"/.elan/toolchains/* "${HOME:-/nonexistent}"/.rustup/toolchains/*; do
-    [ -L "$p" ] && [ -e "$p" ] && args+=(--ro-bind "$(realpath -- "$p")" "$(realpath -- "$p")")
+    [ -L "$p" ] && [ -e "$p" ] && { linked+=("$(realpath -- "$p")"); args+=(--ro-bind "${linked[-1]}" "${linked[-1]}"); }
   done
   if [ -n "${SANDBOX_WORK:-}" ]; then args+=(--ro-bind "$SANDBOX_WORK" "$SANDBOX_WORK"); fi
   [ -n "${CARGO_TARGET_DIR:-}" ] && [ -e "$CARGO_TARGET_DIR" ] && args+=(--ro-bind "$CARGO_TARGET_DIR" "$CARGO_TARGET_DIR")
@@ -94,7 +97,8 @@ sandbox() {
   # one on 2026-11-27 that appeared after discovery). Nothing a build needs lives under /mnt/wslg.
   if [ -d /mnt/wslg ]; then args+=(--tmpfs /mnt/wslg); fi
   # WSL Windows drives (/mnt/c ...): hidden too, unless a path the command needs lives on one
-  local -a keep=("$cwd" "${SANDBOX_WORK:-}" "${CARGO_TARGET_DIR:-}" "${GITHUB_WORKSPACE:-}" "${rw[@]}")
+  # linked toolchain targets too: a toolchain linked to a Windows drive must not be hidden again (Codex P2 on #77)
+  local -a keep=("$cwd" "${SANDBOX_WORK:-}" "${CARGO_TARGET_DIR:-}" "${GITHUB_WORKSPACE:-}" "${rw[@]}" "${linked[@]}")
   if [ -n "${SANDBOX_RO:-}" ]; then IFS=: read -ra p <<< "$SANDBOX_RO"; keep+=("${p[@]}"); fi
   while IFS= read -r p; do [ -d "$p" ] && args+=(--tmpfs "$p"); done < <(sandbox_hidden_mounts "${keep[@]}")
   # a host drive mount that stays visible (the command needs a path on it) was pruned from discovery when discovery ran
@@ -182,7 +186,10 @@ sandbox_enable() { # turn bare `cargo` and `elan` into jailed calls, also inside
   export SANDBOX_SOCKS SANDBOX_NEUTRAL
   cargo() { sandbox_cargo "$@"; }
   elan() { sandbox_elan "$@"; }
-  export -f sandbox sandbox_cargo sandbox_cargo_neutral sandbox_elan cargo elan jail_armed
+  # the helpers sandbox() calls go too: in a `bash -c` child they were missing, the hidden-mount lists came out empty
+  # and the jail started without hiding the host drives (Codex P1 on #77, C109)
+  export -f sandbox sandbox_cargo sandbox_cargo_neutral sandbox_elan cargo elan jail_armed \
+    sandbox_hidden_mounts sandbox_prune_hidden sandbox_sockets
   export SANDBOX_BWRAP
 }
 

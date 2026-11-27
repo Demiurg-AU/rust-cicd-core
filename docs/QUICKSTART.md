@@ -58,9 +58,9 @@ and the checks of your crate run in full.
 **Expected result** (exit 0, 265–420 s):
 
 ```
-  ci-local (exit 0): 151/151 PASS
+  ci-local (exit 0): 152/152 PASS
     core            17/17 PASS
-    canaries        108/108 PASS
+    canaries        109/109 PASS
     evidence/judge  15/15 PASS
     policy          7/7 PASS
     lean            4/4 PASS
@@ -103,9 +103,9 @@ EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime-r4 3a; echo "exit=$?"
 **Expected result** (exit 1, 263–348 s):
 
 ```
-  ci-local (exit 1): 149/151 PASS
+  ci-local (exit 1): 150/152 PASS
     core            16/17 PASS
-    canaries        108/108 PASS
+    canaries        109/109 PASS
     evidence/judge  15/15 PASS
     policy          6/7 PASS
     lean            4/4 PASS
@@ -160,7 +160,7 @@ Expect failures the first time. Upstream humantime 2.4.0 needed four commits bef
 ## One run at a time
 
 Runs on one machine wait for each other (`LOCK another rust-cicd-core run holds ...; waiting`). The sandbox canaries
-open decoy sockets, and a second run in parallel can reach the first one's decoy, so C108 or C97 would fail on a good
+open decoy sockets, and a second run in parallel can reach the first one's decoy, so C108, C109 or C97 would fail on a good
 crate. Set `RCC_LOCK` to choose the lock file.
 
 ## What you need, and what you do not
