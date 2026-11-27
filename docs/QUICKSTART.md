@@ -11,7 +11,7 @@ range of the two runs.
 
 ```sh
 # system packages (needs sudo; this is the only step that does)
-sudo apt-get install -y git curl build-essential cmake pkg-config libssl-dev python3 bubblewrap zstd
+sudo apt-get install -y git curl build-essential cmake pkg-config libssl-dev python3 bubblewrap zstd openssh-client
 # Ubuntu 24.04+ only, if `bwrap --ro-bind / / true` prints "setting up uid map: Permission denied":
 #   sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
