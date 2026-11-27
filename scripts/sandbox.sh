@@ -90,6 +90,9 @@ sandbox() {
   # Docker Desktop publishes host-service sockets under this WSL mount. Hide the
   # shared mount after all host binds, including sockets created after discovery.
   if [ -d /mnt/wsl ]; then args+=(--tmpfs /mnt/wsl); fi
+  # WSLg: /mnt/wslg/run/user/<uid> is a runtime dir (Wayland, PulseAudio, session sockets created at any time; C31 reached
+  # one on 2026-11-27 that appeared after discovery). Nothing a build needs lives under /mnt/wslg.
+  if [ -d /mnt/wslg ]; then args+=(--tmpfs /mnt/wslg); fi
   # WSL Windows drives (/mnt/c ...): hidden too, unless a path the command needs lives on one
   local -a keep=("$cwd" "${SANDBOX_WORK:-}" "${CARGO_TARGET_DIR:-}" "${GITHUB_WORKSPACE:-}" "${rw[@]}")
   if [ -n "${SANDBOX_RO:-}" ]; then IFS=: read -ra p <<< "$SANDBOX_RO"; keep+=("${p[@]}"); fi
