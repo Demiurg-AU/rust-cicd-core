@@ -1,12 +1,9 @@
 # Reusable workflow (#78): run rust-cicd-core's stage 3a on the CALLER's crate, in the caller's own GitHub Actions.
 #
-#   jobs:
-#     rcc:
-#       permissions:
-#         contents: read
-#       uses: Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@<full commit SHA of a release tag>
-#       with:
-#         template-sha: <the same full commit SHA>
+# A caller job sets `permissions: contents: read`, points its `uses` key at
+#   Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@<full commit SHA of a release tag>
+# and passes `with: template-sha: <the same full commit SHA>` (docs/QUICKSTART.md has a complete caller).
+# (No literal uses-key example here: the template's own pin check, ext:sha-pinned-actions, reads comments too.)
 #
 # The caller's repository holds the crate and, in `config-dir` (default `.rcc`), the same configuration a pilot holds
 # in this repository: `pilot.env` (CRATE_NAME, REQUIRE_LEAN, SEMVER_BASELINE, ...) and `overlay/` (Cargo.lock,
