@@ -40,7 +40,7 @@ export PATH="$HOME/.elan/bin:$PATH"
 In every new shell, put both tool directories on `PATH` again before the next steps:
 `export PATH="$HOME/.cargo/bin:$HOME/.elan/bin:$PATH"`.
 
-## 2. Run the example (4–7 min)
+## 2. Run the example (3–7 min)
 
 The example crate is humantime 2.4.0 with four small fixes, pinned at commit `76af473`
 (`pilots/humantime/pilot.env`).
@@ -51,16 +51,35 @@ cd rust-cicd-core
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
 ```
 
+The published v0.3.1 template is commit `867113d815816e6d61b4d0e3559e51ad0686ed4d`. To run it in your own
+repository's Actions, add this caller job and keep `uses` and `template-sha` on that same full SHA:
+
+```yaml
+permissions: {}
+jobs:
+  check:
+    permissions:
+      contents: read
+    uses: Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@867113d815816e6d61b4d0e3559e51ad0686ed4d
+    with:
+      template-sha: 867113d815816e6d61b4d0e3559e51ad0686ed4d
+```
+
+This is the connection accepted in [issue #78](https://github.com/Demiurg-AU/rust-cicd-core/issues/78). The published
+release's clean acceptance is 152/152; candidate PR #83 has one additional preflight check and reports 153 checks.
+
+If a tool from step 1 is missing, the run stops at once with `PREFLIGHT missing: <tool> (...)` and exit 1.
+
 `EXT_OFFLINE=1` is needed. Without it the run tries to read this repository's GitHub ruleset. When it cannot,
 T3 fails with `RULESET live policy unavailable`. With it, the ruleset checks are recorded as "unchecked: offline"
 and the checks of your crate run in full.
 
-**Expected result** (exit 0, 265–420 s):
+**Expected result** (exit 0; 169 s on 4 vCPU since parallel mutation testing, 265–420 s before it):
 
 ```
   ci-local (exit 0): 152/152 PASS
     core            17/17 PASS
-    canaries        109/109 PASS
+    canaries        110/110 PASS
     evidence/judge  15/15 PASS
     policy          7/7 PASS
     lean            4/4 PASS
@@ -84,7 +103,7 @@ The run prints `evidence: <dir>`, which is `pilots/humantime/work/humantime/evid
 | `summary.txt` | `PROGRESS=<passed>/<total>`, the evidence path and the temporary build directory (already deleted) |
 | `SHA256SUMS` | checksums of all of the above, written only when every check passed |
 
-## 4. See a check fail (4–6 min)
+## 4. See a check fail (3–6 min)
 
 This applies a safe test regression to a local copy of the crate. The patch weakens the tests, and the crate still
 builds and its tests pass, so a plain `cargo fmt && cargo clippy && cargo test` CI does not notice it (experiment
@@ -100,12 +119,12 @@ sed -i "s#^CRATE_URL=.*#CRATE_URL=$(cd ../humantime-r4 && pwd)#; s#^CRATE_SHA=.*
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime-r4 3a; echo "exit=$?"
 ```
 
-**Expected result** (exit 1, 263–348 s):
+**Expected result** (exit 1; 163 s on 4 vCPU, 263–348 s before parallel mutation testing):
 
 ```
-  ci-local (exit 1): 150/152 PASS
+  ci-local (exit 1): 151/153 PASS
     core            16/17 PASS
-    canaries        109/109 PASS
+    canaries        110/110 PASS
     evidence/judge  15/15 PASS
     policy          6/7 PASS
     lean            4/4 PASS
@@ -161,6 +180,7 @@ Expect failures the first time. Upstream humantime 2.4.0 needed four commits bef
 ## Your own GitHub repository
 
 The caller below uses stage 3a from v0.3.1. On the public humantime fixture, the [clean run](https://github.com/demiurg-au-rcc-agent/rcc-humantime-acceptance/actions/runs/46169389769) passed 152/152 checks. The [release acceptance record](https://github.com/Demiurg-AU/rust-cicd-core/issues/78#issuecomment-7243023307) also shows the expected R4 failure and rejection of an unpinned ref.
+The published template SHA is `867113d815816e6d61b4d0e3559e51ad0686ed4d`; candidate PR #83 adds one preflight check and therefore reports 153 checks. The release result remains 152/152.
 
 In your crate repository, copy the configuration (not the template's CI workflow):
 

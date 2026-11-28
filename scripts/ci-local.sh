@@ -6,6 +6,29 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # helper scripts live next to this file; resolve BEFORE any cd (a relative $0/BASH_SOURCE breaks afterwards)
 SD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT"
+# preflight: name every missing tool before any gate runs. Without it a missing ssh-keygen (openssh-client) ended a
+# clean-user run on a minimal Ubuntu with "ci-local produced no results (exit 127)" (2026-11-27). Exit 3; canary C110.
+preflight() {
+  local miss=() c s
+  for c in git:git python3:python3 bwrap:bubblewrap ssh-keygen:openssh-client cargo:rustup rustc:rustup; do
+    command -v "${c%%:*}" >/dev/null 2>&1 || miss+=("${c%%:*} (package ${c#*:})")
+  done
+  if command -v cargo >/dev/null 2>&1; then
+    for s in nextest llvm-cov deny audit mutants vet semver-checks; do
+      cargo "$s" --version >/dev/null 2>&1 || miss+=("cargo-$s (cargo install --locked, version in docs/QUICKSTART.md)")
+    done
+  fi
+  if [ "${REQUIRE_LEAN:-1}" != 0 ]; then
+    command -v elan >/dev/null 2>&1 || miss+=("elan (Lean, or REQUIRE_LEAN=0 for a crate without a Lean project)")
+  fi
+  if [ "${#miss[@]}" -gt 0 ]; then
+    local out="" m; for m in "${miss[@]}"; do out+="${out:+; }$m"; done
+    echo "PREFLIGHT missing: $out"
+    echo "PREFLIGHT install them first: docs/QUICKSTART.md, step 1"
+    return 3
+  fi
+  echo "PREFLIGHT ok"
+}
 # one run per user at a time: the socket canaries (C31, C97, C107, C108, C109) open decoy sockets outside /tmp, and a
 # concurrent run's decoy is a socket the jail can reach - two runs side by side failed C108 on a good crate (2026-11-27)
 # The lock is held by flock(1) itself (-o: the script and its children never get the descriptor, so a stray child
@@ -90,6 +113,10 @@ if [ -z "${RUSTUP_TOOLCHAIN:-}" ]; then
   RUSTUP_TOOLCHAIN="$(toolchain_check "$ROOT" channel 2>/dev/null)" || RUSTUP_TOOLCHAIN=invalid-rust-pin
 fi
 export RUSTUP_TOOLCHAIN
+
+# Validate and select the trusted Rust toolchain before preflight probes Cargo.  A checkout-controlled
+# rust-toolchain.toml must never get to choose the first Cargo executable we run.
+[ -n "${RCC_LOCKED:-}" ] || preflight || exit 3
 
 # --- environment witness ---
 # No "| head" here: under pipefail a closed pipe (SIGPIPE) would abort the whole run before any gate (found 2026-11-17).
@@ -893,6 +920,13 @@ SOCKC="$(mktemp -d /var/tmp/sbx-hostchild.XXXXXX)"; sig_volatile '<socket-probe-
 C109_CHILD='. "$1/sandbox.sh"; sandbox_enable; bash -c "$(declare -f sandbox_probe_sockets); sandbox_probe_sockets \"\$1\"" _ "$2"'
 run C109 canary-sandbox-hides-host-drive-mounts-in-child-shell fail '^SANDBOX no socket or network reachable' "$ROOT" \
   env -u SANDBOX_SOCKS SANDBOX_HOST_MOUNTS="$SOCKC" bash -c "$C109_CHILD" _ "$SD" "$SOCKC"
+# C110: preflight names a missing tool instead of a later gate dying with exit 127. PATH holds stubs of every other
+# tool (each exits 0), so only ssh-keygen (openssh-client, used by the K1 canaries) is missing and must be named. The
+# exported jail wrappers cargo/elan are unset there: they would shadow the stubs and look for the real cargo.
+PFB="$WORK/preflight-bin"; mkdir -p "$PFB"
+for t in git python3 bwrap cargo rustc elan; do printf '#!/bin/sh\nexit 0\n' > "$PFB/$t"; chmod +x "$PFB/$t"; done
+run C110 canary-preflight-names-missing-tool fail '^PREFLIGHT missing: ssh-keygen \(package openssh-client\)$' "$ROOT" \
+  env PATH="$PFB" REQUIRE_LEAN=1 /bin/bash -c "unset -f cargo elan; $(declare -f preflight); preflight"
 # C34: a writable path that is (or passes through) a symlink - e.g. a committed fuzz/artifacts/<t> -> $RUNNER_TEMP -
 # would re-mount the link's target writable; the jail must refuse to start.
 mkdir "$HOST/c34-target"; mkdir "$CAN/c34"; ln -s "$HOST/c34-target" "$CAN/c34/artifacts"
@@ -1825,7 +1859,7 @@ echo "PROGRESS=$OK/$TOTAL" | tee "$EV/summary.txt"
 echo "evidence=$EV" | tee -a "$EV/summary.txt"
 echo "build_dir=$WORK (outside repo, temporary)" | tee -a "$EV/summary.txt"
 if [ "$LMODE" = skip ]; then
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..109} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..110} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 CL29 CL30 CL32 LSKIP T2 T3 T1
 else
-  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..109} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
+  seal_evidence "$EV" S0a S0b S0s S0f S1a S1b S1e S1f S1g S1i S1c S1d S1h S2a S2b S2c S2d C{1..110} R1 E1 E2 E3 E4 E5 E6 E7 E8 E9 E10 E11 E12 E13 M1 A1 A2 A3 A4 T2 T3 T1 CL{29..32} L00 L0 L0b L1 L2 L3 L4 X1 X2 CL{1..28} CL{33..39}
 fi

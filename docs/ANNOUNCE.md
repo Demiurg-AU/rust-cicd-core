@@ -4,14 +4,14 @@
 
 rust-cicd-core runs strict checks on a small Rust library from one command on Linux or WSL2: mutation testing,
 no-panic lints, advisory and supply-chain checks, a no-`unsafe` gate and release-build tests. Every run also runs
-109 planted-bug tests ("canaries") that prove the checks still catch what they claim to catch. Code under test runs
+110 planted-bug tests ("canaries") that prove the checks still catch what they claim to catch. Code under test runs
 in a bubblewrap sandbox. It needs no GitHub account, and it writes a per-check report with checksums.
 
 ## Claims, each with its evidence
 
 | # | Claim | Evidence | How to check it yourself |
 |---|---|---|---|
-| 1 | One command takes a pinned external crate (humantime 2.4.0 + 4 fixes) to a PASS report: 152/152 checks, exit 0, 265–420 s | three Quick Start runs, 2026-11-27, each in a fresh `$HOME` (two on WSL2, 16 vCPU, at 150/150 before C108 and C109; one in an Ubuntu 24.04 container, 4 vCPU, at 152/152); one session had only the public page | [Quick Start](QUICKSTART.md), steps 1–3 |
+| 1 | Published v0.3.1 (`867113d815816e6d61b4d0e3559e51ad0686ed4d`) takes a pinned external crate (humantime 2.4.0 + 4 fixes) to a PASS report: 152/152 checks, exit 0 | clean-user Quick Start run on the released template (2026-11-27/28); candidate PR #83 is recorded separately at 153 checks | [Quick Start](QUICKSTART.md), steps 1–3 |
 | 2 | A safe regression that a plain `fmt + clippy + test` CI misses is blocked: S1d names `src/date.rs:43:9`, exit 1 | same session; E-1 variant R4 | Quick Start, step 4 |
 | 3 | On 9 seeded regressions in humantime, these checks caught 9 and `fmt + clippy + test` caught 3; no false block on the clean crate | E-1, [baseline-vs-template.md](experiments/baseline-vs-template.md), raw logs in `experiments/evidence/e1/` | rerun with `experiments/evidence/e1/e1-run.sh` |
 | 4 | The price is about 10x the wall time and 13x the CPU of plain CI (E-1: 499 s against 50 s wall on 2 vCPU) | E-1 | same |
@@ -48,7 +48,7 @@ EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a        # PASS, 152/152
 > **rust-cicd-core v0.3.1**: strict local checks for small Rust libraries, with checks that test themselves.
 >
 > One command runs mutation testing, no-panic lints, cargo-deny/audit/vet and release-build tests on a pinned
-> crate, inside a sandbox, and writes a per-check report. 109 planted-bug canaries fail the run if a check stops
+> crate, inside a sandbox, and writes a per-check report. 110 planted-bug canaries fail the run if a check stops
 > catching what it should.
 >
 > On one crate (humantime), it caught 9 of 9 seeded regressions where `fmt + clippy + test` caught 3, at about 10x
