@@ -158,6 +158,66 @@ Expect failures the first time. Upstream humantime 2.4.0 needed four commits bef
 - a bench dependency with an advisory, RUSTSEC-2026-0543 (S2a);
 - rustfmt.
 
+## Your own GitHub repository (candidate preview)
+
+The reusable entry point is `.github/workflows/check-crate.yml`. The following complete caller was
+[verified in a separate public humantime repository](experiments/external-actions.md) on candidate
+`f5a73177237cc572eb1e5ca9378ba3a992eee50a`: clean **152/152 PASS**, R4 rejected by **S1d**, and a branch
+name rejected before checkout. This candidate is not a released tag; release acceptance for #78 is pending.
+The v0.3.0 instructions above and the release status row below remain unchanged.
+
+In your crate repository, copy the configuration (not the template's CI workflow):
+
+```sh
+git clone https://github.com/Demiurg-AU/rust-cicd-core /tmp/rcc-template
+git -C /tmp/rcc-template checkout --detach f5a73177237cc572eb1e5ca9378ba3a992eee50a
+mkdir -p .rcc
+cp /tmp/rcc-template/pilots/humantime/pilot.env .rcc/
+cp -r /tmp/rcc-template/pilots/humantime/overlay .rcc/
+```
+
+Adapt `.rcc/pilot.env` and `.rcc/overlay/` as described in "Your own crate". `pilot.env` is literal
+`KEY=value` data, not shell: blank lines, full-line comments and optional matching quotes around values
+are accepted; expansions, commands, unknown keys and duplicate keys are rejected. Allowed keys are
+`CRATE_NAME` (letters/digits, underscores, hyphens), `CRATE_URL` (HTTPS URL or absolute local path),
+`CRATE_SHA` and `SEMVER_BASELINE` (full lowercase commit SHA; the baseline may be empty),
+`REQUIRE_LEAN` (`0` or `1`), `PILOT_KANI` (`abstain` or `required`), and the stage-3b lists
+`PILOT_3B_REQUIRE` (`fuzz-targets fuzz-canaries k5 k4 claims`) and `PILOT_3B_CLAIMS` (claim IDs).
+The workflow requires a completed report from its fresh run directory before returning success.
+ For humantime, keep the
+fixture's configuration unchanged. The workflow sets `CRATE_URL` and `CRATE_SHA` to the caller checkout;
+you do not supply them. Commit `.rcc` and this file as `.github/workflows/rcc.yml`:
+
+```yaml
+name: rust-cicd-core
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    permissions:
+      contents: read
+    uses: Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@f5a73177237cc572eb1e5ca9378ba3a992eee50a
+    with:
+      template-sha: f5a73177237cc572eb1e5ca9378ba3a992eee50a
+```
+
+Open a PR to run it. Both SHA fields must identify the same template commit. For a released version,
+resolve its published tag to the full commit SHA and retain the tag name as a comment beside the pin;
+branch names and tag names in `template-sha` are rejected. Only SHA-pinned `uses` references are supported.
+Do not use `secrets: inherit`. The caller needs Actions enabled and a GitHub-hosted `ubuntu-24.04` runner;
+it needs no rights on rust-cicd-core. `push` is also supported; `pull_request_target` and `workflow_run`
+are refused. A PR run checks GitHub's PR merge commit, as shown in the summary.
+
+The job installs the pinned Quick Start tools, enables unprivileged user namespaces on the ephemeral
+runner for bubblewrap, and runs `scripts/pilot.sh ... 3a`. It uses `contents: read` only, no secrets, and
+`persist-credentials: false`. `EXT_OFFLINE=1` is the default: live ruleset checks T1/T3 are reported as
+"unchecked: offline"; no repository-admin ruleset setup is needed for this mode.
+Read the job summary for the verdict and download `rcc-evidence-<run-id>-<attempt>` for the per-gate logs.
+Artifacts expire after 30 days; the [candidate report](experiments/external-actions.md) preserves the
+key results and timing records. The workflow does not configure a persistent build cache.
+
 ## One run at a time
 
 Runs on one machine wait for each other (`LOCK another rust-cicd-core run holds ...; waiting`). The sandbox canaries

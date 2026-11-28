@@ -1,0 +1,135 @@
+# Reusable workflow (#78): run rust-cicd-core's stage 3a on the CALLER's crate, in the caller's own GitHub Actions.
+#
+# A caller job sets `permissions: contents: read`, points its `uses` key at
+#   Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@<full commit SHA of a release tag>
+# and passes `with: template-sha: <the same full commit SHA>` (docs/QUICKSTART.md has a complete caller).
+# (No literal uses-key example here: the template's own pin check, ext:sha-pinned-actions, reads comments too.)
+#
+# The caller's repository holds the crate and, in `config-dir` (default `.rcc`), the same configuration a pilot holds
+# in this repository: `pilot.env` (CRATE_NAME, REQUIRE_LEAN, SEMVER_BASELINE, ...) and `overlay/` (Cargo.lock,
+# deny.toml, mutants-exclusions.tsv, supply-chain/*). CRATE_URL and CRATE_SHA are set here: the caller's checkout at
+# the commit under test. The run is scripts/pilot.sh <config> 3a, the same command as the local Quick Start.
+#
+# Only a pin is supported: `template-sha` must be a full 40-hex commit id, and the template is checked out at exactly
+# that commit (a branch or tag name is refused). Pin `uses:` to the same SHA. The ruleset checks T1/T3 run offline
+# (EXT_OFFLINE=1): they are recorded as "unchecked: offline" and the crate's checks run in full.
+name: check-crate (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      template-sha:
+        description: Full 40-hex commit SHA of the rust-cicd-core release to run (the same SHA as in `uses:`)
+        required: true
+        type: string
+      config-dir:
+        description: Directory in the caller's repository with pilot.env and overlay/
+        required: false
+        type: string
+        default: .rcc
+
+permissions: {}
+
+jobs:
+  check:
+    name: rust-cicd-core 3a
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Refuse a privileged trigger and a template ref that is not a full commit SHA
+        env:
+          TEMPLATE_SHA: ${{ inputs.template-sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          # pull_request_target / workflow_run run with the base repository's privileges; there checkout gives the
+          # base commit, so the job would test the wrong code (CodeQL actions/untrusted-checkout on #80)
+          case "$EVENT" in
+            pull_request_target|workflow_run)
+              echo "::error::RCC refuses the '$EVENT' trigger: call this workflow from 'pull_request' or 'push'"; exit 2 ;;
+          esac
+          if [[ ! "$TEMPLATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::RCC template-sha must be a full 40-hex commit SHA (got '$TEMPLATE_SHA'); branch and tag names are not supported"
+            exit 2
+          fi
+
+      - name: Check out the template at the pinned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Demiurg-AU/rust-cicd-core
+          ref: ${{ inputs.template-sha }}
+          path: rcc
+          persist-credentials: false
+
+      - name: Check out the crate under test (the caller)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: crate
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify the template commit
+        env:
+          TEMPLATE_SHA: ${{ inputs.template-sha }}
+        run: |
+          set -euo pipefail
+          got="$(git -C rcc rev-parse HEAD)"
+          [ "$got" = "$TEMPLATE_SHA" ] || { echo "::error::RCC template checkout is $got, not $TEMPLATE_SHA"; exit 2; }
+          echo "RCC template $got; crate $(git -C crate rev-parse HEAD)"
+
+      - uses: dtolnay/rust-toolchain@df2a88e9fe4098bad09cb42c3dec7187f15861fc # master @ 2026-11-15
+        with:
+          toolchain: "1.100.0"
+          components: clippy, rustfmt, llvm-tools-preview
+
+      - uses: taiki-e/install-action@ab49d3c64680143e184118bed66a46419fc15519 # v2.90.5
+        with:
+          tool: cargo-nextest@0.9.152,cargo-llvm-cov@0.9.1,cargo-deny@0.20.2,cargo-audit@0.23.0,cargo-mutants@27.1.0,cargo-vet@0.10.3,cargo-semver-checks@0.51.0
+
+      - name: Install Lean (pinned versions, sha256-verified, no curl|sh)
+        env:
+          ELAN_VERSION: v4.2.4
+          ELAN_SHA256: 42b94d4244e8353142c456ec0e4ca6528fd898a6c604d4059f494e706e431f63
+          LEAN_VERSION: 4.35.0
+          LEAN_SHA256: 7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -sSfLO "https://github.com/leanprover/elan/releases/download/${ELAN_VERSION}/elan-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${ELAN_SHA256}  elan-x86_64-unknown-linux-gnu.tar.gz" | sha256sum -c -
+          tar xzf elan-x86_64-unknown-linux-gnu.tar.gz
+          ./elan-init -y --default-toolchain none --no-modify-path
+          curl -sSfL -o lean.tar.zst "https://github.com/leanprover/lean4/releases/download/v${LEAN_VERSION}/lean-${LEAN_VERSION}-linux.tar.zst"
+          echo "${LEAN_SHA256}  lean.tar.zst" | sha256sum -c -
+          mkdir lean-tc && tar --zstd -xf lean.tar.zst -C lean-tc --strip-components=1
+          "$HOME/.elan/bin/elan" toolchain link "lean-${LEAN_VERSION}" "$RUNNER_TEMP/lean-tc"
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Jail for code under test (bubblewrap; threat CI-9)
+        # Ubuntu 24.04 blocks unprivileged user namespaces via AppArmor; the VM is ephemeral, so lift it here.
+        run: |
+          set -euo pipefail
+          command -v bwrap >/dev/null || { sudo apt-get update -q; sudo apt-get install -y -q bubblewrap; }
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          bwrap --version
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid --die-with-parent true
+
+      - name: Run stage 3a on the crate (same command as the Quick Start)
+        id: run
+        env:
+          CONFIG_DIR: ${{ inputs.config-dir }}
+          LEAN_TOOLCHAIN: lean-4.35.0
+          EXT_OFFLINE: "1"
+        run: |
+          bash rcc/scripts/check-crate-run.sh crate "$CONFIG_DIR"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rcc-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.run.outputs.evidence-dir || 'rcc/pilots/caller/work' }}
+          retention-days: 30
+          if-no-files-found: warn

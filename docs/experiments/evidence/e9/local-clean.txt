@@ -1,0 +1,25 @@
+PILOT TMPDIR=/tmp/rcc.lGGdKK
+Filesystem      Size  Used Avail Use% Mounted on
+tmpfs           7.8G  5.8M  7.8G   1% /tmp
+PILOT humantime stage 3a
+  template: f5a73177237cc572eb1e5ca9378ba3a992eee50a
+  crate:    https://github.com/Demiurg-AU/rust-cicd-core @ 76af4738e7ddbab884b68c46ee82a0810adc3506
+  judge registries: /tmp/rcc-pr80 (threat-model.tsv, ext-controls.tsv, ruleset-snapshot.json of the template)
+  overlay (configuration):
+    ?? supply-chain/audits.toml
+    ?? supply-chain/config.toml
+    ?? supply-chain/imports.lock
+    !! Cargo.lock
+  ci-local (exit 0): 152/152 PASS
+    core            17/17 PASS
+    canaries        109/109 PASS
+    evidence/judge  15/15 PASS
+    policy          7/7 PASS
+    lean            4/4 PASS
+  domain claims (claims.tsv, claim-verdict, request: bounded):
+    ABSTAIN H1: no evidence listed
+    ABSTAIN H2: no evidence listed
+    ABSTAIN H3: no evidence listed
+  evidence: /tmp/rcc-pr80/pilots/humantime/work/humantime/evidence/20261128T092244Z (ci-local), /tmp/rcc-pr80/pilots/humantime/work (spec pack logs, status.tsv)
+  log:      /tmp/rcc-pr80/pilots/humantime/work/ci-local.log
+PILOT 3a core (ci-local): PASS

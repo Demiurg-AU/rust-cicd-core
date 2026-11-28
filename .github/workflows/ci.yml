@@ -342,6 +342,7 @@ jobs:
       - id: fixtures
         name: Discover and verify fixture coverage
         run: |
+          python3 scripts/test-check-crate.py
           python3 scripts/check-fixture-evidence.py --self-test
           python3 scripts/fixture-matrix.py --self-test
           matrix="$(python3 scripts/fixture-matrix.py)"

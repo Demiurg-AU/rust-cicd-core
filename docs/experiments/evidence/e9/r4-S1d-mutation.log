@@ -1,0 +1,38 @@
+$ mutants_gate /home/runner/work/rcc-humantime-acceptance/rcc-humantime-acceptance/rcc/pilots/caller/work/humantime /home/runner/work/_temp/rcc.YQ07qs/rust-cicd-core.84AzOq/mutants-root
+MUTANTS jobs=3
+Found 320 mutants to test
+ok       Unmutated baseline in 3s build + 0s test
+ INFO Auto-set test timeout to 20s
+MISSED   src/date.rs:43:9: replace <impl fmt::Display for Error>::fmt -> fmt::Result with Ok(Default::default()) in 7s build + 0s test
+MISSED   src/date.rs:99:14: replace match guard leap with true in days_since_epoch in 0s build + 0s test
+MISSED   src/date.rs:218:26: replace || with && in parse_rfc3339_weak in 0s build + 0s test
+MISSED   src/date.rs:311:16: replace < with <= in civil_from_unix in 0s build + 0s test
+MISSED   src/duration.rs:209:22: replace match guard c.is_whitespace() with false in Parser<'_>::parse_fractional_part in 0s build + 1s test
+MISSED   src/duration.rs:405:18: replace > with == in item_plural in 0s build + 1s test
+MISSED   src/duration.rs:405:18: replace > with < in item_plural in 0s build + 1s test
+MISSED   src/duration.rs:405:18: replace > with >= in item_plural in 0s build + 0s test
+MISSED   src/duration.rs:426:9: replace FormattedDuration::get_ref -> &Duration with Box::leak(Box::new(Default::default())) in 0s build + 1s test
+MISSED   src/wrapper.rs:63:9: replace <impl AsRef<StdDuration> for Duration>::as_ref -> &StdDuration with Box::leak(Box::new(Default::default())) in 0s build + 1s test
+MISSED   src/wrapper.rs:70:9: replace <impl Deref for Duration>::deref -> &StdDuration with Box::leak(Box::new(Default::default())) in 0s build + 0s test
+MISSED   src/wrapper.rs:76:9: replace <impl From<Duration> for StdDuration>::from -> Self with Default::default() in 0s build + 1s test
+MISSED   src/wrapper.rs:82:9: replace <impl From<StdDuration> for Duration>::from -> Duration with Default::default() in 0s build + 1s test
+MISSED   src/wrapper.rs:89:9: replace <impl FromStr for Duration>::from_str -> Result<Duration, Self::Err> with Ok(Default::default()) in 1s build + 0s test
+MISSED   src/wrapper.rs:95:9: replace <impl fmt::Display for Duration>::fmt -> fmt::Result with Ok(Default::default()) in 0s build + 0s test
+MISSED   src/wrapper.rs:133:9: replace <impl fmt::Display for Timestamp>::fmt -> fmt::Result with Ok(Default::default()) in 0s build + 0s test
+320 mutants tested in 2m: 16 missed, 288 caught, 16 unviable
+MISSED src/date.rs:43:9: replace <impl fmt::Display for Error>::fmt -> fmt::Result with Ok(Default::default())
+MISSED src/date.rs:99:14: replace match guard leap with true in days_since_epoch
+MISSED src/date.rs:218:26: replace || with && in parse_rfc3339_weak
+MISSED src/date.rs:311:16: replace < with <= in civil_from_unix
+MISSED src/duration.rs:209:22: replace match guard c.is_whitespace() with false in Parser<'_>::parse_fractional_part
+MISSED src/duration.rs:405:18: replace > with == in item_plural
+MISSED src/duration.rs:405:18: replace > with < in item_plural
+MISSED src/duration.rs:405:18: replace > with >= in item_plural
+MISSED src/duration.rs:426:9: replace FormattedDuration::get_ref -> &Duration with Box::leak(Box::new(Default::default()))
+MISSED src/wrapper.rs:63:9: replace <impl AsRef<StdDuration> for Duration>::as_ref -> &StdDuration with Box::leak(Box::new(Default::default()))
+MISSED src/wrapper.rs:70:9: replace <impl Deref for Duration>::deref -> &StdDuration with Box::leak(Box::new(Default::default()))
+MISSED src/wrapper.rs:76:9: replace <impl From<Duration> for StdDuration>::from -> Self with Default::default()
+MISSED src/wrapper.rs:82:9: replace <impl From<StdDuration> for Duration>::from -> Duration with Default::default()
+MISSED src/wrapper.rs:89:9: replace <impl FromStr for Duration>::from_str -> Result<Duration, Self::Err> with Ok(Default::default())
+MISSED src/wrapper.rs:95:9: replace <impl fmt::Display for Duration>::fmt -> fmt::Result with Ok(Default::default())
+MISSED src/wrapper.rs:133:9: replace <impl fmt::Display for Timestamp>::fmt -> fmt::Result with Ok(Default::default())
