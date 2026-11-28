@@ -11,7 +11,7 @@ in a bubblewrap sandbox. It needs no GitHub account, and it writes a per-check r
 
 | # | Claim | Evidence | How to check it yourself |
 |---|---|---|---|
-| 1 | One command takes a pinned external crate (humantime 2.4.0 + 4 fixes) to a PASS report: 152/152 checks, exit 0, 265–420 s | three Quick Start runs, 2026-11-27, each in a fresh `$HOME` (two on WSL2, 16 vCPU, at 150/150 before C108 and C109; one in an Ubuntu 24.04 container, 4 vCPU, at 152/152); one session had only the public page | [Quick Start](QUICKSTART.md), steps 1–3 |
+| 1 | One command takes a pinned external crate (humantime 2.4.0 + 4 fixes) to a PASS report: 153/153 checks, exit 0, 169 s on 4 vCPU (265–420 s before parallel mutation testing) | clean-user Quick Start runs: 2026-11-27 (two on WSL2, 16 vCPU, at 150/150 before C108 and C109; one in an Ubuntu 24.04 container, 4 vCPU, at 152/152; one session had only the public page) and 2026-11-28 (template `308902a`, same container, 153/153) | [Quick Start](QUICKSTART.md), steps 1–3 |
 | 2 | A safe regression that a plain `fmt + clippy + test` CI misses is blocked: S1d names `src/date.rs:43:9`, exit 1 | same session; E-1 variant R4 | Quick Start, step 4 |
 | 3 | On 9 seeded regressions in humantime, these checks caught 9 and `fmt + clippy + test` caught 3; no false block on the clean crate | E-1, [baseline-vs-template.md](experiments/baseline-vs-template.md), raw logs in `experiments/evidence/e1/` | rerun with `experiments/evidence/e1/e1-run.sh` |
 | 4 | The price is about 10x the wall time and 13x the CPU of plain CI (E-1: 499 s against 50 s wall on 2 vCPU) | E-1 | same |

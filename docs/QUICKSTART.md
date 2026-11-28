@@ -40,7 +40,7 @@ export PATH="$HOME/.elan/bin:$PATH"
 In every new shell, put both tool directories on `PATH` again before the next steps:
 `export PATH="$HOME/.cargo/bin:$HOME/.elan/bin:$PATH"`.
 
-## 2. Run the example (4–7 min)
+## 2. Run the example (3–7 min)
 
 The example crate is humantime 2.4.0 with four small fixes, pinned at commit `76af473`
 (`pilots/humantime/pilot.env`).
@@ -57,7 +57,7 @@ If a tool from step 1 is missing, the run stops at once with `PREFLIGHT missing:
 T3 fails with `RULESET live policy unavailable`. With it, the ruleset checks are recorded as "unchecked: offline"
 and the checks of your crate run in full.
 
-**Expected result** (exit 0, 265–420 s):
+**Expected result** (exit 0; 169 s on 4 vCPU since parallel mutation testing, 265–420 s before it):
 
 ```
   ci-local (exit 0): 153/153 PASS
@@ -86,7 +86,7 @@ The run prints `evidence: <dir>`, which is `pilots/humantime/work/humantime/evid
 | `summary.txt` | `PROGRESS=<passed>/<total>`, the evidence path and the temporary build directory (already deleted) |
 | `SHA256SUMS` | checksums of all of the above, written only when every check passed |
 
-## 4. See a check fail (4–6 min)
+## 4. See a check fail (3–6 min)
 
 This applies a safe test regression to a local copy of the crate. The patch weakens the tests, and the crate still
 builds and its tests pass, so a plain `cargo fmt && cargo clippy && cargo test` CI does not notice it (experiment
@@ -102,7 +102,7 @@ sed -i "s#^CRATE_URL=.*#CRATE_URL=$(cd ../humantime-r4 && pwd)#; s#^CRATE_SHA=.*
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime-r4 3a; echo "exit=$?"
 ```
 
-**Expected result** (exit 1, 263–348 s):
+**Expected result** (exit 1; 163 s on 4 vCPU, 263–348 s before parallel mutation testing):
 
 ```
   ci-local (exit 1): 151/153 PASS

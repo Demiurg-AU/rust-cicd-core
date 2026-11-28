@@ -31,7 +31,7 @@ cd rust-cicd-core
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
 ```
 
-**Expected:** `PILOT 3a core (ci-local): PASS`, `153/153 PASS`, exit 0, in 4–7 minutes.
+**Expected:** `PILOT 3a core (ci-local): PASS`, `153/153 PASS`, exit 0, in 3–7 minutes.
 
 **Report:** the `evidence:` directory the run prints. It holds `results.tsv`, one row per check, and one log per
 check whose first line is the command that ran.
