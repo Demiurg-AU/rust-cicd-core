@@ -1,6 +1,6 @@
 # rust-cicd-core
 
-Strict checks for a Rust crate, run on your machine from one command. 109 planted-bug tests ("canaries") check that
+Strict checks for a Rust crate, run on your machine from one command. 110 planted-bug tests ("canaries") check that
 the checks themselves still catch what they are meant to catch: a check that has stopped catching anything fails too.
 The result is a per-check report.
 
@@ -31,7 +31,7 @@ cd rust-cicd-core
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
 ```
 
-**Expected:** `PILOT 3a core (ci-local): PASS`, `152/152 PASS`, exit 0, in 4–7 minutes.
+**Expected:** `PILOT 3a core (ci-local): PASS`, `153/153 PASS`, exit 0, in 4–7 minutes.
 
 **Report:** the `evidence:` directory the run prints. It holds `results.tsv`, one row per check, and one log per
 check whose first line is the command that ran.

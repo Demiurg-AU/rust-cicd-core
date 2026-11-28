@@ -4,7 +4,7 @@
 
 rust-cicd-core runs strict checks on a small Rust library from one command on Linux or WSL2: mutation testing,
 no-panic lints, advisory and supply-chain checks, a no-`unsafe` gate and release-build tests. Every run also runs
-109 planted-bug tests ("canaries") that prove the checks still catch what they claim to catch. Code under test runs
+110 planted-bug tests ("canaries") that prove the checks still catch what they claim to catch. Code under test runs
 in a bubblewrap sandbox. It needs no GitHub account, and it writes a per-check report with checksums.
 
 ## Claims, each with its evidence
@@ -48,7 +48,7 @@ EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a        # PASS, 152/152
 > **rust-cicd-core v0.3.0**: strict local checks for small Rust libraries, with checks that test themselves.
 >
 > One command runs mutation testing, no-panic lints, cargo-deny/audit/vet and release-build tests on a pinned
-> crate, inside a sandbox, and writes a per-check report. 109 planted-bug canaries fail the run if a check stops
+> crate, inside a sandbox, and writes a per-check report. 110 planted-bug canaries fail the run if a check stops
 > catching what it should.
 >
 > On one crate (humantime), it caught 9 of 9 seeded regressions where `fmt + clippy + test` caught 3, at about 10x

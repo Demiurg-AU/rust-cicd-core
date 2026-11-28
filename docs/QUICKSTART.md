@@ -51,6 +51,8 @@ cd rust-cicd-core
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
 ```
 
+If a tool from step 1 is missing, the run stops at once with `PREFLIGHT missing: <tool> (...)` and exit 1.
+
 `EXT_OFFLINE=1` is needed. Without it the run tries to read this repository's GitHub ruleset. When it cannot,
 T3 fails with `RULESET live policy unavailable`. With it, the ruleset checks are recorded as "unchecked: offline"
 and the checks of your crate run in full.
@@ -58,9 +60,9 @@ and the checks of your crate run in full.
 **Expected result** (exit 0, 265–420 s):
 
 ```
-  ci-local (exit 0): 152/152 PASS
+  ci-local (exit 0): 153/153 PASS
     core            17/17 PASS
-    canaries        109/109 PASS
+    canaries        110/110 PASS
     evidence/judge  15/15 PASS
     policy          7/7 PASS
     lean            4/4 PASS
@@ -103,9 +105,9 @@ EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime-r4 3a; echo "exit=$?"
 **Expected result** (exit 1, 263–348 s):
 
 ```
-  ci-local (exit 1): 150/152 PASS
+  ci-local (exit 1): 151/153 PASS
     core            16/17 PASS
-    canaries        109/109 PASS
+    canaries        110/110 PASS
     evidence/judge  15/15 PASS
     policy          6/7 PASS
     lean            4/4 PASS
