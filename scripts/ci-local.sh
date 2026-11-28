@@ -918,11 +918,12 @@ C109_CHILD='. "$1/sandbox.sh"; sandbox_enable; bash -c "$(declare -f sandbox_pro
 run C109 canary-sandbox-hides-host-drive-mounts-in-child-shell fail '^SANDBOX no socket or network reachable' "$ROOT" \
   env -u SANDBOX_SOCKS SANDBOX_HOST_MOUNTS="$SOCKC" bash -c "$C109_CHILD" _ "$SD" "$SOCKC"
 # C110: preflight names a missing tool instead of a later gate dying with exit 127. PATH holds stubs of every other
-# tool (each exits 0), so only ssh-keygen (openssh-client, used by the K1 canaries) is missing and must be named.
+# tool (each exits 0), so only ssh-keygen (openssh-client, used by the K1 canaries) is missing and must be named. The
+# exported jail wrappers cargo/elan are unset there: they would shadow the stubs and look for the real cargo.
 PFB="$WORK/preflight-bin"; mkdir -p "$PFB"
 for t in git python3 bwrap cargo rustc elan; do printf '#!/bin/sh\nexit 0\n' > "$PFB/$t"; chmod +x "$PFB/$t"; done
 run C110 canary-preflight-names-missing-tool fail '^PREFLIGHT missing: ssh-keygen \(package openssh-client\)$' "$ROOT" \
-  env PATH="$PFB" REQUIRE_LEAN=1 /bin/bash -c "$(declare -f preflight); preflight"
+  env PATH="$PFB" REQUIRE_LEAN=1 /bin/bash -c "unset -f cargo elan; $(declare -f preflight); preflight"
 # C34: a writable path that is (or passes through) a symlink - e.g. a committed fuzz/artifacts/<t> -> $RUNNER_TEMP -
 # would re-mount the link's target writable; the jail must refuse to start.
 mkdir "$HOST/c34-target"; mkdir "$CAN/c34"; ln -s "$HOST/c34-target" "$CAN/c34/artifacts"
