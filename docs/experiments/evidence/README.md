@@ -1,4 +1,4 @@
-# Evidence for experiments E-1…E-7
+# Evidence for experiments E-1…E-8
 
 Raw outputs of the runs described in `docs/experiments/*.md`, copied unchanged from the agent workspace
 (archive `experiments-e1-e6.tar.gz`, SHA-256 `00556230ca85d726b17152756efda27685d02e830bd614c84f15fdd5976a5253`).
@@ -10,6 +10,7 @@ Raw outputs of the runs described in `docs/experiments/*.md`, copied unchanged f
 | `e2-e6/` | E-2 semver (`S1`, `S2`, `sc-*`, `s2d-*`), E-3 fuzz (`fz-*`), E-5 Kani (`ka-*`, `kh*`), E-6 oracle (`R10*`, `R0-*`, `rfc3339_vs_time.rs`), release-verify refusals (`verify-*.out`) |
 | `e4/` | E-4 second crate (`semver` `280ebcb6`): `pilot.env`, `claims.tsv`, per-gate logs in `evidence/` |
 | `e7/` | E-7 acceptance of target D: pilot 3b log, `status.tsv`, `fuzz.log`, ci-local `results.tsv`, HF6 and K4 SM4 logs |
+| `e8/` | E-8 cargo-mutants `--jobs`: `run.sh`, `summary.txt`, per run `<crate>-j<N>/` with `caught/missed/unviable/timeout.txt` and `run.txt` (wall, CPU, peak RSS) |
 | `variants/` | variant commits: `variants.bundle` (exact commit ids) and one `<id>.patch` per variant; `R6.Cargo.lock` |
 
 ## Reconstructing the variants

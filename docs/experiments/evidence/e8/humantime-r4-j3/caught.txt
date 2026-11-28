@@ -1,0 +1,289 @@
+src/date.rs:23:53: replace - with +
+src/date.rs:67:5: replace two_digits -> Result<u64, Error> with Ok(0)
+src/date.rs:67:5: replace two_digits -> Result<u64, Error> with Ok(1)
+src/date.rs:84:16: replace < with == in parse_rfc3339
+src/date.rs:23:53: replace - with /
+src/date.rs:84:16: replace < with > in parse_rfc3339
+src/date.rs:84:16: replace < with <= in parse_rfc3339
+src/date.rs:88:33: replace || with && in parse_rfc3339
+src/date.rs:88:18: replace != with == in parse_rfc3339
+src/date.rs:88:61: replace && with || in parse_rfc3339
+src/date.rs:88:46: replace != with == in parse_rfc3339
+src/date.rs:88:64: delete ! in parse_rfc3339
+src/date.rs:96:5: replace days_since_epoch -> Result<u64, Error> with Ok(0)
+src/date.rs:96:5: replace days_since_epoch -> Result<u64, Error> with Ok(1)
+src/date.rs:98:9: delete match arm 1 in days_since_epoch
+src/date.rs:100:9: delete match arm 2 in days_since_epoch
+src/date.rs:101:9: delete match arm 3 in days_since_epoch
+src/date.rs:102:9: delete match arm 4 in days_since_epoch
+src/date.rs:103:9: delete match arm 5 in days_since_epoch
+src/date.rs:104:9: delete match arm 6 in days_since_epoch
+src/date.rs:105:9: delete match arm 7 in days_since_epoch
+src/date.rs:106:9: delete match arm 8 in days_since_epoch
+src/date.rs:107:9: delete match arm 9 in days_since_epoch
+src/date.rs:108:9: delete match arm 10 in days_since_epoch
+src/date.rs:109:9: delete match arm 11 in days_since_epoch
+src/date.rs:110:9: delete match arm 12 in days_since_epoch
+src/date.rs:99:14: replace match guard leap with false in days_since_epoch
+src/date.rs:113:20: replace || with && in days_since_epoch
+src/date.rs:113:12: replace > with == in days_since_epoch
+src/date.rs:113:12: replace > with < in days_since_epoch
+src/date.rs:113:27: replace == with != in days_since_epoch
+src/date.rs:113:12: replace > with >= in days_since_epoch
+src/date.rs:116:36: replace && with || in days_since_epoch
+src/date.rs:116:45: replace > with < in days_since_epoch
+src/date.rs:116:45: replace > with == in days_since_epoch
+src/date.rs:116:45: replace > with >= in days_since_epoch
+src/date.rs:122:49: replace / with % in days_since_epoch
+src/date.rs:122:49: replace / with * in days_since_epoch
+src/date.rs:123:48: replace / with % in days_since_epoch
+src/date.rs:123:48: replace / with * in days_since_epoch
+src/date.rs:124:48: replace / with % in days_since_epoch
+src/date.rs:124:48: replace / with * in days_since_epoch
+src/date.rs:157:9: replace || with && in parse_rfc3339_weak
+src/date.rs:158:9: replace || with && in parse_rfc3339_weak
+src/date.rs:156:9: replace || with && in parse_rfc3339_weak
+src/date.rs:155:18: replace != with == in parse_rfc3339_weak
+src/date.rs:154:14: replace != with == in parse_rfc3339_weak
+src/date.rs:155:9: replace || with && in parse_rfc3339_weak
+src/date.rs:156:25: replace && with || in parse_rfc3339_weak
+src/date.rs:156:17: replace != with == in parse_rfc3339_weak
+src/date.rs:157:19: replace != with == in parse_rfc3339_weak
+src/date.rs:156:32: replace != with == in parse_rfc3339_weak
+src/date.rs:158:19: replace != with == in parse_rfc3339_weak
+src/date.rs:172:48: replace || with && in parse_rfc3339_weak
+src/date.rs:172:33: replace || with && in parse_rfc3339_weak
+src/date.rs:172:20: replace || with && in parse_rfc3339_weak
+src/date.rs:172:13: replace < with > in parse_rfc3339_weak
+src/date.rs:172:13: replace < with == in parse_rfc3339_weak
+src/date.rs:172:13: replace < with <= in parse_rfc3339_weak
+src/date.rs:172:28: replace > with < in parse_rfc3339_weak
+src/date.rs:172:28: replace > with == in parse_rfc3339_weak
+src/date.rs:172:28: replace > with >= in parse_rfc3339_weak
+src/date.rs:172:43: replace > with < in parse_rfc3339_weak
+src/date.rs:172:43: replace > with == in parse_rfc3339_weak
+src/date.rs:172:43: replace > with >= in parse_rfc3339_weak
+src/date.rs:172:58: replace > with < in parse_rfc3339_weak
+src/date.rs:172:58: replace > with == in parse_rfc3339_weak
+src/date.rs:172:58: replace > with >= in parse_rfc3339_weak
+src/date.rs:176:15: replace == with != in parse_rfc3339_weak
+src/date.rs:191:21: replace == with != in parse_rfc3339_weak
+src/date.rs:197:30: replace == with != in parse_rfc3339_weak
+src/date.rs:196:18: replace == with != in parse_rfc3339_weak
+src/date.rs:201:25: replace == with != in parse_rfc3339_weak
+src/date.rs:215:18: replace /= with %= in parse_rfc3339_weak
+src/date.rs:203:30: replace == with != in parse_rfc3339_weak
+src/date.rs:215:18: replace /= with *= in parse_rfc3339_weak
+src/date.rs:218:9: replace && with || in parse_rfc3339_weak
+src/date.rs:217:15: delete ! in parse_rfc3339_weak
+src/date.rs:218:21: replace > with == in parse_rfc3339_weak
+src/date.rs:218:21: replace > with < in parse_rfc3339_weak
+src/date.rs:218:58: replace && with || in parse_rfc3339_weak
+src/date.rs:218:21: replace > with >= in parse_rfc3339_weak
+src/date.rs:218:43: replace != with == in parse_rfc3339_weak
+src/date.rs:227:22: replace > with < in parse_rfc3339_weak
+src/date.rs:218:66: replace != with == in parse_rfc3339_weak
+src/date.rs:227:22: replace > with == in parse_rfc3339_weak
+src/date.rs:227:22: replace > with >= in parse_rfc3339_weak
+src/date.rs:237:5: replace is_leap_year -> bool with true
+src/date.rs:237:5: replace is_leap_year -> bool with false
+src/date.rs:237:16: replace && with || in is_leap_year
+src/date.rs:237:11: replace == with != in is_leap_year
+src/date.rs:237:7: replace % with / in is_leap_year
+src/date.rs:237:7: replace % with + in is_leap_year
+src/date.rs:237:28: replace != with == in is_leap_year
+src/date.rs:237:33: replace || with && in is_leap_year
+src/date.rs:237:22: replace % with / in is_leap_year
+src/date.rs:237:44: replace == with != in is_leap_year
+src/date.rs:237:22: replace % with + in is_leap_year
+src/date.rs:237:38: replace % with / in is_leap_year
+src/date.rs:237:38: replace % with + in is_leap_year
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with None
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 0, 0, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 0, 0, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 0, 1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 0, 1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 0, -1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 0, -1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 1, 0, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 1, 0, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 1, 1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 1, 1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 1, -1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, 1, -1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, -1, 0, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, -1, 0, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, -1, 1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, -1, 1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, -1, -1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((0, -1, -1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 0, 0, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 0, 0, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 0, 1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 0, 1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 0, -1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 0, -1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 1, 0, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 1, 0, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 1, 1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 1, 1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 1, -1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, 1, -1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, -1, 0, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, -1, 0, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, -1, 1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, -1, 1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, -1, -1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 0, 0, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((1, -1, -1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 0, 0, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 0, 1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 0, 1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 0, -1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 0, -1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 1, 0, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 1, 0, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 1, 1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 1, 1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 1, -1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, 1, -1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, -1, 0, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, -1, 0, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, -1, 1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, -1, 1, 1))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, -1, -1, 0))
+src/date.rs:298:5: replace civil_from_unix -> Option<(i64, i64, i64, u64)> with Some((-1, -1, -1, 1))
+src/date.rs:299:42: replace + with - in civil_from_unix
+src/date.rs:299:42: replace + with * in civil_from_unix
+src/date.rs:299:36: replace * with + in civil_from_unix
+src/date.rs:299:36: replace * with / in civil_from_unix
+src/date.rs:300:36: replace * with + in civil_from_unix
+src/date.rs:300:42: replace + with * in civil_from_unix
+src/date.rs:300:42: replace + with - in civil_from_unix
+src/date.rs:300:36: replace * with / in civil_from_unix
+src/date.rs:301:38: replace + with * in civil_from_unix
+src/date.rs:301:38: replace + with - in civil_from_unix
+src/date.rs:301:34: replace * with + in civil_from_unix
+src/date.rs:303:47: replace / with % in civil_from_unix
+src/date.rs:301:34: replace * with / in civil_from_unix
+src/date.rs:303:47: replace / with * in civil_from_unix
+src/date.rs:306:40: replace % with + in civil_from_unix
+src/date.rs:306:40: replace % with / in civil_from_unix
+src/date.rs:311:16: replace < with > in civil_from_unix
+src/date.rs:311:16: replace < with == in civil_from_unix
+src/date.rs:311:16: replace < with <= in civil_from_unix
+src/date.rs:316:29: replace / with % in civil_from_unix
+src/date.rs:316:29: replace / with * in civil_from_unix
+src/date.rs:319:29: replace / with % in civil_from_unix
+src/date.rs:319:29: replace / with * in civil_from_unix
+src/date.rs:322:29: replace / with * in civil_from_unix
+src/date.rs:336:20: replace < with == in civil_from_unix
+src/date.rs:322:29: replace / with % in civil_from_unix
+src/date.rs:336:20: replace < with > in civil_from_unix
+src/date.rs:342:22: replace > with == in civil_from_unix
+src/date.rs:336:20: replace < with <= in civil_from_unix
+src/date.rs:342:22: replace > with < in civil_from_unix
+src/date.rs:353:9: replace <impl fmt::Display for Rfc3339Timestamp>::fmt -> fmt::Result with Ok(Default::default())
+src/date.rs:342:22: replace > with >= in civil_from_unix
+src/date.rs:361:29: replace >= with < in <impl fmt::Display for Rfc3339Timestamp>::fmt
+src/date.rs:377:30: replace || with && in <impl fmt::Display for Rfc3339Timestamp>::fmt
+src/date.rs:377:19: replace == with != in <impl fmt::Display for Rfc3339Timestamp>::fmt
+src/date.rs:377:44: replace && with || in <impl fmt::Display for Rfc3339Timestamp>::fmt
+src/date.rs:377:39: replace == with != in <impl fmt::Display for Rfc3339Timestamp>::fmt
+src/date.rs:377:54: replace == with != in <impl fmt::Display for Rfc3339Timestamp>::fmt
+src/date.rs:381:26: replace == with != in <impl fmt::Display for Rfc3339Timestamp>::fmt
+src/date.rs:379:26: replace == with != in <impl fmt::Display for Rfc3339Timestamp>::fmt
+src/duration.rs:60:9: replace <impl fmt::Display for Error>::fmt -> fmt::Result with Ok(Default::default())
+src/duration.rs:63:55: replace match guard unit.is_empty() with true in <impl fmt::Display for Error>::fmt
+src/duration.rs:63:55: replace match guard unit.is_empty() with false in <impl fmt::Display for Error>::fmt
+src/duration.rs:86:5: replace mul -> Result<u64, Error> with Ok(0)
+src/duration.rs:86:5: replace mul -> Result<u64, Error> with Ok(1)
+src/duration.rs:90:5: replace add -> Result<u64, Error> with Ok(0)
+src/duration.rs:90:5: replace add -> Result<u64, Error> with Ok(1)
+src/duration.rs:95:5: replace div -> Result<u64, Error> with Ok(0)
+src/duration.rs:95:5: replace div -> Result<u64, Error> with Ok(1)
+src/duration.rs:96:9: delete match arm Some(0) in div
+src/duration.rs:103:5: replace digit -> u64 with 0
+src/duration.rs:103:5: replace digit -> u64 with 1
+src/duration.rs:119:9: replace Parser<'_>::parse -> Result<Duration, Error> with Ok(Default::default())
+src/duration.rs:126:21: delete match arm '0'..= '9' in Parser<'_>::parse
+src/duration.rs:133:21: delete match arm 'a'..= 'z' | 'A'..= 'Z' | 'µ' in Parser<'_>::parse
+src/duration.rs:136:21: delete match arm '.' in Parser<'_>::parse
+src/duration.rs:132:26: replace match guard c.is_whitespace() with true in Parser<'_>::parse
+src/duration.rs:132:26: replace match guard c.is_whitespace() with false in Parser<'_>::parse
+src/duration.rs:151:21: delete match arm '0'..= '9' in Parser<'_>::parse
+src/duration.rs:157:21: delete match arm 'a'..= 'z' | 'A'..= 'Z' | 'µ' in Parser<'_>::parse
+src/duration.rs:156:26: replace match guard c.is_whitespace() with true in Parser<'_>::parse
+src/duration.rs:156:26: replace match guard c.is_whitespace() with false in Parser<'_>::parse
+src/duration.rs:174:9: replace Parser<'_>::parse_first_char -> Result<Option<u64>, Error> with Ok(Some(0))
+src/duration.rs:174:9: replace Parser<'_>::parse_first_char -> Result<Option<u64>, Error> with Ok(None)
+src/duration.rs:174:9: replace Parser<'_>::parse_first_char -> Result<Option<u64>, Error> with Ok(Some(1))
+src/duration.rs:177:17: delete match arm '0'..= '9' in Parser<'_>::parse_first_char
+src/duration.rs:180:22: replace match guard c.is_whitespace() with true in Parser<'_>::parse_first_char
+src/duration.rs:180:22: replace match guard c.is_whitespace() with false in Parser<'_>::parse_first_char
+src/duration.rs:195:17: delete match arm '0' in Parser<'_>::parse_fractional_part
+src/duration.rs:210:17: delete match arm 'a'..= 'z' | 'A'..= 'Z' | 'µ' in Parser<'_>::parse_fractional_part
+src/duration.rs:201:17: delete match arm '1'..= '9' in Parser<'_>::parse_fractional_part
+src/duration.rs:209:22: replace match guard c.is_whitespace() with true in Parser<'_>::parse_fractional_part
+src/duration.rs:197:24: delete ! in Parser<'_>::parse_fractional_part
+src/duration.rs:220:24: replace == with != in Parser<'_>::parse_fractional_part
+src/duration.rs:231:9: replace Parser<'_>::off -> usize with 1
+src/duration.rs:231:9: replace Parser<'_>::off -> usize with 0
+src/duration.rs:243:9: replace Parser<'_>::parse_unit -> Result<(), Error> with Ok(())
+src/duration.rs:300:5: replace add_current -> Result<(), Error> with Ok(())
+src/duration.rs:301:50: replace / with % in add_current
+src/duration.rs:301:50: replace / with * in add_current
+src/duration.rs:303:35: replace % with + in add_current
+src/duration.rs:303:35: replace % with / in add_current
+src/duration.rs:326:13: delete match arm "nanos" | "nsec" | "ns" in <impl FromStr for Unit>::from_str
+src/duration.rs:328:13: delete match arm "millis" | "msec" | "ms" in <impl FromStr for Unit>::from_str
+src/duration.rs:327:13: delete match arm "usec" | "us" | "µs" in <impl FromStr for Unit>::from_str
+src/duration.rs:329:13: delete match arm "seconds" | "second" | "secs" | "sec" | "s" in <impl FromStr for Unit>::from_str
+src/duration.rs:330:13: delete match arm "minutes" | "minute" | "min" | "mins" | "m" in <impl FromStr for Unit>::from_str
+src/duration.rs:331:13: delete match arm "hours" | "hour" | "hr" | "hrs" | "h" in <impl FromStr for Unit>::from_str
+src/duration.rs:332:13: delete match arm "days" | "day" | "d" in <impl FromStr for Unit>::from_str
+src/duration.rs:333:13: delete match arm "weeks" | "week" | "wk" | "wks" | "w" in <impl FromStr for Unit>::from_str
+src/duration.rs:334:13: delete match arm "months" | "month" | "M" in <impl FromStr for Unit>::from_str
+src/duration.rs:335:13: delete match arm "years" | "year" | "yr" | "yrs" | "y" in <impl FromStr for Unit>::from_str
+src/duration.rs:368:5: replace parse_duration -> Result<Duration, Error> with Ok(Default::default())
+src/duration.rs:368:10: replace == with != in parse_duration
+src/duration.rs:400:14: replace > with == in item_plural
+src/duration.rs:400:5: replace item_plural -> fmt::Result with Ok(Default::default())
+src/duration.rs:400:14: replace > with < in item_plural
+src/duration.rs:400:14: replace > with >= in item_plural
+src/duration.rs:413:14: replace > with == in item
+src/duration.rs:413:5: replace item -> fmt::Result with Ok(Default::default())
+src/duration.rs:413:14: replace > with < in item
+src/duration.rs:413:14: replace > with >= in item
+src/duration.rs:432:9: replace <impl fmt::Display for FormattedDuration>::fmt -> fmt::Result with Ok(Default::default())
+src/duration.rs:435:22: replace && with || in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:435:17: replace == with != in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:435:31: replace == with != in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:440:26: replace / with * in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:440:26: replace / with % in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:441:26: replace % with / in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:441:26: replace % with + in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:442:28: replace / with % in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:442:28: replace / with * in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:443:27: replace % with / in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:443:27: replace % with + in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:444:26: replace / with % in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:444:26: replace / with * in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:445:30: replace % with / in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:445:30: replace % with + in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:446:30: replace / with % in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:446:30: replace / with * in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:447:39: replace / with % in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:447:39: replace / with * in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:447:32: replace % with / in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:447:32: replace % with + in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:448:32: replace % with / in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:448:32: replace % with + in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:450:28: replace / with % in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:450:28: replace / with * in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:451:35: replace % with / in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:451:35: replace % with + in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:451:28: replace / with % in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:451:28: replace / with * in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:452:29: replace % with / in <impl fmt::Display for FormattedDuration>::fmt
+src/duration.rs:452:29: replace % with + in <impl fmt::Display for FormattedDuration>::fmt

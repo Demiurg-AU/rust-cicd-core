@@ -1,0 +1,7 @@
+humantime j=1 exit=0 WALL=179.73 CPU=216.18+92.50 RSS_KB=405680 320 mutants tested in 3m: 304 caught, 16 unviable
+humantime j=2 exit=0 WALL=108.76 CPU=224.36+86.54 RSS_KB=405544 320 mutants tested in 2m: 304 caught, 16 unviable
+humantime j=3 exit=0 WALL=89.75 CPU=231.63+80.12 RSS_KB=405964 320 mutants tested in 89s: 304 caught, 16 unviable
+humantime-r4 j=1 exit=2 WALL=176.79 CPU=196.18+76.12 RSS_KB=405376 320 mutants tested in 3m: 16 missed, 288 caught, 16 unviable
+humantime-r4 j=2 exit=2 WALL=98.10 CPU=198.40+69.15 RSS_KB=405664 320 mutants tested in 2m: 15 missed, 289 caught, 16 unviable
+humantime-r4 j=3 exit=2 WALL=80.61 CPU=204.37+65.27 RSS_KB=406152 320 mutants tested in 80s: 15 missed, 289 caught, 16 unviable
+E8_DONE
