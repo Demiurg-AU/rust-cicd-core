@@ -123,27 +123,7 @@ jobs:
           LEAN_TOOLCHAIN: lean-4.35.0
           EXT_OFFLINE: "1"
         run: |
-          set -uo pipefail
-          src="crate/$CONFIG_DIR"
-          [ -f "$src/pilot.env" ] || { echo "::error::RCC no $CONFIG_DIR/pilot.env in this repository (see docs/QUICKSTART.md, Your own crate)"; exit 2; }
-          [ -d "$src/overlay" ] || { echo "::error::RCC no $CONFIG_DIR/overlay/ in this repository"; exit 2; }
-          cfg="rcc/pilots/caller"; mkdir -p "$cfg"
-          cp -r "$src/overlay" "$cfg/overlay"
-          # the caller's settings, then the crate location: the checkout of the commit under test (cannot be overridden)
-          grep -Ev '^(CRATE_URL|CRATE_SHA)=' "$src/pilot.env" > "$cfg/pilot.env"
-          printf 'CRATE_URL=%s\nCRATE_SHA=%s\n' "$GITHUB_WORKSPACE/crate" "$(git -C crate rev-parse HEAD)" >> "$cfg/pilot.env"
-          TMPDIR="$RUNNER_TEMP" bash rcc/scripts/pilot.sh "$cfg" 3a 2>&1 | tee "$RUNNER_TEMP/pilot.log"; rc=${PIPESTATUS[0]}
-          ev="$(sed -n 's/^  evidence: \([^ ]*\) (ci-local).*/\1/p' "$RUNNER_TEMP/pilot.log" | tail -1)"
-          echo "evidence-dir=${ev:-$GITHUB_WORKSPACE/$cfg/work}" >> "$GITHUB_OUTPUT"
-          {
-            echo '### rust-cicd-core stage 3a'
-            echo
-            echo '```'
-            grep -E '^  ci-local \(exit|^    (core|canaries|evidence/judge|policy|lean) |^    NOT PASS |^PILOT ' "$RUNNER_TEMP/pilot.log" || echo "no summary (exit $rc); see the job log"
-            echo '```'
-            echo "template \`$(git -C rcc rev-parse HEAD)\`, crate \`$(git -C crate rev-parse HEAD)\`, exit $rc"
-          } >> "$GITHUB_STEP_SUMMARY"
-          exit "$rc"
+          bash rcc/scripts/check-crate-run.sh crate "$CONFIG_DIR"
 
       - name: Upload evidence
         if: always()

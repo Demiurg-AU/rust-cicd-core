@@ -1548,7 +1548,7 @@ run C89 canary-parser-mutants-catch-weak-parser fail '^PARSER false PASS on .* p
 # Pilot 3b verdict (scripts/pilot-verdict.sh): what the profile requires must be present and PASS; a missing manifest
 # or claim is a FAIL with its reason, never a skipped item. Synthetic pilot: one K4 mutant, one claim.
 PV="$CAN/pilotverdict"; mkdir -p "$PV/ok/spec/fuzz" "$PV/ok/work"
-printf 'CRATE_NAME=x\nCRATE_URL=x\nCRATE_SHA=x\nPILOT_3B_REQUIRE="k4 claims"\nPILOT_3B_CLAIMS="Z1"\n' > "$PV/ok/pilot.env"
+printf 'CRATE_NAME=x\nCRATE_URL=/unused-fixture\nCRATE_SHA=0000000000000000000000000000000000000000\nPILOT_3B_REQUIRE="k4 claims"\nPILOT_3B_CLAIMS="Z1"\n' > "$PV/ok/pilot.env"
 printf '# id\ttarget\tfile\texact\trepl\tcanary\nSMx\tt\tf\ta\tb\tHFx\n' > "$PV/ok/spec/fuzz/spec-mutants.tsv"
 printf '# claim\tproperty\tscope\tbounds\tevidence\nZ1\tp\tbounded\tb\tk4:SMx\n' > "$PV/ok/claims-3b.tsv"
 printf 'k4:SMx\tPASS\n' > "$PV/ok/work/status.tsv"
@@ -1564,7 +1564,7 @@ run E8 pilot-verdict-kani-proof-counts pass - "$ROOT" bash -c 'out="$(bash "$1" 
 # pilot.sh refuses, before cloning anything, an overlay or spec pack entry that is not a regular file (a symlink would
 # replace crate code while validation looked only at regular files, Codex P2 on #56)
 mkdir -p "$PV/link/overlay/src" "$PV/link-spec/overlay" "$PV/link-spec/spec"
-printf 'CRATE_NAME=x\nCRATE_URL=x\nCRATE_SHA=x\n' | tee "$PV/link/pilot.env" > "$PV/link-spec/pilot.env"
+printf 'CRATE_NAME=x\nCRATE_URL=/unused-fixture\nCRATE_SHA=0000000000000000000000000000000000000000\n' | tee "$PV/link/pilot.env" > "$PV/link-spec/pilot.env"
 ln -sf /dev/null "$PV/link/overlay/src/lib.rs"; ln -sf /dev/null "$PV/link-spec/spec/x.rs"
 run C92 canary-pilot-overlay-symlink fail '^PILOT overlay holds entries that are not regular files: src/lib.rs' "$ROOT" bash "$ROOT/scripts/pilot.sh" "$PV/link" 3a
 run C93 canary-pilot-spec-symlink fail '^PILOT spec pack holds entries that are not regular files: x.rs' "$ROOT" bash "$ROOT/scripts/pilot.sh" "$PV/link-spec" 3b

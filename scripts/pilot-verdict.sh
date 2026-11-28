@@ -15,8 +15,11 @@ TPL="$(cd "$(dirname "$0")/.." && pwd)"
 P="$(cd "${1:?usage: pilot-verdict.sh pilots/<name> [work dir]}" && pwd)" || exit 2
 W="${2:-$P/work}"
 [ -f "$P/pilot.env" ] || { echo "PILOT no pilot.env in $P"; exit 2; }
-# shellcheck disable=SC1091
-. "$P/pilot.env"
+# Parse only allowlisted literal values; caller-controlled profiles are never shell code.
+profile=$(bash "$(dirname "$0")/pilot-config.sh" "$P/pilot.env") || exit 2
+while IFS=$'\t' read -r key value; do
+  printf -v "$key" '%s' "$value"
+done <<< "$profile"
 REQ="${PILOT_3B_REQUIRE:-}"; [ -n "$REQ" ] || { echo "PILOT profile names no 3b requirements (PILOT_3B_REQUIRE)"; exit 2; }
 st="$W/status.tsv"; S="$P/spec/fuzz"; bad=0
 miss() { echo "  3b MISSING $1"; bad=$((bad + 1)); }

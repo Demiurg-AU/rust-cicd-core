@@ -176,7 +176,15 @@ cp /tmp/rcc-template/pilots/humantime/pilot.env .rcc/
 cp -r /tmp/rcc-template/pilots/humantime/overlay .rcc/
 ```
 
-Adapt `.rcc/pilot.env` and `.rcc/overlay/` as described in "Your own crate". For humantime, keep the
+Adapt `.rcc/pilot.env` and `.rcc/overlay/` as described in "Your own crate". `pilot.env` is literal
+`KEY=value` data, not shell: blank lines, full-line comments and optional matching quotes around values
+are accepted; expansions, commands, unknown keys and duplicate keys are rejected. Allowed keys are
+`CRATE_NAME` (letters/digits, underscores, hyphens), `CRATE_URL` (HTTPS URL or absolute local path),
+`CRATE_SHA` and `SEMVER_BASELINE` (full lowercase commit SHA; the baseline may be empty),
+`REQUIRE_LEAN` (`0` or `1`), `PILOT_KANI` (`abstain` or `required`), and the stage-3b lists
+`PILOT_3B_REQUIRE` (`fuzz-targets fuzz-canaries k5 k4 claims`) and `PILOT_3B_CLAIMS` (claim IDs).
+The workflow requires a completed report from its fresh run directory before returning success.
+ For humantime, keep the
 fixture's configuration unchanged. The workflow sets `CRATE_URL` and `CRATE_SHA` to the caller checkout;
 you do not supply them. Commit `.rcc` and this file as `.github/workflows/rcc.yml`:
 

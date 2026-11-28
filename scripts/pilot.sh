@@ -11,8 +11,11 @@ TPL="$(cd "$(dirname "$0")/.." && pwd)"
 P="${1:?usage: scripts/pilot.sh pilots/<name> [3a|3b]}"; STAGE="${2:-3a}"
 P="$(cd "$P" && pwd)" || exit 2
 [ -f "$P/pilot.env" ] || { echo "PILOT no pilot.env in $P"; exit 2; }
-# shellcheck disable=SC1091
-. "$P/pilot.env"
+# Parse only allowlisted literal values; caller-controlled profiles are never shell code.
+profile=$(bash "$(dirname "$0")/pilot-config.sh" "$P/pilot.env") || exit 2
+while IFS=$'\t' read -r key value; do
+  printf -v "$key" '%s' "$value"
+done <<< "$profile"
 : "${CRATE_NAME:?}" "${CRATE_URL:?}" "${CRATE_SHA:?}"
 case "$STAGE" in 3a|3b) ;; *) echo "PILOT stage must be 3a or 3b"; exit 2 ;; esac
 # Keep build scratch on the workspace filesystem by default. A caller can choose another TMPDIR.
