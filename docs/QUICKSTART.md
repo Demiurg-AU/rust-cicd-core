@@ -177,13 +177,10 @@ Expect failures the first time. Upstream humantime 2.4.0 needed four commits bef
 - a bench dependency with an advisory, RUSTSEC-2026-0543 (S2a);
 - rustfmt.
 
-## Your own GitHub repository (published v0.3.1)
+## Your own GitHub repository
 
-The reusable entry point is `.github/workflows/check-crate.yml`. The following complete caller was
-[verified in a separate public humantime repository](experiments/external-actions.md) on the published
-v0.3.1 commit `867113d815816e6d61b4d0e3559e51ad0686ed4d`: clean **152/152 PASS**, R4 rejected by **S1d**,
-and a branch name rejected before checkout. This is the workflow accepted in [issue #78](https://github.com/Demiurg-AU/rust-cicd-core/issues/78).
-Candidate PR #83 adds one preflight check and therefore reports 153 checks; its result is not the release result.
+The caller below uses stage 3a from v0.3.1. On the public humantime fixture, the [clean run](https://github.com/demiurg-au-rcc-agent/rcc-humantime-acceptance/actions/runs/46169389769) passed 152/152 checks. The [release acceptance record](https://github.com/Demiurg-AU/rust-cicd-core/issues/78#issuecomment-7243023307) also shows the expected R4 failure and rejection of an unpinned ref.
+The published template SHA is `867113d815816e6d61b4d0e3559e51ad0686ed4d`; candidate PR #83 adds one preflight check and therefore reports 153 checks. The release result remains 152/152.
 
 In your crate repository, copy the configuration (not the template's CI workflow):
 
@@ -203,8 +200,7 @@ are accepted; expansions, commands, unknown keys and duplicate keys are rejected
 `REQUIRE_LEAN` (`0` or `1`), `PILOT_KANI` (`abstain` or `required`), and the stage-3b lists
 `PILOT_3B_REQUIRE` (`fuzz-targets fuzz-canaries k5 k4 claims`) and `PILOT_3B_CLAIMS` (claim IDs).
 The workflow requires a completed report from its fresh run directory before returning success.
- For humantime, keep the
-fixture's configuration unchanged. The workflow sets `CRATE_URL` and `CRATE_SHA` to the caller checkout;
+For humantime, keep the fixture's configuration unchanged. The workflow sets `CRATE_URL` and `CRATE_SHA` to the caller checkout;
 you do not supply them. Commit `.rcc` and this file as `.github/workflows/rcc.yml`:
 
 ```yaml
@@ -248,7 +244,7 @@ crate. Set `RCC_LOCK` to choose the lock file.
 | Where | Needs | Does not need |
 |---|---|---|
 | Your machine | sudo, only for `apt-get install` (and the AppArmor `sysctl` on Ubuntu 24.04+); disk: 2.0 GB after install and both runs (build directories are temporary and removed; peak not measured); network for the downloads | a GitHub account or token; any rights on this repository (it is public, so cloning is enough) |
-| Your own GitHub repository (Actions) | **Not packaged and not tested in this release.** This repository's own `ci.yml` runs the same `scripts/ci-local.sh`. It needs: Actions enabled; a GitHub-hosted `ubuntu-24.04` runner; `sudo sysctl` on the runner (allowed there); `contents: read` for the job; for the ruleset checks T1/T3, a ruleset on your default branch and a `ruleset-snapshot.json` matching it, which only a repository admin can set up | rights on this repository |
+| Your own GitHub repository (Actions) | Actions enabled, GitHub-hosted Ubuntu 24.04, `contents: read`, and the [caller configuration above](#your-own-github-repository) | secrets or write access to the template repository |
 
 ## The demo binary
 

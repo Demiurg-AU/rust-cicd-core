@@ -5,8 +5,7 @@ the checks themselves still catch what they are meant to catch: a check that has
 The result is a per-check report.
 
 **For:** maintainers of small, pure-Rust libraries who want more than `fmt + clippy + test`, on Linux (or WSL2)
-x86_64. **Not yet for:** crates with `unsafe` (the profile forbids it), large workspaces, or a ready-made GitHub
-Actions setup in your own repository (see [limits](docs/QUICKSTART.md#what-you-need-and-what-you-do-not)).
+x86_64. **Not yet for:** crates with `unsafe` (the profile forbids it), or large workspaces (see [limits](docs/QUICKSTART.md#what-you-need-and-what-you-do-not)).
 
 **What it adds to a plain CI**, measured on one crate (humantime, experiment E-1,
 [results](docs/experiments/baseline-vs-template.md)):
@@ -23,6 +22,8 @@ the WSL sandbox fixes in this release. The published v0.3.1 is commit
 the newer candidate and reports 153 checks.
 
 ## Quick start
+
+**GitHub Actions:** [Add the v0.3.1 workflow to your crate](docs/QUICKSTART.md#your-own-github-repository). To see the result before installing anything, open the [public example run](https://github.com/demiurg-au-rcc-agent/rcc-humantime-acceptance/actions/runs/46169389769).
 
 Install the tools once, in 12–18 minutes ([full steps](docs/QUICKSTART.md#1-install-once-1218-min)), then:
 
@@ -51,7 +52,7 @@ jobs:
 **Report:** the `evidence:` directory the run prints. It holds `results.tsv`, one row per check, and one log per
 check whose first line is the command that ran.
 
-**A failing example and how to re-run one check:** [Quick Start, steps 4–5](docs/QUICKSTART.md#4-see-a-check-fail-56-min).
+**A failing example and how to re-run one check:** [Quick Start, steps 4–5](docs/QUICKSTART.md#4-see-a-check-fail-46-min).
 **Your own crate:** copy `pilots/humantime` and set the crate URL and commit ([how](docs/QUICKSTART.md#your-own-crate)).
 
 **The demo binary** (`src/main.rs`, prints `5`) is the crate this repository tests itself on. It also exercises the
