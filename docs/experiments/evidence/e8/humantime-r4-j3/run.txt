@@ -1,0 +1,2 @@
+320 mutants tested in 80s: 15 missed, 289 caught, 16 unviable
+WALL=80.61 CPU=204.37+65.27 RSS_KB=406152

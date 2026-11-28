@@ -1,0 +1,2 @@
+320 mutants tested in 2m: 15 missed, 289 caught, 16 unviable
+WALL=98.10 CPU=198.40+69.15 RSS_KB=405664

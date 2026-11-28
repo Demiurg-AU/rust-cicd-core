@@ -1,0 +1,15 @@
+src/date.rs:43:9: replace <impl fmt::Display for Error>::fmt -> fmt::Result with Ok(Default::default())
+src/date.rs:99:14: replace match guard leap with true in days_since_epoch
+src/date.rs:218:26: replace || with && in parse_rfc3339_weak
+src/duration.rs:209:22: replace match guard c.is_whitespace() with false in Parser<'_>::parse_fractional_part
+src/duration.rs:405:18: replace > with == in item_plural
+src/duration.rs:405:18: replace > with < in item_plural
+src/duration.rs:405:18: replace > with >= in item_plural
+src/duration.rs:426:9: replace FormattedDuration::get_ref -> &Duration with Box::leak(Box::new(Default::default()))
+src/wrapper.rs:63:9: replace <impl AsRef<StdDuration> for Duration>::as_ref -> &StdDuration with Box::leak(Box::new(Default::default()))
+src/wrapper.rs:70:9: replace <impl Deref for Duration>::deref -> &StdDuration with Box::leak(Box::new(Default::default()))
+src/wrapper.rs:76:9: replace <impl From<Duration> for StdDuration>::from -> Self with Default::default()
+src/wrapper.rs:82:9: replace <impl From<StdDuration> for Duration>::from -> Duration with Default::default()
+src/wrapper.rs:89:9: replace <impl FromStr for Duration>::from_str -> Result<Duration, Self::Err> with Ok(Default::default())
+src/wrapper.rs:95:9: replace <impl fmt::Display for Duration>::fmt -> fmt::Result with Ok(Default::default())
+src/wrapper.rs:133:9: replace <impl fmt::Display for Timestamp>::fmt -> fmt::Result with Ok(Default::default())
