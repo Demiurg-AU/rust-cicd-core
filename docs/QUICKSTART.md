@@ -46,7 +46,7 @@ The example crate is humantime 2.4.0 with four small fixes, pinned at commit `76
 (`pilots/humantime/pilot.env`).
 
 ```sh
-git clone --branch v0.3.0 https://github.com/Demiurg-AU/rust-cicd-core
+git clone --branch v0.3.1 https://github.com/Demiurg-AU/rust-cicd-core
 cd rust-cicd-core
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
 ```
@@ -158,19 +158,15 @@ Expect failures the first time. Upstream humantime 2.4.0 needed four commits bef
 - a bench dependency with an advisory, RUSTSEC-2026-0543 (S2a);
 - rustfmt.
 
-## Your own GitHub repository (candidate preview)
+## Your own GitHub repository
 
-The reusable entry point is `.github/workflows/check-crate.yml`. The following complete caller was
-[verified in a separate public humantime repository](experiments/external-actions.md) on candidate
-`f5a73177237cc572eb1e5ca9378ba3a992eee50a`: clean **152/152 PASS**, R4 rejected by **S1d**, and a branch
-name rejected before checkout. This candidate is not a released tag; release acceptance for #78 is pending.
-The v0.3.0 instructions above and the release status row below remain unchanged.
+The caller below uses stage 3a from v0.3.1. On the public humantime fixture, the [clean run](https://github.com/demiurg-au-rcc-agent/rcc-humantime-acceptance/actions/runs/46169389769) passed 152/152 checks. The [release acceptance record](https://github.com/Demiurg-AU/rust-cicd-core/issues/78#issuecomment-7243023307) also shows the expected R4 failure and rejection of an unpinned ref.
 
 In your crate repository, copy the configuration (not the template's CI workflow):
 
 ```sh
 git clone https://github.com/Demiurg-AU/rust-cicd-core /tmp/rcc-template
-git -C /tmp/rcc-template checkout --detach f5a73177237cc572eb1e5ca9378ba3a992eee50a
+git -C /tmp/rcc-template checkout --detach 867113d815816e6d61b4d0e3559e51ad0686ed4d
 mkdir -p .rcc
 cp /tmp/rcc-template/pilots/humantime/pilot.env .rcc/
 cp -r /tmp/rcc-template/pilots/humantime/overlay .rcc/
@@ -184,8 +180,7 @@ are accepted; expansions, commands, unknown keys and duplicate keys are rejected
 `REQUIRE_LEAN` (`0` or `1`), `PILOT_KANI` (`abstain` or `required`), and the stage-3b lists
 `PILOT_3B_REQUIRE` (`fuzz-targets fuzz-canaries k5 k4 claims`) and `PILOT_3B_CLAIMS` (claim IDs).
 The workflow requires a completed report from its fresh run directory before returning success.
- For humantime, keep the
-fixture's configuration unchanged. The workflow sets `CRATE_URL` and `CRATE_SHA` to the caller checkout;
+For humantime, keep the fixture's configuration unchanged. The workflow sets `CRATE_URL` and `CRATE_SHA` to the caller checkout;
 you do not supply them. Commit `.rcc` and this file as `.github/workflows/rcc.yml`:
 
 ```yaml
@@ -198,9 +193,9 @@ jobs:
   check:
     permissions:
       contents: read
-    uses: Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@f5a73177237cc572eb1e5ca9378ba3a992eee50a
+    uses: Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@867113d815816e6d61b4d0e3559e51ad0686ed4d # v0.3.1
     with:
-      template-sha: f5a73177237cc572eb1e5ca9378ba3a992eee50a
+      template-sha: 867113d815816e6d61b4d0e3559e51ad0686ed4d
 ```
 
 Open a PR to run it. Both SHA fields must identify the same template commit. For a released version,
@@ -229,7 +224,7 @@ crate. Set `RCC_LOCK` to choose the lock file.
 | Where | Needs | Does not need |
 |---|---|---|
 | Your machine | sudo, only for `apt-get install` (and the AppArmor `sysctl` on Ubuntu 24.04+); disk: 2.0 GB after install and both runs (build directories are temporary and removed; peak not measured); network for the downloads | a GitHub account or token; any rights on this repository (it is public, so cloning is enough) |
-| Your own GitHub repository (Actions) | **Not packaged and not tested in this release.** This repository's own `ci.yml` runs the same `scripts/ci-local.sh`. It needs: Actions enabled; a GitHub-hosted `ubuntu-24.04` runner; `sudo sysctl` on the runner (allowed there); `contents: read` for the job; for the ruleset checks T1/T3, a ruleset on your default branch and a `ruleset-snapshot.json` matching it, which only a repository admin can set up | rights on this repository |
+| Your own GitHub repository (Actions) | Actions enabled, GitHub-hosted Ubuntu 24.04, `contents: read`, and the [caller configuration above](#your-own-github-repository) | secrets or write access to the template repository |
 
 ## The demo binary
 

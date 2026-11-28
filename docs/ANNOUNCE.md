@@ -1,4 +1,4 @@
-# rust-cicd-core v0.3.0: product summary and demo
+# rust-cicd-core v0.3.1: product summary and demo
 
 ## In one paragraph
 
@@ -28,7 +28,7 @@ in a bubblewrap sandbox. It needs no GitHub account, and it writes a per-check r
 - **Linux x86_64 only.** Tested on Ubuntu 26.04 under WSL2, in an Ubuntu 24.04 container, and on GitHub's
   `ubuntu-24.04` runners for this repository's own CI. The container run found `openssh-client` missing from the
   package list (now added); other minimal images may lack something else.
-- **GitHub Actions for your own repository is not packaged** and has not been tested.
+- External GitHub Actions support covers stage 3a on GitHub-hosted Ubuntu 24.04. [Released workflow acceptance](https://github.com/Demiurg-AU/rust-cicd-core/issues/78#issuecomment-7243023307).
 - **Domain claims stay ABSTAIN without proofs.** Stage 3a does not prove properties of your crate; it reports that
   they are unproven.
 - **The sample was designed by the author.** E-1's regressions target the classes these checks are built for. It
@@ -38,14 +38,14 @@ in a bubblewrap sandbox. It needs no GitHub account, and it writes a per-check r
 ## Demo (2 commands after install, about 10 minutes)
 
 ```sh
-git clone --branch v0.3.0 https://github.com/Demiurg-AU/rust-cicd-core && cd rust-cicd-core
+git clone --branch v0.3.1 https://github.com/Demiurg-AU/rust-cicd-core && cd rust-cicd-core
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a        # PASS, 152/152
 # then Quick Start step 4: the same crate with the R4 regression -> FAIL at S1d, exit 1
 ```
 
 ## Announcement text
 
-> **rust-cicd-core v0.3.0**: strict local checks for small Rust libraries, with checks that test themselves.
+> **rust-cicd-core v0.3.1**: strict local checks for small Rust libraries, with checks that test themselves.
 >
 > One command runs mutation testing, no-panic lints, cargo-deny/audit/vet and release-build tests on a pinned
 > crate, inside a sandbox, and writes a per-check report. 109 planted-bug canaries fail the run if a check stops
@@ -53,6 +53,6 @@ EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a        # PASS, 152/152
 >
 > On one crate (humantime), it caught 9 of 9 seeded regressions where `fmt + clippy + test` caught 3, at about 10x
 > the run time. Linux/WSL2, no GitHub account needed. Quick start:
-> https://github.com/Demiurg-AU/rust-cicd-core/blob/v0.3.0/docs/QUICKSTART.md
+> https://github.com/Demiurg-AU/rust-cicd-core/blob/main/docs/QUICKSTART.md
 >
-> Limits: shown end to end on one small pure-Rust crate; `unsafe` is out of profile; no packaged GitHub Actions setup yet.
+> Limits: shown end to end on one small pure-Rust crate; `unsafe` is out of profile. The Quick Start includes the verified GitHub Actions caller.
