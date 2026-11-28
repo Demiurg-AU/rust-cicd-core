@@ -18,20 +18,35 @@ Actions setup in your own repository (see [limits](docs/QUICKSTART.md#what-you-n
   run on a 2-vCPU VM.
 
 E-1 ran on template commit `4aca02d`. Since then three changes were added: S2d (semver, #69), a pilot fix (#72) and
-the WSL sandbox fixes in this release. The clean pass and the R4 failure in the Quick Start were measured again on
-this release, on a 16-vCPU machine.
+the WSL sandbox fixes in this release. The published v0.3.1 is commit
+`867113d815816e6d61b4d0e3559e51ad0686ed4d` (the final #78 release); its clean external run is 152/152. PR #83 is
+the newer candidate and reports 153 checks.
 
 ## Quick start
 
 Install the tools once, in 12–18 minutes ([full steps](docs/QUICKSTART.md#1-install-once-1218-min)), then:
 
 ```sh
-git clone --branch v0.3.0 https://github.com/Demiurg-AU/rust-cicd-core
+git clone --branch v0.3.1 https://github.com/Demiurg-AU/rust-cicd-core
 cd rust-cicd-core
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
 ```
 
-**Expected:** `PILOT 3a core (ci-local): PASS`, `153/153 PASS`, exit 0, in 3–7 minutes.
+**Expected for published v0.3.1:** `PILOT 3a core (ci-local): PASS`, `152/152 PASS`, exit 0.
+
+For GitHub Actions, add a caller job with the release SHA in all three pins (the reusable workflow was delivered in
+the final [#78](https://github.com/Demiurg-AU/rust-cicd-core/issues/78) acceptance):
+
+```yaml
+permissions: {}
+jobs:
+  check:
+    permissions:
+      contents: read
+    uses: Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@867113d815816e6d61b4d0e3559e51ad0686ed4d
+    with:
+      template-sha: 867113d815816e6d61b4d0e3559e51ad0686ed4d
+```
 
 **Report:** the `evidence:` directory the run prints. It holds `results.tsv`, one row per check, and one log per
 check whose first line is the command that ran.

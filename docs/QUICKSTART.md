@@ -46,10 +46,27 @@ The example crate is humantime 2.4.0 with four small fixes, pinned at commit `76
 (`pilots/humantime/pilot.env`).
 
 ```sh
-git clone --branch v0.3.0 https://github.com/Demiurg-AU/rust-cicd-core
+git clone --branch v0.3.1 https://github.com/Demiurg-AU/rust-cicd-core
 cd rust-cicd-core
 EXT_OFFLINE=1 bash scripts/pilot.sh pilots/humantime 3a; echo "exit=$?"
 ```
+
+The published v0.3.1 template is commit `867113d815816e6d61b4d0e3559e51ad0686ed4d`. To run it in your own
+repository's Actions, add this caller job and keep `uses` and `template-sha` on that same full SHA:
+
+```yaml
+permissions: {}
+jobs:
+  check:
+    permissions:
+      contents: read
+    uses: Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@867113d815816e6d61b4d0e3559e51ad0686ed4d
+    with:
+      template-sha: 867113d815816e6d61b4d0e3559e51ad0686ed4d
+```
+
+This is the connection accepted in [issue #78](https://github.com/Demiurg-AU/rust-cicd-core/issues/78). The published
+release's clean acceptance is 152/152; candidate PR #83 has one additional preflight check and reports 153 checks.
 
 If a tool from step 1 is missing, the run stops at once with `PREFLIGHT missing: <tool> (...)` and exit 1.
 
@@ -60,7 +77,7 @@ and the checks of your crate run in full.
 **Expected result** (exit 0; 169 s on 4 vCPU since parallel mutation testing, 265–420 s before it):
 
 ```
-  ci-local (exit 0): 153/153 PASS
+  ci-local (exit 0): 152/152 PASS
     core            17/17 PASS
     canaries        110/110 PASS
     evidence/judge  15/15 PASS
@@ -160,19 +177,19 @@ Expect failures the first time. Upstream humantime 2.4.0 needed four commits bef
 - a bench dependency with an advisory, RUSTSEC-2026-0543 (S2a);
 - rustfmt.
 
-## Your own GitHub repository (candidate preview)
+## Your own GitHub repository (published v0.3.1)
 
 The reusable entry point is `.github/workflows/check-crate.yml`. The following complete caller was
-[verified in a separate public humantime repository](experiments/external-actions.md) on candidate
-`f5a73177237cc572eb1e5ca9378ba3a992eee50a`: clean **152/152 PASS**, R4 rejected by **S1d**, and a branch
-name rejected before checkout. This candidate is not a released tag; release acceptance for #78 is pending.
-The v0.3.0 instructions above and the release status row below remain unchanged.
+[verified in a separate public humantime repository](experiments/external-actions.md) on the published
+v0.3.1 commit `867113d815816e6d61b4d0e3559e51ad0686ed4d`: clean **152/152 PASS**, R4 rejected by **S1d**,
+and a branch name rejected before checkout. This is the workflow accepted in [issue #78](https://github.com/Demiurg-AU/rust-cicd-core/issues/78).
+Candidate PR #83 adds one preflight check and therefore reports 153 checks; its result is not the release result.
 
 In your crate repository, copy the configuration (not the template's CI workflow):
 
 ```sh
 git clone https://github.com/Demiurg-AU/rust-cicd-core /tmp/rcc-template
-git -C /tmp/rcc-template checkout --detach f5a73177237cc572eb1e5ca9378ba3a992eee50a
+git -C /tmp/rcc-template checkout --detach 867113d815816e6d61b4d0e3559e51ad0686ed4d
 mkdir -p .rcc
 cp /tmp/rcc-template/pilots/humantime/pilot.env .rcc/
 cp -r /tmp/rcc-template/pilots/humantime/overlay .rcc/
@@ -200,9 +217,9 @@ jobs:
   check:
     permissions:
       contents: read
-    uses: Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@f5a73177237cc572eb1e5ca9378ba3a992eee50a
+    uses: Demiurg-AU/rust-cicd-core/.github/workflows/check-crate.yml@867113d815816e6d61b4d0e3559e51ad0686ed4d # v0.3.1
     with:
-      template-sha: f5a73177237cc572eb1e5ca9378ba3a992eee50a
+      template-sha: 867113d815816e6d61b4d0e3559e51ad0686ed4d
 ```
 
 Open a PR to run it. Both SHA fields must identify the same template commit. For a released version,

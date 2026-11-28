@@ -29,7 +29,6 @@ preflight() {
   fi
   echo "PREFLIGHT ok"
 }
-[ -n "${RCC_LOCKED:-}" ] || preflight || exit 3
 # one run per user at a time: the socket canaries (C31, C97, C107, C108, C109) open decoy sockets outside /tmp, and a
 # concurrent run's decoy is a socket the jail can reach - two runs side by side failed C108 on a good crate (2026-11-27)
 # The lock is held by flock(1) itself (-o: the script and its children never get the descriptor, so a stray child
@@ -114,6 +113,10 @@ if [ -z "${RUSTUP_TOOLCHAIN:-}" ]; then
   RUSTUP_TOOLCHAIN="$(toolchain_check "$ROOT" channel 2>/dev/null)" || RUSTUP_TOOLCHAIN=invalid-rust-pin
 fi
 export RUSTUP_TOOLCHAIN
+
+# Validate and select the trusted Rust toolchain before preflight probes Cargo.  A checkout-controlled
+# rust-toolchain.toml must never get to choose the first Cargo executable we run.
+[ -n "${RCC_LOCKED:-}" ] || preflight || exit 3
 
 # --- environment witness ---
 # No "| head" here: under pipefail a closed pipe (SIGPIPE) would abort the whole run before any gate (found 2026-11-17).
