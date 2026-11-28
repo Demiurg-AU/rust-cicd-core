@@ -581,9 +581,22 @@ run S1c test-coverage pass - "$ROOT" coverage_gate 80
 # S1d: mutation testing. Coverage says code RAN; mutants say tests CATCH changes.
 # PASS only if no mutant is missed or timed out and at least one was caught (no vacuous pass).
 # Exclusions: mutants-exclusions.tsv, "<regex>\t<justification>"; an empty justification is a FAIL.
+# mutants run in parallel (E-8, docs/experiments/mutants-jobs.md): on humantime and R4, 4 vCPU, --jobs 2/3 gave the
+# same per-mutant outcomes as --jobs 1 (except the already-unstable src/date.rs:311:16) in 39-54 % less wall time.
+# Default: one job per CPU but one, within the measured 1..3; RCC_MUTANTS_JOBS overrides (a positive integer).
+mutants_jobs() {
+  local n="${RCC_MUTANTS_JOBS:-}"
+  if [ -n "$n" ]; then
+    [[ "$n" =~ ^[1-9][0-9]*$ ]] || { echo "MUTANTS RCC_MUTANTS_JOBS must be a positive integer (got '$n')" >&2; return 1; }
+    echo "$n"; return 0
+  fi
+  n=$(( $(nproc 2>/dev/null || echo 2) - 1 )); [ "$n" -ge 1 ] || n=1; [ "$n" -le 3 ] || n=3; echo "$n"
+}
 mutants_gate() {
-  local d="$1" out="$2" re why rc; shift 2
+  local d="$1" out="$2" re why rc jobs; shift 2
   local args=()
+  jobs="$(mutants_jobs)" || return 1
+  echo "MUTANTS jobs=$jobs"
   if [ -f "$d/mutants-exclusions.tsv" ]; then
     while IFS=$'\t' read -r re why || [ -n "$re" ]; do
       [[ -z "$re" || "$re" == \#* ]] && continue
@@ -592,7 +605,7 @@ mutants_gate() {
     done < "$d/mutants-exclusions.tsv"
   fi
   rm -rf "$out" 2>/dev/null; mkdir -p "$out"
-  ( cd "$d" && unset CARGO_TARGET_DIR && SANDBOX_RW="$out" cargo mutants --test-tool nextest --no-shuffle -o "$out" "${args[@]}" "$@" ); rc=$?
+  ( cd "$d" && unset CARGO_TARGET_DIR && SANDBOX_RW="$out" cargo mutants --test-tool nextest --no-shuffle --jobs "$jobs" -o "$out" "${args[@]}" "$@" ); rc=$?
   local o="$out/mutants.out"
   [ -f "$o/outcomes.json" ] || { echo "MUTANTS no outcomes (exit $rc)"; return 1; }
   if [ -s "$o/missed.txt" ]; then sed 's/^/MISSED /' "$o/missed.txt"; return 1; fi
