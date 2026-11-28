@@ -1,0 +1,7 @@
+$ mutants_gate /home/runner/work/rcc-humantime-acceptance/rcc-humantime-acceptance/rcc/pilots/caller/work/humantime /home/runner/work/_temp/rcc.GuyCTd/rust-cicd-core.TcpDNa/mutants-root
+MUTANTS jobs=3
+Found 320 mutants to test
+ok       Unmutated baseline in 3s build + 0s test
+ INFO Auto-set test timeout to 20s
+320 mutants tested in 2m: 304 caught, 16 unviable
+MUTANTS caught=304 unviable=16

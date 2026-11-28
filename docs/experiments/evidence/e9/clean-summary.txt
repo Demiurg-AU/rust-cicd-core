@@ -1,0 +1,3 @@
+PROGRESS=152/152
+evidence=/home/runner/work/rcc-humantime-acceptance/rcc-humantime-acceptance/rcc/pilots/caller/work/humantime/evidence/20261128T091835Z
+build_dir=/home/runner/work/_temp/rcc.GuyCTd/rust-cicd-core.TcpDNa (outside repo, temporary)

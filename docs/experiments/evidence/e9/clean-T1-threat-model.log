@@ -1,0 +1,18 @@
+$ threat_check /home/runner/work/rcc-humantime-acceptance/rcc-humantime-acceptance/rcc/threat-model.tsv /home/runner/work/rcc-humantime-acceptance/rcc-humantime-acceptance/rcc/pilots/caller/work/humantime/evidence/20261128T091835Z/results.tsv skip
+THREATS total=35 covered=13 partial=19 open=0 out_of_scope=3
+THREAT ext unchecked (offline): ext:agent-pr-policy
+THREAT ext unchecked (offline): ext:assumption-breaker-gate
+THREAT ext unchecked (offline): ext:claims-check
+THREAT ext unchecked (offline): ext:codex-review
+THREAT ext unchecked (offline): ext:fixture-evidence-checker
+THREAT ext unchecked (offline): ext:kani-canaries
+THREAT ext unchecked (offline): ext:kani-gate
+THREAT ext unchecked (offline): ext:ruleset-deletion
+THREAT ext unchecked (offline): ext:ruleset-non-fast-forward
+THREAT ext unchecked (offline): ext:ruleset-required-checks
+THREAT ext unchecked (offline): ext:spec-epoch
+THREAT ext unchecked (offline): ext:spec-epoch-canaries
+THREAT ext unchecked (offline): ext:strict-up-to-date
+THREAT ext unchecked (offline): ext:workflow-approval
+THREAT ext unchecked (offline): ext:zizmor
+THREAT ext controls witnessed=25 unchecked=15 failed=0
